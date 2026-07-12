@@ -1,0 +1,616 @@
+// ============================================================
+// HOMESTAY DORM — Prisma Schema (PHIÊN BẢN CẬP NHẬT v2)
+// Provider: SQLite (local dev)
+// CSC12004 — Nhóm 9
+// ============================================================
+//
+// THAY ĐỔI SO VỚI schema.prisma BẢN GỐC:
+//   1. Bỏ model ChiNhanh, bỏ chiNhanhId khỏi NguoiDung và Phong
+//   2. TaiSanBanGiao: thêm soLuong, đổi sang surrogate PK idTaiSanBanGiao,
+//      giữ @@unique([bienBanBanGiaoId, tenTaiSan])
+//   3. Tách KhoanPhiDichVu thành LoaiPhiDichVu (danh mục) +
+//      KhoanPhiDichVu (surrogate PK)
+//   4. Hỗ trợ 1 hợp đồng nhiều phòng/giường:
+//      - HopDong trở thành bảng header (bỏ phongId, giuongId,
+//        hinhThucThue, soGiuongThue, giaThue, noiDungDieuKhoan)
+//      - HoSoNhanPhong đại diện từng phòng trong hợp đồng
+//        (thêm hopDongId không unique, thêm giaThueThoaThuan)
+//      - KhoanPhiDichVu, BienBanBanGiao, YeuCauTraPhong đổi FK
+//        từ HopDong sang HoSoNhanPhong
+//   5. KHÔNG thêm xacNhanKy vào HopDong
+//   6. Thêm MauNoiQuy, HopDong dùng idMauNoiQuy thay vì noiDungDieuKhoan
+//
+// LƯU Ý CHUNG (SQLite limitations, không đổi so với bản gốc):
+//   - CHECK constraints không được SQLite/Prisma enforce
+//     → validate ở tầng application
+//   - DECIMAL → Float, ENUM → String
+//   - Ràng buộc exclusive-or ở YeuCauTraPhong
+//     (hoSoNhanPhongId XOR hoSoDatCocId) → validate ở application
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ============================================================
+// NHÓM 0 — DANH MỤC DÙNG CHUNG
+// ============================================================
+
+model NguoiDung {
+  nguoiDungId  Int      @id @default(autoincrement()) @map("nguoi_dung_id")
+  hoTen        String   @map("ho_ten")
+  tenDangNhap  String   @unique @map("ten_dang_nhap")
+  matKhauHash  String   @map("mat_khau_hash")
+  email        String?  @map("email")
+  soDienThoai  String?  @map("so_dien_thoai")
+  // CHECK IN ('Sale','QuanLy','KeToan','Admin') — validate ở app
+  vaiTro       String   @map("vai_tro")
+  trangThai    String   @default("Hoạt động") @map("trang_thai")
+  ngayTao      DateTime @default(now()) @map("ngay_tao")
+
+  // Relations
+  yeuCauThues_tiepNhan        YeuCauThue[]                 @relation("NhanVienTiepNhan")
+  lichHenXemPhongs_sapXep     LichHenXemPhong[]            @relation("NhanVienSapXep")
+  hoSoDatCocs_phuTrach        HoSoDatCoc[]                 @relation("NhanVienPhuTrach")
+  hoSoDatCocs_xacNhan         HoSoDatCoc[]                 @relation("QuanLyXacNhan")
+  yeuCauThanhToanCocs         YeuCauThanhToanCoc[]         @relation("KeToanLap")
+  chungTuThanhToans           ChungTuThanhToan[]           @relation("QuanLyXacNhanCT")
+  hoSoNhanPhongs              HoSoNhanPhong[]              @relation("NhanVienXuLy")
+  pheDuyetLuuTrus             PheDuyetLuuTru[]             @relation("QuanLyPheDuyet")
+  hopDongs                    HopDong[]                    @relation("NhanVienLapHD")
+  khoanThuDauKys              KhoanThuDauKy[]              @relation("KeToanThu")
+  bienBanBanGiaos             BienBanBanGiao[]             @relation("QuanLyBanGiao")
+  yeuCauTraPhongs             YeuCauTraPhong[]             @relation("NhanVienTiepNhanTP")
+  bienBanKiemTraTraPhongs     BienBanKiemTraTraPhong[]     @relation("QuanLyKiemTra")
+  doiSoatHoanCocs             DoiSoatHoanCoc[]             @relation("KeToanDoiSoat")
+  bienBanTraPhongs            BienBanTraPhong[]            @relation("QuanLyLapBBTP")
+  giaoDichHoanCocs            GiaoDichHoanCoc[]            @relation("KeToanHoanCoc")
+  ketQuaKiemTraDieuKiens      KetQuaKiemTraDieuKien[]      @relation("NguoiKiemTraDieuKien")
+
+  @@map("nguoi_dung")
+}
+
+model KhachHang {
+  khachHangId  Int      @id @default(autoincrement()) @map("khach_hang_id")
+  hoTen        String   @map("ho_ten")
+  cccdPassport String   @unique @map("cccd_passport")
+  gioiTinh     String?  @map("gioi_tinh")
+  quocTich     String?  @map("quoc_tich")
+  soDienThoai  String   @map("so_dien_thoai")
+  email        String?  @map("email")
+  ghiChu       String?  @map("ghi_chu")
+  ngayTao      DateTime @default(now()) @map("ngay_tao")
+
+  // Relations
+  yeuCauThues  YeuCauThue[]
+  hoSoDatCocs  HoSoDatCoc[]
+  hopDongs     HopDong[]
+
+  @@map("khach_hang")
+}
+
+// Bảng mới — Loại phòng (tách khỏi Phòng theo Rule 5: sức chứa/giá phụ
+// thuộc loại phòng chứ không phải thuộc tính riêng từng phòng cụ thể)
+// Cardinality: nhiều PHONG "Thuộc" đúng 1 LOAI_PHONG (mandatory)
+model LoaiPhong {
+  idLoaiPhong   Int    @id @default(autoincrement()) @map("id_loai_phong")
+  tenLoaiPhong  String @unique @map("ten_loai_phong") // "Phòng đơn","Phòng đôi","Phòng 4 người"...
+  donGia        Float  @map("don_gia") // giá thuê áp dụng theo loại phòng
+
+  phongs  Phong[]
+
+  @@map("loai_phong")
+}
+
+model Phong {
+  phongId          Int      @id @default(autoincrement()) @map("phong_id")
+  maPhong          String   @unique @map("ma_phong")
+  khu              String?  @map("khu")
+  tang             Int?     @map("tang")
+  idLoaiPhong      Int      @map("id_loai_phong")
+  sucChua          Int      @map("suc_chua")
+  gioiTinhApDung   String?  @map("gioi_tinh_ap_dung")
+  tienIch          String?  @map("tien_ich")
+  trangThai        String   @default("Trống") @map("trang_thai")
+  ngayTao          DateTime @default(now()) @map("ngay_tao")
+
+  // Relations
+  loaiPhong        LoaiPhong         @relation(fields: [idLoaiPhong], references: [idLoaiPhong])
+  giuongs          Giuong[]
+  lichHenXemPhongs LichHenXemPhong[]
+  hoSoDatCocs      HoSoDatCoc[]
+
+  @@map("phong")
+}
+
+model Giuong {
+  giuongId       Int    @id @default(autoincrement()) @map("giuong_id")
+  phongId        Int    @map("phong_id")
+  maGiuongLocal  String @map("ma_giuong_local")
+  trangThai      String @default("Trống") @map("trang_thai")
+
+  phong            Phong             @relation(fields: [phongId], references: [phongId])
+  lichHenXemPhongs LichHenXemPhong[]
+  hoSoDatCocs      HoSoDatCoc[]
+
+  @@unique([phongId, maGiuongLocal])
+  @@map("giuong")
+}
+
+// Bảng mới — mẫu nội quy tái sử dụng cho nhiều hợp đồng
+model MauNoiQuy {
+  idMauNoiQuy      Int      @id @default(autoincrement()) @map("id_mau_noi_quy")
+  tenMau           String   @map("ten_mau")
+  noiQuy           String   @map("noi_quy")
+  quyDinhHoanCoc   String   @map("quy_dinh_hoan_coc")
+  dieuKhoanViPham  String   @map("dieu_khoan_vi_pham")
+  ngayApDung       DateTime @default(now()) @map("ngay_ap_dung")
+  trangThai        String   @default("Đang dùng") @map("trang_thai")
+
+  hopDongs  HopDong[]
+
+  @@map("mau_noi_quy")
+}
+
+// Bang moi - quy dinh/ dieu kien luu tru dung de kiem tra truoc khi dat coc/nhan phong
+model QuyDinhKyTucXa {
+  quyDinhId       Int      @id @default(autoincrement()) @map("quy_dinh_id")
+  maQuyDinh       String   @unique @map("ma_quy_dinh")
+  tenQuyDinh      String   @map("ten_quy_dinh")
+  nhomQuyDinh     String   @map("nhom_quy_dinh")
+  noiDung         String   @map("noi_dung")
+  thamSoKiemTra   String?  @map("tham_so_kiem_tra")
+  batBuoc         Boolean  @default(true) @map("bat_buoc")
+  ngayApDung      DateTime @default(now()) @map("ngay_ap_dung")
+  trangThai       String   @default("Dang ap dung") @map("trang_thai")
+
+  ketQuaKiemTraDieuKiens KetQuaKiemTraDieuKien[]
+
+  @@map("quy_dinh_ky_tuc_xa")
+}
+
+// Bang moi - luu ket qua doi chieu tung quy dinh voi ho so dat coc/nhan phong
+model KetQuaKiemTraDieuKien {
+  ketQuaKiemTraId Int      @id @default(autoincrement()) @map("ket_qua_kiem_tra_id")
+  hoSoDatCocId    Int?     @map("ho_so_dat_coc_id")
+  hoSoNhanPhongId Int?     @map("ho_so_nhan_phong_id")
+  quyDinhId       Int      @map("quy_dinh_id")
+  nguoiKiemTraId  Int      @map("nguoi_kiem_tra_id")
+  ketQua          String   @map("ket_qua")
+  ghiChu          String?  @map("ghi_chu")
+  thoiDiemKiemTra DateTime @default(now()) @map("thoi_diem_kiem_tra")
+
+  hoSoDatCoc      HoSoDatCoc?    @relation(fields: [hoSoDatCocId], references: [hoSoDatCocId])
+  hoSoNhanPhong   HoSoNhanPhong? @relation(fields: [hoSoNhanPhongId], references: [hoSoNhanPhongId])
+  quyDinh         QuyDinhKyTucXa @relation(fields: [quyDinhId], references: [quyDinhId])
+  nguoiKiemTra    NguoiDung      @relation("NguoiKiemTraDieuKien", fields: [nguoiKiemTraId], references: [nguoiDungId])
+
+  @@map("ket_qua_kiem_tra_dieu_kien")
+}
+
+// ============================================================
+// NHÓM 1 — ĐĂNG KÝ THUÊ PHÒNG
+// ============================================================
+
+model YeuCauThue {
+  yeuCauId             Int      @id @default(autoincrement()) @map("yeu_cau_id")
+  khachHangId          Int      @map("khach_hang_id")
+  nhanVienId           Int      @map("nhan_vien_id")
+  loaiThue             String   @map("loai_thue")
+  khuVucMongMuon       String?  @map("khu_vuc_mong_muon")
+  soNguoiDuKien        Int      @map("so_nguoi_du_kien")
+  mucGiaMongMuon       Float?   @map("muc_gia_mong_muon")
+  thoiGianDuKienVaoO   DateTime? @map("thoi_gian_du_kien_vao_o")
+  thoiHanThuetThang    Int?     @map("thoi_han_thue_thang")
+  tieuChiUuTien        String?  @map("tieu_chi_uu_tien")
+  trangThai            String   @default("Mới tạo") @map("trang_thai")
+  ngayTao              DateTime @default(now()) @map("ngay_tao")
+
+  khachHang        KhachHang         @relation(fields: [khachHangId], references: [khachHangId])
+  nhanVien         NguoiDung         @relation("NhanVienTiepNhan", fields: [nhanVienId], references: [nguoiDungId])
+  lichHenXemPhongs LichHenXemPhong[]
+  hoSoDatCocs      HoSoDatCoc[]
+
+  @@map("yeu_cau_thue")
+}
+
+model LichHenXemPhong {
+  lichHenId              Int      @id @default(autoincrement()) @map("lich_hen_id")
+  yeuCauId               Int      @map("yeu_cau_id")
+  phongId                Int      @map("phong_id")
+  giuongId               Int?     @map("giuong_id")
+  nhanVienId             Int      @map("nhan_vien_id")
+  ngayXem                DateTime @map("ngay_xem")
+  gioBatDau              String   @map("gio_bat_dau")
+  gioKetThuc             String   @map("gio_ket_thuc")
+  phuongThucThongBao     String?  @map("phuong_thuc_thong_bao")
+  trangThaiGuiThongBao   String   @default("Chưa gửi") @map("trang_thai_gui_thong_bao")
+  trangThai              String   @default("Đã lên lịch") @map("trang_thai")
+  ngayTao                DateTime @default(now()) @map("ngay_tao")
+
+  yeuCauThue  YeuCauThue  @relation(fields: [yeuCauId], references: [yeuCauId])
+  phong       Phong       @relation(fields: [phongId], references: [phongId])
+  giuong      Giuong?     @relation(fields: [giuongId], references: [giuongId])
+  nhanVien    NguoiDung   @relation("NhanVienSapXep", fields: [nhanVienId], references: [nguoiDungId])
+
+  @@map("lich_hen_xem_phong")
+}
+
+// ============================================================
+// NHÓM 2 — ĐẶT CỌC & XÁC NHẬN THUÊ
+// ============================================================
+
+model HoSoDatCoc {
+  hoSoDatCocId         Int      @id @default(autoincrement()) @map("ho_so_dat_coc_id")
+  yeuCauId             Int      @map("yeu_cau_id")
+  khachHangId          Int      @map("khach_hang_id")
+  phongId              Int      @map("phong_id")
+  giuongId             Int?     @map("giuong_id")
+  hinhThucThue         String   @map("hinh_thuc_thue")
+  soGiuongThue         Int      @map("so_giuong_thue")
+  nhanVienId           Int      @map("nhan_vien_id")
+  quanLyXacNhanId      Int?     @map("quan_ly_xac_nhan_id")
+  trangThai            String   @default("Chờ xác nhận điều kiện") @map("trang_thai")
+  lyDoTuChoi           String?  @map("ly_do_tu_choi")
+  ngayHenNhanPhong     DateTime? @map("ngay_hen_nhan_phong")
+  gioHenNhanPhong      String?  @map("gio_hen_nhan_phong")
+  ghiChuHenNhanPhong   String?  @map("ghi_chu_hen_nhan_phong")
+  ngayTao              DateTime @default(now()) @map("ngay_tao")
+
+  yeuCauThue           YeuCauThue          @relation(fields: [yeuCauId], references: [yeuCauId])
+  khachHang            KhachHang           @relation(fields: [khachHangId], references: [khachHangId])
+  phong                Phong               @relation(fields: [phongId], references: [phongId])
+  giuong               Giuong?             @relation(fields: [giuongId], references: [giuongId])
+  nhanVien             NguoiDung           @relation("NhanVienPhuTrach", fields: [nhanVienId], references: [nguoiDungId])
+  quanLyXacNhan        NguoiDung?          @relation("QuanLyXacNhan", fields: [quanLyXacNhanId], references: [nguoiDungId])
+  yeuCauThanhToanCoc   YeuCauThanhToanCoc?
+  hoSoNhanPhong        HoSoNhanPhong?
+  yeuCauTraPhong       YeuCauTraPhong?
+  ketQuaKiemTraDieuKiens KetQuaKiemTraDieuKien[]
+
+  @@map("ho_so_dat_coc")
+}
+
+model YeuCauThanhToanCoc {
+  yeuCauThanhToanId  Int      @id @default(autoincrement()) @map("yeu_cau_thanh_toan_id")
+  hoSoDatCocId       Int      @unique @map("ho_so_dat_coc_id")
+  soTienCoc          Float    @map("so_tien_coc")
+  keToanId           Int      @map("ke_toan_id")
+  thoiDiemPhatHanh   DateTime @default(now()) @map("thoi_diem_phat_hanh")
+  hanThanhToan       DateTime @map("han_thanh_toan")
+  soTaiKhoanNhan     String?  @map("so_tai_khoan_nhan")
+  trangThai          String   @default("Chờ thanh toán") @map("trang_thai")
+
+  hoSoDatCoc        HoSoDatCoc         @relation(fields: [hoSoDatCocId], references: [hoSoDatCocId])
+  keToan            NguoiDung          @relation("KeToanLap", fields: [keToanId], references: [nguoiDungId])
+  chungTuThanhToans ChungTuThanhToan[]
+
+  @@map("yeu_cau_thanh_toan_coc")
+}
+
+model ChungTuThanhToan {
+  chungTuId           Int      @id @default(autoincrement()) @map("chung_tu_id")
+  yeuCauThanhToanId   Int      @map("yeu_cau_thanh_toan_id")
+  duongDanFile        String   @map("duong_dan_file")
+  soTienThucNhan      Float    @map("so_tien_thuc_nhan")
+  kenhThanhToan       String?  @map("kenh_thanh_toan")
+  thoiDiemNhan        DateTime @map("thoi_diem_nhan")
+  quanLyXacNhanId     Int?     @map("quan_ly_xac_nhan_id")
+  trangThaiXacNhan    String   @default("Chờ xác nhận") @map("trang_thai_xac_nhan")
+  lyDoTuChoi          String?  @map("ly_do_tu_choi")
+  ngayTao             DateTime @default(now()) @map("ngay_tao")
+
+  yeuCauThanhToanCoc  YeuCauThanhToanCoc  @relation(fields: [yeuCauThanhToanId], references: [yeuCauThanhToanId])
+  quanLyXacNhan       NguoiDung?          @relation("QuanLyXacNhanCT", fields: [quanLyXacNhanId], references: [nguoiDungId])
+
+  @@map("chung_tu_thanh_toan")
+}
+
+// ============================================================
+// NHÓM 3 — NHẬN PHÒNG & HỢP ĐỒNG
+// ============================================================
+
+// HopDong: bảng HEADER — thông tin chung của hợp đồng
+// Không còn phongId/giuongId/hinhThucThue/soGiuongThue/giaThue/noiDungDieuKhoan
+// Thông tin từng phòng chuyển sang HoSoNhanPhong (quan hệ 1-N)
+model HopDong {
+  hopDongId       Int      @id @default(autoincrement()) @map("hop_dong_id")
+  maHopDong       String   @unique @map("ma_hop_dong")
+  khachHangId     Int      @map("khach_hang_id")
+  nhanVienId      Int      @map("nhan_vien_id")
+  idMauNoiQuy     Int      @map("id_mau_noi_quy")
+  kyThanhToan     String?  @map("ky_thanh_toan")
+  ngayBatDau      DateTime @map("ngay_bat_dau")
+  ngayKetThuc     DateTime @map("ngay_ket_thuc")
+  // Tổng tiền cọc của TẤT CẢ các phòng thuộc hợp đồng này
+  tienCocGoc      Float    @map("tien_coc_goc")
+  trangThai       String   @default("Chờ ký") @map("trang_thai")
+  ngayKy          DateTime? @map("ngay_ky")
+
+  khachHang        KhachHang        @relation(fields: [khachHangId], references: [khachHangId])
+  nhanVien         NguoiDung        @relation("NhanVienLapHD", fields: [nhanVienId], references: [nguoiDungId])
+  mauNoiQuy        MauNoiQuy        @relation(fields: [idMauNoiQuy], references: [idMauNoiQuy])
+  // 1 hợp đồng có NHIỀU HoSoNhanPhong — mỗi dòng là 1 phòng trong hợp đồng
+  hoSoNhanPhongs   HoSoNhanPhong[]
+  khoanThuDauKys   KhoanThuDauKy[]
+
+  @@map("hop_dong")
+}
+
+// HoSoNhanPhong: đại diện cho TỪNG PHÒNG cụ thể, dù đã gộp vào hợp đồng
+// hay chưa. hopDongId là FK không unique (nhiều dòng có thể share 1 hợp đồng).
+model HoSoNhanPhong {
+  hoSoNhanPhongId    Int      @id @default(autoincrement()) @map("ho_so_nhan_phong_id")
+  hoSoDatCocId       Int      @unique @map("ho_so_dat_coc_id")
+  // NULL cho đến khi được gộp vào 1 hợp đồng; KHÔNG unique (1 hợp đồng nhiều dòng)
+  hopDongId          Int?     @map("hop_dong_id")
+  nhanVienId         Int      @map("nhan_vien_id")
+  soCccdDoiChieu     String?  @map("so_cccd_doi_chieu")
+  ketQuaDoiChieu     String?  @map("ket_qua_doi_chieu")
+  ngayBatDauCuTru    DateTime? @map("ngay_bat_dau_cu_tru")
+  thoiHanThuetThang  Int?     @map("thoi_han_thue_thang")
+  // Giá thuê đã CHỐT cho phòng này trong hợp đồng — mỗi phòng có thể khác giá
+  giaThueThoaThuan   Float?   @map("gia_thue_thoa_thuan")
+  ghiChu             String?  @map("ghi_chu")
+  trangThai          String   @default("Chờ duyệt điều kiện lưu trú") @map("trang_thai")
+  ngayTao            DateTime @default(now()) @map("ngay_tao")
+
+  hoSoDatCoc        HoSoDatCoc         @relation(fields: [hoSoDatCocId], references: [hoSoDatCocId])
+  hopDong           HopDong?           @relation(fields: [hopDongId], references: [hopDongId])
+  nhanVien          NguoiDung          @relation("NhanVienXuLy", fields: [nhanVienId], references: [nguoiDungId])
+  thanhVienLuuTrus  ThanhVienLuuTru[]
+  pheDuyetLuuTru    PheDuyetLuuTru?
+  khoanPhiDichVus   KhoanPhiDichVu[]
+  bienBanBanGiao    BienBanBanGiao?
+  yeuCauTraPhong    YeuCauTraPhong?
+  ketQuaKiemTraDieuKiens KetQuaKiemTraDieuKien[]
+
+  @@map("ho_so_nhan_phong")
+}
+
+model ThanhVienLuuTru {
+  hoSoNhanPhongId   Int    @map("ho_so_nhan_phong_id")
+  sttThanhVien      Int    @map("stt_thanh_vien")
+  hoTen             String @map("ho_ten")
+  ngaySinh          DateTime? @map("ngay_sinh")
+  gioiTinh          String?   @map("gioi_tinh")
+  cccd              String    @map("cccd")
+  soDienThoai       String?   @map("so_dien_thoai")
+  quanHe            String?   @map("quan_he")
+  ketQuaDieuKien    String    @default("Chờ duyệt") @map("ket_qua_dieu_kien")
+  lyDoKhongDat      String?   @map("ly_do_khong_dat")
+
+  hoSoNhanPhong  HoSoNhanPhong  @relation(fields: [hoSoNhanPhongId], references: [hoSoNhanPhongId])
+
+  @@id([hoSoNhanPhongId, sttThanhVien])
+  @@map("thanh_vien_luu_tru")
+}
+
+model PheDuyetLuuTru {
+  pheDuyetId        Int      @id @default(autoincrement()) @map("phe_duyet_id")
+  hoSoNhanPhongId   Int      @unique @map("ho_so_nhan_phong_id")
+  quanLyId          Int      @map("quan_ly_id")
+  ketQua            String   @map("ket_qua")
+  lyDoTuChoi        String?  @map("ly_do_tu_choi")
+  thoiDiemPheDuyet  DateTime @default(now()) @map("thoi_diem_phe_duyet")
+
+  hoSoNhanPhong  HoSoNhanPhong  @relation(fields: [hoSoNhanPhongId], references: [hoSoNhanPhongId])
+  quanLy         NguoiDung      @relation("QuanLyPheDuyet", fields: [quanLyId], references: [nguoiDungId])
+
+  @@map("phe_duyet_luu_tru")
+}
+
+// Bảng mới — danh mục loại phí dùng chung
+model LoaiPhiDichVu {
+  idLoaiPhi   Int    @id @default(autoincrement()) @map("id_loai_phi")
+  tenLoaiPhi  String @unique @map("ten_loai_phi") // "điện","nước","wifi","gửi xe"
+  donViTinh   String? @map("don_vi_tinh")
+
+  khoanPhiDichVus  KhoanPhiDichVu[]
+
+  @@map("loai_phi_dich_vu")
+}
+
+// Đã cấu trúc lại: surrogate PK + FK trỏ vào HoSoNhanPhong (từng phòng)
+// thay vì HopDong trực tiếp, vì mỗi phòng có mức tiêu thụ khác nhau.
+model KhoanPhiDichVu {
+  idKhoanPhi       Int   @id @default(autoincrement()) @map("id_khoan_phi")
+  hoSoNhanPhongId  Int   @map("ho_so_nhan_phong_id")
+  idLoaiPhi        Int   @map("id_loai_phi")
+  // Đơn giá chốt tại thời điểm áp dụng cho phòng này — snapshot
+  donGia           Float @map("don_gia")
+
+  hoSoNhanPhong  HoSoNhanPhong  @relation(fields: [hoSoNhanPhongId], references: [hoSoNhanPhongId])
+  loaiPhi        LoaiPhiDichVu  @relation(fields: [idLoaiPhi], references: [idLoaiPhi])
+
+  @@unique([hoSoNhanPhongId, idLoaiPhi])
+  @@map("khoan_phi_dich_vu")
+}
+
+model KhoanThuDauKy {
+  khoanThuId     Int      @id @default(autoincrement()) @map("khoan_thu_id")
+  hopDongId      Int      @map("hop_dong_id")
+  tenKhoan       String   @map("ten_khoan")
+  soTien         Float    @map("so_tien")
+  trangThai      String   @default("Chưa thu") @map("trang_thai")
+  keToanId       Int?     @map("ke_toan_id")
+  thoiDiemThu    DateTime? @map("thoi_diem_thu")
+  phuongThucThu  String?  @map("phuong_thuc_thu")
+
+  hopDong  HopDong    @relation(fields: [hopDongId], references: [hopDongId])
+  keToan   NguoiDung? @relation("KeToanThu", fields: [keToanId], references: [nguoiDungId])
+
+  @@map("khoan_thu_dau_ky")
+}
+
+// Đã cấu trúc lại: FK trỏ vào HoSoNhanPhong (từng phòng) thay vì HopDong
+model BienBanBanGiao {
+  bienBanBanGiaoId  Int      @id @default(autoincrement()) @map("bien_ban_ban_giao_id")
+  hoSoNhanPhongId   Int      @unique @map("ho_so_nhan_phong_id")
+  quanLyId          Int      @map("quan_ly_id")
+  tinhTrangVeSinh   String?  @map("tinh_trang_ve_sinh")
+  ghiChuKiemTra     String?  @map("ghi_chu_kiem_tra")
+  xacNhanKyKhach    String   @default("Chưa ký") @map("xac_nhan_ky_khach")
+  trangThai         String   @default("Chờ bàn giao") @map("trang_thai")
+  ngayBanGiao       DateTime? @map("ngay_ban_giao")
+
+  hoSoNhanPhong  HoSoNhanPhong    @relation(fields: [hoSoNhanPhongId], references: [hoSoNhanPhongId])
+  quanLy         NguoiDung        @relation("QuanLyBanGiao", fields: [quanLyId], references: [nguoiDungId])
+  taiSanBanGiaos TaiSanBanGiao[]
+
+  @@map("bien_ban_ban_giao")
+}
+
+// Đã cấu trúc lại: surrogate PK idTaiSanBanGiao thay vì composite (sttTaiSan)
+// Thêm soLuong. Giữ unique constraint để đảm bảo tính toàn vẹn tự nhiên.
+model TaiSanBanGiao {
+  idTaiSanBanGiao   Int    @id @default(autoincrement()) @map("id_tai_san_ban_giao")
+  bienBanBanGiaoId  Int    @map("bien_ban_ban_giao_id")
+  tenTaiSan         String @map("ten_tai_san")
+  soLuong           Int    @default(1) @map("so_luong")
+  tinhTrang         String? @map("tinh_trang")
+  ghiChu            String? @map("ghi_chu")
+
+  bienBanBanGiao  BienBanBanGiao  @relation(fields: [bienBanBanGiaoId], references: [bienBanBanGiaoId])
+
+  @@unique([bienBanBanGiaoId, tenTaiSan])
+  @@map("tai_san_ban_giao")
+}
+
+// ============================================================
+// NHÓM 4 — TRẢ PHÒNG & HOÀN CỌC
+// ============================================================
+
+// Đã cấu trúc lại: FK đổi từ hopDongId sang hoSoNhanPhongId, vì trả phòng
+// nay có thể diễn ra RIÊNG cho từng phòng trong 1 hợp đồng nhiều phòng.
+// Vẫn giữ hoSoDatCocId cho case hoàn 80% (chưa ký hợp đồng).
+model YeuCauTraPhong {
+  yeuCauTraPhongId      Int      @id @default(autoincrement()) @map("yeu_cau_tra_phong_id")
+  // ⚠️ Đúng 1 trong 2 phải NOT NULL (exclusive-or) — validate ở application
+  hoSoNhanPhongId       Int?     @unique @map("ho_so_nhan_phong_id")
+  hoSoDatCocId          Int?     @unique @map("ho_so_dat_coc_id")
+  nhanVienId            Int      @map("nhan_vien_id")
+  ngayTraPhongDuKien    DateTime @map("ngay_tra_phong_du_kien")
+  gioTraPhong           String?  @map("gio_tra_phong")
+  lyDoTraPhong          String?  @map("ly_do_tra_phong")
+  coHetHanTheoLich      String   @default("Không") @map("co_het_han_theo_lich")
+  trangThai             String   @default("Chờ quản lý kiểm tra") @map("trang_thai")
+  trangThaiGuiThongBao  String   @default("Chưa gửi") @map("trang_thai_gui_thong_bao")
+  ngayTao               DateTime @default(now()) @map("ngay_tao")
+
+  hoSoNhanPhong             HoSoNhanPhong?              @relation(fields: [hoSoNhanPhongId], references: [hoSoNhanPhongId])
+  hoSoDatCoc                HoSoDatCoc?                 @relation(fields: [hoSoDatCocId], references: [hoSoDatCocId])
+  nhanVien                  NguoiDung                   @relation("NhanVienTiepNhanTP", fields: [nhanVienId], references: [nguoiDungId])
+  bienBanKiemTraTraPhong    BienBanKiemTraTraPhong?
+  bienBanTraPhong           BienBanTraPhong?
+
+  @@map("yeu_cau_tra_phong")
+}
+
+model BienBanKiemTraTraPhong {
+  bienBanKiemTraId   Int      @id @default(autoincrement()) @map("bien_ban_kiem_tra_id")
+  yeuCauTraPhongId   Int      @unique @map("yeu_cau_tra_phong_id")
+  quanLyId           Int      @map("quan_ly_id")
+  tinhTrangVeSinh    String?  @map("tinh_trang_ve_sinh")
+  ghiChuKiemTra      String?  @map("ghi_chu_kiem_tra")
+  duongDanHinhAnh    String?  @map("duong_dan_hinh_anh")
+  coHuHong           String   @default("Không") @map("co_hu_hong")
+  trangThai          String   @default("Đang kiểm tra") @map("trang_thai")
+  ngayKiemTra        DateTime @default(now()) @map("ngay_kiem_tra")
+
+  yeuCauTraPhong   YeuCauTraPhong    @relation(fields: [yeuCauTraPhongId], references: [yeuCauTraPhongId])
+  quanLy           NguoiDung         @relation("QuanLyKiemTra", fields: [quanLyId], references: [nguoiDungId])
+  khoanKhauTrus    KhoanKhauTru[]
+  nghiaVuConLais   NghiaVuConLai[]
+  doiSoatHoanCoc   DoiSoatHoanCoc?
+
+  @@map("bien_ban_kiem_tra_tra_phong")
+}
+
+model KhoanKhauTru {
+  bienBanKiemTraId   Int    @map("bien_ban_kiem_tra_id")
+  sttKhauTru         Int    @map("stt_khau_tru")
+  loaiKhoanKhauTru   String @map("loai_khoan_khau_tru")
+  moTa               String? @map("mo_ta")
+  soTien             Float  @map("so_tien")
+
+  bienBanKiemTra  BienBanKiemTraTraPhong  @relation(fields: [bienBanKiemTraId], references: [bienBanKiemTraId])
+
+  @@id([bienBanKiemTraId, sttKhauTru])
+  @@map("khoan_khau_tru")
+}
+
+model NghiaVuConLai {
+  bienBanKiemTraId  Int    @map("bien_ban_kiem_tra_id")
+  sttNghiaVu        Int    @map("stt_nghia_vu")
+  loaiNghiaVu       String @map("loai_nghia_vu")
+  soTienConNo       Float  @map("so_tien_con_no")
+  ghiChu            String? @map("ghi_chu")
+
+  bienBanKiemTra  BienBanKiemTraTraPhong  @relation(fields: [bienBanKiemTraId], references: [bienBanKiemTraId])
+
+  @@id([bienBanKiemTraId, sttNghiaVu])
+  @@map("nghia_vu_con_lai")
+}
+
+model DoiSoatHoanCoc {
+  doiSoatId              Int      @id @default(autoincrement()) @map("doi_soat_id")
+  bienBanKiemTraId       Int      @unique @map("bien_ban_kiem_tra_id")
+  keToanId               Int      @map("ke_toan_id")
+  tienCocGoc             Float    @map("tien_coc_goc")
+  tyLeHoanCoc            Float    @map("ty_le_hoan_coc")
+  soTienHoanCoBan        Float    @map("so_tien_hoan_co_ban")
+  tongKhauTru            Float    @default(0) @map("tong_khau_tru")
+  soTienHoanThucNhan     Float    @default(0) @map("so_tien_hoan_thuc_nhan")
+  soTienCanThuThem       Float    @default(0) @map("so_tien_can_thu_them")
+  trangThai              String   @default("Chờ xác nhận") @map("trang_thai")
+  xacNhanKhachHang       String   @default("Chưa xác nhận") @map("xac_nhan_khach_hang")
+  ngayDoiSoat            DateTime @default(now()) @map("ngay_doi_soat")
+
+  bienBanKiemTra   BienBanKiemTraTraPhong  @relation(fields: [bienBanKiemTraId], references: [bienBanKiemTraId])
+  keToan           NguoiDung               @relation("KeToanDoiSoat", fields: [keToanId], references: [nguoiDungId])
+  bienBanTraPhong  BienBanTraPhong?
+  giaoDichHoanCoc  GiaoDichHoanCoc?
+
+  @@map("doi_soat_hoan_coc")
+}
+
+model BienBanTraPhong {
+  bienBanTraPhongId     Int      @id @default(autoincrement()) @map("bien_ban_tra_phong_id")
+  yeuCauTraPhongId      Int      @unique @map("yeu_cau_tra_phong_id")
+  doiSoatId             Int      @unique @map("doi_soat_id")
+  quanLyId              Int      @map("quan_ly_id")
+  ngayTraPhongThucTe    DateTime @map("ngay_tra_phong_thuc_te")
+  tinhTrangBanGiaoCuoi  String?  @map("tinh_trang_ban_giao_cuoi")
+  daaThuHoiChiaKhoa     String   @default("Chưa") @map("da_thu_hoi_chia_khoa")
+  xacNhanKyKhach        String   @default("Chưa ký") @map("xac_nhan_ky_khach")
+  trangThai             String   @default("Chờ ký thanh lý") @map("trang_thai")
+  ngayLap               DateTime @default(now()) @map("ngay_lap")
+
+  yeuCauTraPhong  YeuCauTraPhong   @relation(fields: [yeuCauTraPhongId], references: [yeuCauTraPhongId])
+  doiSoat         DoiSoatHoanCoc   @relation(fields: [doiSoatId], references: [doiSoatId])
+  quanLy          NguoiDung        @relation("QuanLyLapBBTP", fields: [quanLyId], references: [nguoiDungId])
+
+  @@map("bien_ban_tra_phong")
+}
+
+model GiaoDichHoanCoc {
+  giaoDichHoanCocId  Int      @id @default(autoincrement()) @map("giao_dich_hoan_coc_id")
+  doiSoatId          Int      @unique @map("doi_soat_id")
+  keToanId           Int      @map("ke_toan_id")
+  soTienHoan         Float    @map("so_tien_hoan")
+  phuongThucHoan     String   @map("phuong_thuc_hoan")
+  soTaiKhoanNhan     String?  @map("so_tai_khoan_nhan")
+  duongDanChungTu    String?  @map("duong_dan_chung_tu")
+  thoiDiemThucHien   DateTime @default(now()) @map("thoi_diem_thuc_hien")
+  trangThai          String   @default("Hoàn tất") @map("trang_thai")
+
+  doiSoat  DoiSoatHoanCoc  @relation(fields: [doiSoatId], references: [doiSoatId])
+  keToan   NguoiDung       @relation("KeToanHoanCoc", fields: [keToanId], references: [nguoiDungId])
+
+  @@map("giao_dich_hoan_coc")
+}
