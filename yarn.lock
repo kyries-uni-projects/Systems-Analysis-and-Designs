@@ -3318,6 +3318,7 @@ __metadata:
     eslint: "npm:^9"
     eslint-config-next: "npm:16.2.10"
     next: "npm:16.2.10"
+    node-addon-api: "npm:^8.9.0"
     prisma: "npm:^7.8.0"
     react: "npm:19.2.4"
     react-dom: "npm:19.2.4"
@@ -4225,6 +4226,15 @@ __metadata:
   dependencies:
     semver: "npm:^7.3.5"
   checksum: 10/2f32c86f81d499e887ca22015f7032880aafb6441b9fe0f90fe61a9fcdaa7b6c25ceb92eee9f9e782bb30a3b49cdb7d9e05686778019b02ee01bb2edb4ef2fd5
+  languageName: node
+  linkType: hard
+
+"node-addon-api@npm:^8.9.0":
+  version: 8.9.0
+  resolution: "node-addon-api@npm:8.9.0"
+  dependencies:
+    node-gyp: "npm:latest"
+  checksum: 10/0dd87e2248c5067202c521a7c6c1ba7bbf7fd7a33088b7e5bb73736eb5e14d914efb0c98e43a1c9369479b9f695afee35e0f46893e1ab78e18096edc831a57aa
   languageName: node
   linkType: hard
 
