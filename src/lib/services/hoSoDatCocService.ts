@@ -1,26 +1,77 @@
 import { prisma } from "../prisma";
 
+const chiTietHoSoDatCocInclude = {
+	khachHang: true,
+	yeuCauThue: true,
+	phong: {
+		include: { loaiPhong: true },
+	},
+	giuong: true,
+	ketQuaKiemTraDieuKiens: {
+		include: { quyDinh: true },
+	},
+} as const;
+
+export type CapNhatThongTinHoSoDatCocInput = {
+	khachHang: {
+		hoTen: string;
+		cccdPassport: string;
+		gioiTinh?: string;
+		quocTich?: string;
+		soDienThoai: string;
+		email?: string;
+	};
+	yeuCauThue: {
+		soNguoiDuKien: number;
+		loaiThue: string;
+		khuVucMongMuon?: string;
+	};
+	lyDoTuChoi?: string;
+};
+
 /**
  * Lấy chi tiết hồ sơ đặt cọc, bao gồm khách hàng, phòng, yêu cầu thuê.
  */
 export async function layChiTietHoSoDatCoc(hoSoId: number) {
 	const hoSo = await prisma.hoSoDatCoc.findUnique({
 		where: { hoSoDatCocId: hoSoId },
-		include: {
-			khachHang: true,
-			yeuCauThue: true,
-			phong: {
-				include: { loaiPhong: true }
-			},
-			giuong: true,
-			ketQuaKiemTraDieuKiens: {
-				include: { quyDinh: true }
-			}
-		}
+		include: chiTietHoSoDatCocInclude,
 	});
 
 	if (!hoSo) return null;
 	return hoSo;
+}
+
+export async function layHoSoDatCocMoiNhat() {
+	return prisma.hoSoDatCoc.findFirst({
+		orderBy: { ngayTao: "desc" },
+		include: chiTietHoSoDatCocInclude,
+	});
+}
+
+export async function capNhatThongTinHoSoDatCoc(hoSoId: number, input: CapNhatThongTinHoSoDatCocInput) {
+	const hoSo = await prisma.hoSoDatCoc.findUnique({
+		where: { hoSoDatCocId: hoSoId },
+		select: { khachHangId: true, yeuCauId: true },
+	});
+	if (!hoSo) return null;
+
+	await prisma.$transaction([
+		prisma.khachHang.update({
+			where: { khachHangId: hoSo.khachHangId },
+			data: input.khachHang,
+		}),
+		prisma.yeuCauThue.update({
+			where: { yeuCauId: hoSo.yeuCauId },
+			data: input.yeuCauThue,
+		}),
+		prisma.hoSoDatCoc.update({
+			where: { hoSoDatCocId: hoSoId },
+			data: { lyDoTuChoi: input.lyDoTuChoi ?? null },
+		}),
+	]);
+
+	return layChiTietHoSoDatCoc(hoSoId);
 }
 
 /**
@@ -31,7 +82,7 @@ export async function layDanhSachQuyDinhDatCoc() {
 		where: {
 			trangThai: "Dang ap dung",
 		},
-		orderBy: { quyDinhId: "asc" }
+		orderBy: { quyDinhId: "asc" },
 	});
 }
 
@@ -41,25 +92,25 @@ export async function layDanhSachQuyDinhDatCoc() {
 export async function kiemTraTinhTrangPhong(phongId: number, giuongId?: number | null) {
 	const phong = await prisma.phong.findUnique({
 		where: { phongId },
-		include: { giuongs: true }
+		include: { giuongs: true },
 	});
 
 	if (!phong) return null;
 
 	// Đếm số giường trống
-	const soGiuongTrong = phong.giuongs.filter(g => g.trangThai === "Trống").length;
+	const soGiuongTrong = phong.giuongs.filter((g) => g.trangThai === "Trống").length;
 
 	// Kiểm tra xem có ai khác đang cọc phòng này không
 	const cacsHoSoKhac = await prisma.hoSoDatCoc.findMany({
 		where: {
 			phongId,
-			trangThai: { in: ["Chờ xác nhận quản lý", "Đã xác nhận điều kiện", "Chờ thanh toán"] }
-		}
+			trangThai: { in: ["Chờ xác nhận quản lý", "Đã xác nhận điều kiện", "Chờ thanh toán"] },
+		},
 	});
 
 	let hasOtherDeposit = false;
 	if (giuongId) {
-		hasOtherDeposit = cacsHoSoKhac.some(hs => hs.giuongId === giuongId);
+		hasOtherDeposit = cacsHoSoKhac.some((hs) => hs.giuongId === giuongId);
 	} else {
 		hasOtherDeposit = cacsHoSoKhac.length > 0;
 	}
@@ -68,7 +119,7 @@ export async function kiemTraTinhTrangPhong(phongId: number, giuongId?: number |
 		tinhTrangPhong: phong.trangThai,
 		datCocChoTuSaleKhac: hasOtherDeposit,
 		phuHopGioiTinh: true, // Mock logic for demo
-		sucChuaConLai: `${soGiuongTrong}/${phong.sucChua} giường trống`
+		sucChuaConLai: `${soGiuongTrong}/${phong.sucChua} giường trống`,
 	};
 }
 
@@ -79,7 +130,7 @@ export async function xacNhanDieuKienSale(
 	hoSoId: number,
 	nhanVienId: number,
 	ketQuaKiemTra: { quyDinhId: number; ketQua: string; ghiChu?: string }[],
-	lyDoTuChoi?: string
+	lyDoTuChoi?: string,
 ) {
 	// 1. Cập nhật hồ sơ
 	const trangThaiMoi = lyDoTuChoi ? "Từ chối" : "Chờ xác nhận quản lý";
@@ -88,26 +139,26 @@ export async function xacNhanDieuKienSale(
 		where: { hoSoDatCocId: hoSoId },
 		data: {
 			trangThai: trangThaiMoi,
-			lyDoTuChoi: lyDoTuChoi || null
-		}
+			lyDoTuChoi: lyDoTuChoi || null,
+		},
 	});
 
 	// 2. Lưu kết quả kiểm tra
 	if (ketQuaKiemTra.length > 0) {
 		// Xoá cũ
 		await prisma.ketQuaKiemTraDieuKien.deleteMany({
-			where: { hoSoDatCocId: hoSoId }
+			where: { hoSoDatCocId: hoSoId },
 		});
 
 		// Thêm mới
 		await prisma.ketQuaKiemTraDieuKien.createMany({
-			data: ketQuaKiemTra.map(kq => ({
+			data: ketQuaKiemTra.map((kq) => ({
 				hoSoDatCocId: hoSoId,
 				quyDinhId: kq.quyDinhId,
 				nguoiKiemTraId: nhanVienId,
 				ketQua: kq.ketQua,
-				ghiChu: kq.ghiChu
-			}))
+				ghiChu: kq.ghiChu,
+			})),
 		});
 	}
 
@@ -117,11 +168,7 @@ export async function xacNhanDieuKienSale(
 /**
  * Quản lý xác nhận
  */
-export async function xacNhanTinhTrangQuanLy(
-	hoSoId: number,
-	quanLyId: number,
-	lyDoTuChoi?: string
-) {
+export async function xacNhanTinhTrangQuanLy(hoSoId: number, quanLyId: number, lyDoTuChoi?: string) {
 	const trangThaiMoi = lyDoTuChoi ? "Từ chối" : "Đã xác nhận điều kiện";
 
 	await prisma.hoSoDatCoc.update({
@@ -129,8 +176,8 @@ export async function xacNhanTinhTrangQuanLy(
 		data: {
 			trangThai: trangThaiMoi,
 			lyDoTuChoi: lyDoTuChoi || null,
-			quanLyXacNhanId: quanLyId
-		}
+			quanLyXacNhanId: quanLyId,
+		},
 	});
 
 	return { success: true };
