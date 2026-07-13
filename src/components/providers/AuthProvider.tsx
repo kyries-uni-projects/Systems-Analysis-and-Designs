@@ -1,25 +1,21 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import type { Role } from "@/lib/auth";
+import type { SessionUser } from "@/lib/auth";
 import { usePathname } from "next/navigation";
-
-export type SessionUser = {
-	name: string;
-	role: Role;
-	roleLabel: string;
-};
 
 type AuthContextType = {
 	sessionUser: SessionUser | null;
 	isLoading: boolean;
 	refreshSession: () => Promise<void>;
+	clearSession: () => void;
 };
 
 const AuthContext = createContext<AuthContextType>({
 	sessionUser: null,
 	isLoading: true,
 	refreshSession: async () => {},
+	clearSession: () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -37,26 +33,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			} else {
 				setSessionUser(null);
 			}
-		} catch (error) {
+		} catch {
 			setSessionUser(null);
 		} finally {
 			setIsLoading(false);
 		}
 	};
 
+	const clearSession = () => {
+		setSessionUser(null);
+		setIsLoading(false);
+	};
+
 	useEffect(() => {
-		if (pathname === "/login") {
-			setIsLoading(false);
-			return;
+		if (pathname !== "/login") {
+			const refreshTimer = window.setTimeout(() => {
+				void fetchSession();
+			});
+			return () => window.clearTimeout(refreshTimer);
 		}
-		void fetchSession();
 	}, [pathname]);
 
-	return (
-		<AuthContext.Provider value={{ sessionUser, isLoading, refreshSession: fetchSession }}>
-			{children}
-		</AuthContext.Provider>
-	);
+	return <AuthContext.Provider value={{ sessionUser, isLoading, refreshSession: fetchSession, clearSession }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

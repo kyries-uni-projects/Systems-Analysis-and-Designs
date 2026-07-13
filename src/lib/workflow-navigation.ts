@@ -5,6 +5,7 @@ export type WorkflowAction = {
 	label: string;
 	description: string;
 	roles: Role[];
+	href?: string;
 };
 
 export type WorkflowGroup = {
@@ -43,7 +44,13 @@ export const workflowGroups: WorkflowGroup[] = [
 		actions: [
 			{ slug: "lap-phieu-dat-coc", label: "Lập phiếu đặt cọc", description: "Ghi nhận khoản đặt cọc của khách hàng.", roles: ["nhanvien"] },
 			{ slug: "xac-nhan-thanh-toan", label: "Xác nhận thanh toán", description: "Xác nhận giao dịch đặt cọc đã được thanh toán.", roles: ["ketoan"] },
-			{ slug: "xac-nhan-thue", label: "Xác nhận thuê", description: "Xác nhận điều kiện thuê sau khi hoàn tất đặt cọc.", roles: ["quanly"] },
+			{
+				slug: "xac-nhan-thue",
+				label: "Xác nhận điều kiện đặt cọc",
+				description: "Xác nhận điều kiện thuê sau khi hoàn tất đặt cọc.",
+				roles: ["nhanvien", "quanly"],
+				href: "/dat-coc-xac-nhan-thue/xac-nhan-dieu-kien-dat-coc",
+			},
 		],
 	},
 	{
@@ -95,4 +102,19 @@ export function getWorkflowAction(feature: string, action: string) {
 	const group = workflowGroups.find((item) => item.slug === feature);
 	const workflowAction = group?.actions.find((item) => item.slug === action);
 	return group && workflowAction ? { group, action: workflowAction } : null;
+}
+
+export function getWorkflowActionHref(group: WorkflowGroup, action: WorkflowAction) {
+	return action.href ?? `/${group.slug}/${action.slug}`;
+}
+
+export function getWorkflowActionByPath(pathname: string) {
+	for (const group of workflowGroups) {
+		const action = group.actions.find((item) => getWorkflowActionHref(group, item) === pathname);
+		if (action) {
+			return { group, action };
+		}
+	}
+
+	return null;
 }

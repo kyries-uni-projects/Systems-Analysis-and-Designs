@@ -11,6 +11,12 @@ export const roleLabels: Record<Role, string> = {
 	ketoan: "Kế toán",
 };
 
+export type SessionUser = {
+	name: string;
+	role: Role;
+	position: string;
+};
+
 export const demoAccounts: Record<string, { password: string; role: Role; name: string }> = {
 	admin: { password: "admin123", role: "admin", name: "Nguyễn Văn An" },
 	nhanvien01: { password: "nv123", role: "nhanvien", name: "Phạm Thị Dung" },

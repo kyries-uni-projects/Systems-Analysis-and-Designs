@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { AlertCircle, Check, Eye, EyeOff, LockKeyhole, UserRound } from "lucide-react";
 import { demoAccounts, roleLabels } from "@/lib/auth";
 import { HomeStayLogo } from "@/components/branding/HomeStayLogo";
+import { useAuth } from "@/components/providers/AuthProvider";
 
 export default function LoginPage() {
 	const router = useRouter();
+	const { refreshSession } = useAuth();
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
@@ -37,6 +39,7 @@ export default function LoginPage() {
 			return;
 		}
 
+		await refreshSession();
 		const nextPath = new URLSearchParams(window.location.search).get("next");
 		router.replace(nextPath?.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/");
 	}

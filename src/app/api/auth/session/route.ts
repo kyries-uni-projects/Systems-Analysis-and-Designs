@@ -12,5 +12,5 @@ export function GET(request: NextRequest) {
 		return NextResponse.json({ error: "Phiên đăng nhập không hợp lệ." }, { status: 401 });
 	}
 
-	return NextResponse.json({ name: account.name, role: account.role, roleLabel: roleLabels[account.role] });
+	return NextResponse.json({ name: account.name, role: account.role, position: roleLabels[account.role] });
 }

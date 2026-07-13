@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
-import { Check, ChevronRight, XCircle, AlertTriangle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Check, ChevronRight, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
 
 // ============================================================
@@ -32,7 +32,6 @@ type TinhTrangPhong = {
 
 export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }) {
 	const { sessionUser, isLoading: isAuthLoading } = useAuth();
-	const role = sessionUser?.role === "quanly" ? "quan_ly" : "sale";
 	const [data, setData] = useState<{
 		hoSo: HoSoDatCocDetail;
 		quyDinhList: QuyDinhItem[] | null;
@@ -89,10 +88,11 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 
 		try {
 			// Chuẩn bị payload
-			const ketQuaKiemTra = data.quyDinhList?.map((q) => ({
-				quyDinhId: q.quyDinhId,
-				ketQua: checkedConditions[q.quyDinhId] ? "Đạt" : "Không đạt",
-			})) || [];
+			const ketQuaKiemTra =
+				data.quyDinhList?.map((q) => ({
+					quyDinhId: q.quyDinhId,
+					ketQua: checkedConditions[q.quyDinhId] ? "Đạt" : "Không đạt",
+				})) || [];
 
 			const payload = {
 				ketQuaKiemTra,
@@ -159,7 +159,7 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 					<div>
 						<h2 className="text-xl font-bold text-[#27ad60]">Xác nhận điều kiện thành công!</h2>
 						<p className="mt-1 text-sm text-[#4a5565]">
-							Hồ sơ khách hàng đã được cập nhật trạng thái '{hoSo.trangThai}'. Sẵn sàng chuyển sang bước lập yêu cầu thanh toán cọc.
+							Hồ sơ khách hàng đã được cập nhật trạng thái &apos;{hoSo.trangThai}&apos;. Sẵn sàng chuyển sang bước lập yêu cầu thanh toán cọc.
 						</p>
 					</div>
 				</div>
@@ -206,9 +206,7 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 						<button className="rounded-[10px] border border-[#d1d5dc] bg-white px-6 py-2.5 text-sm font-medium text-[#364153]">
 							Quay về danh sách
 						</button>
-						<button className="rounded-[10px] bg-[#155DFC] px-6 py-2.5 text-sm font-medium text-white">
-							Chuyển sang lập yêu cầu cọc
-						</button>
+						<button className="rounded-[10px] bg-[#155DFC] px-6 py-2.5 text-sm font-medium text-white">Chuyển sang lập yêu cầu cọc</button>
 					</div>
 				</div>
 			</div>
@@ -220,6 +218,15 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 	// ==========================================
 	const isSaleView = hoSo.trangThai === "Chờ xác nhận điều kiện" || hoSo.trangThai === "Mới tạo";
 	const isManagerView = hoSo.trangThai === "Chờ xác nhận quản lý";
+	const canHandleCurrentStage = (isSaleView && sessionUser?.role === "nhanvien") || (isManagerView && sessionUser?.role === "quanly");
+
+	if (!canHandleCurrentStage) {
+		return (
+			<div className="py-12 text-center text-sm text-red-600">
+				Tài khoản {sessionUser?.position ?? "hiện tại"} không có quyền xử lý hồ sơ ở bước này.
+			</div>
+		);
+	}
 
 	return (
 		<div className="pb-10">
@@ -227,19 +234,13 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 			<div className="mb-2 flex items-center gap-2 text-sm text-[#4a5565]">
 				<span>Đặt cọc & xác nhận thuê</span>
 				<ChevronRight className="size-4" aria-hidden="true" />
-				<span className="font-medium text-[#101828]">
-					{isSaleView ? "Xác nhận điều kiện đặt cọc" : "Xác nhận tình trạng phòng/giường"}
-				</span>
+				<span className="font-medium text-[#101828]">{isSaleView ? "Xác nhận điều kiện đặt cọc" : "Xác nhận tình trạng phòng/giường"}</span>
 			</div>
-			<h1 className="text-2xl font-bold text-[#101828]">
-				{isSaleView ? "Xác nhận điều kiện đặt cọc" : "Xác nhận tình trạng phòng/giường"}
-			</h1>
+			<h1 className="text-2xl font-bold text-[#101828]">{isSaleView ? "Xác nhận điều kiện đặt cọc" : "Xác nhận tình trạng phòng/giường"}</h1>
 
 			{isManagerView && (
 				<div className="mt-4 flex items-center gap-2">
-					<span className="rounded-[6px] bg-[#f0f5ff] px-3 py-1.5 text-sm font-medium text-[#155DFC]">
-						Yêu cầu từ NV Sale: Nhân viên Test
-					</span>
+					<span className="rounded-md bg-[#f0f5ff] px-3 py-1.5 text-sm font-medium text-[#155DFC]">Yêu cầu từ NV Sale: Nhân viên Test</span>
 				</div>
 			)}
 
@@ -247,13 +248,9 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 				{/* Cột trái: Thông tin */}
 				<div className="rounded-[10px] border border-[#d7ece7] bg-[#f8fefd] p-5 shadow-[0_1px_1.5px_rgba(0,0,0,0.08)]">
 					<div className="mb-6 flex items-center justify-between">
-						<h2 className="text-base font-semibold text-[#101828]">
-							{isSaleView ? "Thông tin khách hàng" : "Thông tin yêu cầu kiểm tra"}
-						</h2>
+						<h2 className="text-base font-semibold text-[#101828]">{isSaleView ? "Thông tin khách hàng" : "Thông tin yêu cầu kiểm tra"}</h2>
 						{isSaleView && (
-							<button className="rounded-md border border-[#a7f3d0] bg-[#ecfdf5] px-2.5 py-1 text-xs font-medium text-[#047857]">
-								Chỉnh sửa
-							</button>
+							<button className="rounded-md border border-[#a7f3d0] bg-[#ecfdf5] px-2.5 py-1 text-xs font-medium text-[#047857]">Chỉnh sửa</button>
 						)}
 					</div>
 
@@ -290,7 +287,9 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 							<>
 								<div className="grid grid-cols-[140px_1fr] items-center border-b border-slate-200 pb-3">
 									<span className="text-sm text-[#6a7282]">Phòng yêu cầu</span>
-									<span className="text-sm font-medium text-[#101828]">Phòng {hoSo.phong.maPhong} – Khu {hoSo.phong.khu || "chung"}</span>
+									<span className="text-sm font-medium text-[#101828]">
+										Phòng {hoSo.phong.maPhong} – Khu {hoSo.phong.khu || "chung"}
+									</span>
 								</div>
 								<div className="grid grid-cols-[140px_1fr] items-center border-b border-slate-200 pb-3">
 									<span className="text-sm text-[#6a7282]">Giường yêu cầu</span>
@@ -305,15 +304,16 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 						</div>
 						<div className="grid grid-cols-[140px_1fr] items-center border-b border-slate-200 pb-3">
 							<span className="text-sm text-[#6a7282]">{isSaleView ? "Loại thuê" : "Khu vực"}</span>
-							<span className="text-sm font-medium text-[#101828]">{isSaleView ? hoSo.yeuCauThue.loaiThue : (hoSo.phong.khu || "Khu chung")}</span>
+							<span className="text-sm font-medium text-[#101828]">{isSaleView ? hoSo.yeuCauThue.loaiThue : hoSo.phong.khu || "Khu chung"}</span>
 						</div>
 						<div className="grid grid-cols-[140px_1fr] items-center border-b border-slate-200 pb-3">
 							<span className="text-sm text-[#6a7282]">{isSaleView ? "Khu vực mong muốn" : "Thời gian vào ở"}</span>
 							<span className="text-sm font-medium text-[#101828]">
-								{isSaleView 
-									? (hoSo.yeuCauThue.khuVucMongMuon || "—")
-									: (hoSo.yeuCauThue.thoiGianDuKienVaoO ? new Date(hoSo.yeuCauThue.thoiGianDuKienVaoO).toLocaleDateString("vi-VN") : "—")
-								}
+								{isSaleView
+									? hoSo.yeuCauThue.khuVucMongMuon || "—"
+									: hoSo.yeuCauThue.thoiGianDuKienVaoO
+										? new Date(hoSo.yeuCauThue.thoiGianDuKienVaoO).toLocaleDateString("vi-VN")
+										: "—"}
 							</span>
 						</div>
 					</div>
@@ -359,9 +359,7 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 
 							<div className="mt-6 flex items-center justify-between border-t border-slate-200 pt-4">
 								<span className="text-sm font-medium text-[#364153]">Trạng thái phòng/giường</span>
-								<span className="rounded-full bg-[#fff7ed] px-3 py-1 text-xs font-medium text-[#f39c12]">
-									Chờ xác nhận quản lý
-								</span>
+								<span className="rounded-full bg-[#fff7ed] px-3 py-1 text-xs font-medium text-[#f39c12]">Chờ xác nhận quản lý</span>
 							</div>
 						</div>
 					) : (
@@ -369,7 +367,7 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 						<>
 							<div className="rounded-[10px] border border-[#d7ece7] bg-white p-5 shadow-[0_1px_1.5px_rgba(0,0,0,0.08)]">
 								<h2 className="mb-4 text-base font-semibold text-[#101828]">Kết quả kiểm tra tình trạng</h2>
-								
+
 								<div className="mb-6 rounded-lg border border-[#27ad60] bg-[#f0fcf5] p-4 flex items-center gap-3">
 									<Check className="size-6 text-[#27ad60]" />
 									<div>
@@ -382,21 +380,27 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 									<div className="space-y-4">
 										<div className="flex items-center justify-between border-b border-slate-100 pb-2">
 											<span className="text-sm text-[#6a7282]">Tình trạng phòng</span>
-											<span className={`text-sm font-medium flex items-center gap-1 ${tinhTrangPhong.tinhTrangPhong === "Trống" ? "text-[#27ad60]" : "text-[#f39c12]"}`}>
+											<span
+												className={`text-sm font-medium flex items-center gap-1 ${tinhTrangPhong.tinhTrangPhong === "Trống" ? "text-[#27ad60]" : "text-[#f39c12]"}`}
+											>
 												{tinhTrangPhong.tinhTrangPhong === "Trống" && <Check className="size-4" />}
 												{tinhTrangPhong.tinhTrangPhong}
 											</span>
 										</div>
 										<div className="flex items-center justify-between border-b border-slate-100 pb-2">
 											<span className="text-sm text-[#6a7282]">Đặt cọc đang chờ từ sale khác</span>
-											<span className={`text-sm font-medium flex items-center gap-1 ${!tinhTrangPhong.datCocChoTuSaleKhac ? "text-[#27ad60]" : "text-red-600"}`}>
+											<span
+												className={`text-sm font-medium flex items-center gap-1 ${!tinhTrangPhong.datCocChoTuSaleKhac ? "text-[#27ad60]" : "text-red-600"}`}
+											>
 												{!tinhTrangPhong.datCocChoTuSaleKhac && <Check className="size-4" />}
 												{tinhTrangPhong.datCocChoTuSaleKhac ? "Có" : "Không có"}
 											</span>
 										</div>
 										<div className="flex items-center justify-between border-b border-slate-100 pb-2">
 											<span className="text-sm text-[#6a7282]">Phù hợp giới tính khu vực</span>
-											<span className={`text-sm font-medium flex items-center gap-1 ${tinhTrangPhong.phuHopGioiTinh ? "text-[#27ad60]" : "text-red-600"}`}>
+											<span
+												className={`text-sm font-medium flex items-center gap-1 ${tinhTrangPhong.phuHopGioiTinh ? "text-[#27ad60]" : "text-red-600"}`}
+											>
 												{tinhTrangPhong.phuHopGioiTinh && <Check className="size-4" />}
 												Phù hợp
 											</span>
@@ -411,7 +415,7 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 									</div>
 								)}
 							</div>
-							
+
 							{/* Thêm Card Quyết định của quản lý */}
 							<div className="rounded-[10px] border border-[#d7ece7] bg-white p-5 shadow-[0_1px_1.5px_rgba(0,0,0,0.08)]">
 								<h2 className="mb-4 text-base font-semibold text-[#101828]">Quyết định của quản lý</h2>
@@ -444,11 +448,7 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 					disabled={isSubmitting}
 					className="h-11 rounded-[10px] bg-[#155cfc] px-6 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
 				>
-					{isSubmitting
-						? "Đang xử lý..."
-						: isSaleView
-							? "Gửi yêu cầu kiểm tra phòng"
-							: "Xác nhận có thể nhận cọc"}
+					{isSubmitting ? "Đang xử lý..." : isSaleView ? "Gửi yêu cầu kiểm tra phòng" : "Xác nhận có thể nhận cọc"}
 				</button>
 			</div>
 		</div>
