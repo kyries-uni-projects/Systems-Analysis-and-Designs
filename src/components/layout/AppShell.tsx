@@ -1,9 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, ChevronDown, ChevronUp, HelpCircle, LayoutDashboard, LogOut, Menu, Search, UserRound, X } from "lucide-react";
+import { Bell, ChevronDown, ChevronUp, LogOut, Menu, Search, UserRound, X } from "lucide-react";
 import { HomeStayLogo } from "@/components/branding/HomeStayLogo";
 import type { Role } from "@/lib/auth";
 import { canAccessWorkflowAction, workflowGroups } from "@/lib/workflow-navigation";
@@ -15,8 +16,8 @@ type SessionUser = {
 };
 
 const fixedNavigation = [
-	{ href: "/", label: "Tổng quan", icon: LayoutDashboard },
-	{ href: "/help", label: "Trợ giúp", icon: HelpCircle },
+	{ href: "/", label: "Tổng quan", iconPath: "/icons/tong-quan.svg" },
+	{ href: "/help", label: "Trợ giúp", iconPath: "/icons/tro-giup.svg" },
 ];
 
 export default function AppShell({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -77,14 +78,14 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 			</div>
 
 			<nav className="flex-1 space-y-1 overflow-y-auto px-3 py-5" aria-label="Điều hướng chính">
-				{fixedNavigation.slice(0, 1).map(({ href, label, icon: Icon }) => (
+				{fixedNavigation.slice(0, 1).map(({ href, label, iconPath }) => (
 					<Link
 						key={href}
 						href={href}
 						onClick={() => setIsSidebarOpen(false)}
 						className={`flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium transition ${isActive(href) ? "bg-[#155DFC] text-white shadow-sm" : "text-blue-50 hover:bg-[#2d4f7a]"}`}
 					>
-						<Icon className="size-5 shrink-0" aria-hidden="true" />
+						{iconPath && <Image src={iconPath} alt="" width={20} height={20} className="shrink-0" aria-hidden="true" />}
 						{label}
 					</Link>
 				))}
@@ -108,7 +109,11 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 									className={`flex w-full items-center gap-3 rounded-md px-3 py-3 text-left text-sm font-medium transition ${isGroupActive || isExpanded ? "bg-[#155DFC] text-white shadow-sm" : "text-blue-50 hover:bg-[#2d4f7a]"}`}
 								>
 									<span className="flex min-w-0 flex-1 items-center gap-3">
-										<span className="size-2.5 shrink-0 rounded-full bg-current opacity-80" />
+										{group.iconPath ? (
+											<Image src={group.iconPath} alt="" width={20} height={20} className="shrink-0" aria-hidden="true" />
+										) : (
+											<span className="size-2.5 shrink-0 rounded-full bg-current opacity-80" />
+										)}
 										<span className="truncate">{group.label}</span>
 									</span>
 									{isExpanded ? (
@@ -140,14 +145,14 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 						);
 					})}
 
-				{fixedNavigation.slice(1).map(({ href, label, icon: Icon }) => (
+				{fixedNavigation.slice(1).map(({ href, label, iconPath }) => (
 					<Link
 						key={href}
 						href={href}
 						onClick={() => setIsSidebarOpen(false)}
 						className={`flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium transition ${isActive(href) ? "bg-[#155DFC] text-white shadow-sm" : "text-blue-50 hover:bg-[#2d4f7a]"}`}
 					>
-						<Icon className="size-5 shrink-0" aria-hidden="true" />
+						{iconPath && <Image src={iconPath} alt="" width={20} height={20} className="shrink-0" aria-hidden="true" />}
 						{label}
 					</Link>
 				))}

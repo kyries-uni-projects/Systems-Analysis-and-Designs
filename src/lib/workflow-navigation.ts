@@ -10,6 +10,7 @@ export type WorkflowAction = {
 export type WorkflowGroup = {
 	slug: string;
 	label: string;
+	iconPath?: string;
 	actions: WorkflowAction[];
 };
 
@@ -17,6 +18,7 @@ export const workflowGroups: WorkflowGroup[] = [
 	{
 		slug: "dang-ky-thue-phong",
 		label: "Đăng ký thuê phòng",
+		iconPath: "/icons/dang-ky-thue.svg",
 		actions: [
 			{
 				slug: "kiem-tra-thong-tin",
@@ -37,6 +39,7 @@ export const workflowGroups: WorkflowGroup[] = [
 	{
 		slug: "deposit",
 		label: "Đặt cọc và xác nhận thuê",
+		iconPath: "/icons/dat-coc.svg",
 		actions: [
 			{ slug: "lap-phieu-dat-coc", label: "Lập phiếu đặt cọc", description: "Ghi nhận khoản đặt cọc của khách hàng.", roles: ["nhanvien"] },
 			{ slug: "xac-nhan-thanh-toan", label: "Xác nhận thanh toán", description: "Xác nhận giao dịch đặt cọc đã được thanh toán.", roles: ["ketoan"] },
@@ -46,6 +49,7 @@ export const workflowGroups: WorkflowGroup[] = [
 	{
 		slug: "checkin",
 		label: "Nhận phòng",
+		iconPath: "/icons/nhan-phong.svg",
 		actions: [
 			{
 				slug: "kiem-tra-thong-tin",
@@ -67,6 +71,7 @@ export const workflowGroups: WorkflowGroup[] = [
 	{
 		slug: "tra-phong",
 		label: "Trả phòng",
+		iconPath: "/icons/tra-phong.svg",
 		actions: [
 			{ slug: "dang-ky-tra-phong", label: "Đăng ký trả phòng", description: "Tiếp nhận yêu cầu trả phòng của khách hàng.", roles: ["nhanvien"] },
 			{

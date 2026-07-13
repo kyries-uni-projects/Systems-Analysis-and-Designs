@@ -149,6 +149,7 @@ export default function LichHenXemPhongForm() {
 	const [isLoading, setIsLoading] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState("");
+	const [fieldErrors, setFieldErrors] = useState<{ ngayXem?: string; gioBatDau?: string; gioKetThuc?: string; phong?: string }>({});
 	const [result, setResult] = useState<CreateResult | null>(null);
 
 	// Show chi tiết yêu cầu
@@ -202,10 +203,11 @@ export default function LichHenXemPhongForm() {
 	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		setError("");
+		setFieldErrors({});
 		setIsSubmitting(true);
 
 		if (!selectedYeuCau || !selectedPhongId) {
-			setError("Vui lòng chọn phòng trước khi tạo lịch hẹn");
+			setFieldErrors({ phong: "Vui lòng chọn phòng trước khi tạo lịch hẹn" });
 			setIsSubmitting(false);
 			return;
 		}
@@ -231,7 +233,18 @@ export default function LichHenXemPhongForm() {
 			setResult(payload.data);
 			setView("success");
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Lỗi khi tạo lịch hẹn");
+			const errMsg = err instanceof Error ? err.message : "Lỗi khi tạo lịch hẹn";
+			if (errMsg.includes("Ngày xem phòng")) {
+				setFieldErrors({ ngayXem: errMsg });
+			} else if (errMsg.includes("Giờ bắt đầu") || errMsg.includes("Giờ hẹn")) {
+				setFieldErrors({ gioBatDau: errMsg });
+			} else if (errMsg.includes("Giờ kết thúc")) {
+				setFieldErrors({ gioKetThuc: errMsg });
+			} else if (errMsg.includes("Trùng lịch")) {
+				setFieldErrors({ gioBatDau: errMsg, gioKetThuc: errMsg });
+			} else {
+				setError(errMsg);
+			}
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -246,6 +259,7 @@ export default function LichHenXemPhongForm() {
 		setGioBatDau("");
 		setGioKetThuc("");
 		setError("");
+		setFieldErrors({});
 		setResult(null);
 		setShowChiTiet(false);
 	}
@@ -497,7 +511,7 @@ export default function LichHenXemPhongForm() {
 								Phòng xem <span className="text-[#fb2c36]">*</span>
 							</label>
 							{selectedPhong ? (
-								<div className="mt-1 flex items-center justify-between rounded-lg border border-slate-900 bg-white px-3 py-2.5">
+								<div className={`mt-1 flex items-center justify-between rounded-lg border px-3 py-2.5 ${fieldErrors.phong ? "border-[#fb2c36]" : "border-slate-900 bg-white"}`}>
 									<div className="text-sm">
 										<span className="font-medium text-[#101828]">Phòng {selectedPhong.maPhong}</span>
 										<span className="mx-2 text-slate-300">·</span>
@@ -517,12 +531,13 @@ export default function LichHenXemPhongForm() {
 								<button
 									type="button"
 									onClick={() => setShowPhongList(true)}
-									className="mt-1 flex h-[42px] w-full items-center justify-center gap-2 rounded-lg border border-dashed border-slate-400 bg-white text-sm text-[#4a5565] transition hover:border-[#155DFC] hover:text-[#155DFC]"
+									className={`mt-1 flex h-[42px] w-full items-center justify-center gap-2 rounded-lg border border-dashed text-sm transition ${fieldErrors.phong ? "border-[#fb2c36] text-[#fb2c36]" : "border-slate-400 bg-white text-[#4a5565] hover:border-[#155DFC] hover:text-[#155DFC]"}`}
 								>
 									<CalendarDays className="size-4" />
 									Chọn phòng để xem
 								</button>
 							)}
+							{fieldErrors.phong && <p className="mt-1 text-xs text-[#fb2c36]">{fieldErrors.phong}</p>}
 						</div>
 
 						{/* Danh sách phòng phù hợp (modal / dropdown) */}
@@ -586,10 +601,11 @@ export default function LichHenXemPhongForm() {
 								type="date"
 								required
 								value={ngayXem}
-								onChange={(e) => setNgayXem(e.target.value)}
+								onChange={(e) => { setNgayXem(e.target.value); setFieldErrors((prev) => ({ ...prev, ngayXem: undefined })); }}
 								min={new Date().toISOString().split("T")[0]}
-								className={inputClass}
+								className={`${inputClass} ${fieldErrors.ngayXem ? "border-[#fb2c36] focus:border-[#fb2c36] focus:ring-red-100" : ""}`}
 							/>
+							{fieldErrors.ngayXem && <p className="mt-1 text-xs text-[#fb2c36]">{fieldErrors.ngayXem}</p>}
 						</div>
 
 						{/* txtGioBatDau + txtGioKetThucDuKien — side by side matching Figma */}
@@ -604,11 +620,12 @@ export default function LichHenXemPhongForm() {
 										type="time"
 										required
 										value={gioBatDau}
-										onChange={(e) => setGioBatDau(e.target.value)}
-										className={inputClass}
+										onChange={(e) => { setGioBatDau(e.target.value); setFieldErrors((prev) => ({ ...prev, gioBatDau: undefined })); }}
+										className={`${inputClass} ${fieldErrors.gioBatDau ? "border-[#fb2c36] focus:border-[#fb2c36] focus:ring-red-100" : ""}`}
 									/>
 									<Clock className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
 								</div>
+								{fieldErrors.gioBatDau && <p className="mt-1 text-xs text-[#fb2c36]">{fieldErrors.gioBatDau}</p>}
 							</div>
 							<div>
 								<label className={labelClass} htmlFor="gioKetThuc">
@@ -620,11 +637,12 @@ export default function LichHenXemPhongForm() {
 										type="time"
 										required
 										value={gioKetThuc}
-										onChange={(e) => setGioKetThuc(e.target.value)}
-										className={inputClass}
+										onChange={(e) => { setGioKetThuc(e.target.value); setFieldErrors((prev) => ({ ...prev, gioKetThuc: undefined })); }}
+										className={`${inputClass} ${fieldErrors.gioKetThuc ? "border-[#fb2c36] focus:border-[#fb2c36] focus:ring-red-100" : ""}`}
 									/>
 									<Clock className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
 								</div>
+								{fieldErrors.gioKetThuc && <p className="mt-1 text-xs text-[#fb2c36]">{fieldErrors.gioKetThuc}</p>}
 							</div>
 						</div>
 					</div>
