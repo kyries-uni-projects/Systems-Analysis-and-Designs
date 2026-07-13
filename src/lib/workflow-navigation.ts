@@ -24,6 +24,12 @@ export const workflowGroups: WorkflowGroup[] = [
 				description: "Kiểm tra thông tin khách hàng và nhu cầu thuê phòng.",
 				roles: ["nhanvien"],
 			},
+			{
+				slug: "lap-lich-xem-phong",
+				label: "Lập lịch xem phòng",
+				description: "Lập lịch hẹn xem phòng cho khách hàng từ yêu cầu thuê.",
+				roles: ["nhanvien"],
+			},
 			{ slug: "lap-ho-so-thue", label: "Lập hồ sơ thuê", description: "Lập hồ sơ thuê phòng từ yêu cầu đã được kiểm tra.", roles: ["nhanvien"] },
 			{ slug: "phe-duyet-ho-so", label: "Phê duyệt hồ sơ", description: "Đánh giá và phê duyệt hồ sơ thuê phòng.", roles: ["quanly"] },
 		],

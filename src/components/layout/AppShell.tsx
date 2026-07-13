@@ -156,8 +156,8 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 	);
 
 	return (
-		<div className="min-h-screen bg-[linear-gradient(135deg,#e8f0fe_0%,#f0f7ff_40%,#e6f4f1_100%)] lg:p-6">
-			<div className="mx-auto flex min-h-screen w-full max-w-7xl overflow-hidden bg-[#f7fafc] lg:min-h-[calc(100vh-3rem)] lg:rounded-lg lg:shadow-[0_4px_32px_rgba(30,58,95,0.14)]">
+		<div className="min-h-screen bg-[#f7fafc]">
+			<div className="mx-auto flex min-h-screen w-full overflow-hidden bg-[#f7fafc]">
 				<div className="hidden lg:block">{sidebar}</div>
 
 				{isSidebarOpen && (
