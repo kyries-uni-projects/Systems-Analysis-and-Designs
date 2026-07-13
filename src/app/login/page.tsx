@@ -4,21 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Check, Eye, EyeOff, LockKeyhole, UserRound } from "lucide-react";
 import { demoAccounts, roleLabels } from "@/lib/auth";
-
-function LogoMark({ size = 48 }: { size?: number }) {
-	return (
-		<svg aria-hidden="true" width={size} height={size} viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-			<polyline points="10,38 40,12 70,38" stroke="#14B8A6" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-			<rect x="18" y="38" width="44" height="26" rx="2" stroke="#1B2B4B" strokeWidth="4" />
-			<rect x="22" y="50" width="36" height="10" rx="2" fill="#14B8A6" />
-			<rect x="22" y="47" width="10" height="13" rx="1" fill="#1B2B4B" />
-			<rect x="50" y="42" width="5" height="5" rx="1" fill="#1B2B4B" />
-			<rect x="57" y="42" width="5" height="5" rx="1" fill="#1B2B4B" />
-			<rect x="50" y="49" width="5" height="5" rx="1" fill="#1B2B4B" />
-			<rect x="57" y="49" width="5" height="5" rx="1" fill="#1B2B4B" />
-		</svg>
-	);
-}
+import { HomeStayLogo } from "@/components/branding/HomeStayLogo";
 
 export default function LoginPage() {
 	const router = useRouter();
@@ -66,16 +52,7 @@ export default function LoginPage() {
 		<main className="flex min-h-screen font-sans">
 			<aside className="hidden w-105 shrink-0 flex-col justify-between bg-[linear-gradient(160deg,#1b2b4b_60%,#162240_100%)] px-12 py-14 lg:flex">
 				<div>
-					<div className="flex items-center gap-3">
-						<LogoMark size={52} />
-						<div>
-							<div className="flex items-baseline gap-1">
-								<span className="text-2xl font-bold text-white">HomeStay</span>
-								<span className="text-2xl font-bold text-teal-400">Dorm</span>
-							</div>
-							<p className="mt-0.5 text-xs uppercase tracking-[0.14em] text-white/50">Quản lý ký túc xá</p>
-						</div>
-					</div>
+					<HomeStayLogo variant="sidebar" size={52} />
 
 					<div className="mt-8 h-px w-10 bg-teal-400/40" />
 
@@ -111,12 +88,8 @@ export default function LoginPage() {
 
 			<section className="flex flex-1 items-center justify-center bg-[#f0f4f8] px-6 py-12">
 				<div className="w-full max-w-md">
-					<div className="mb-10 flex items-center gap-3 lg:hidden">
-						<LogoMark size={40} />
-						<div className="flex items-baseline gap-1 text-xl font-bold">
-							<span className="text-[#1b2b4b]">HomeStay</span>
-							<span className="text-teal-500">Dorm</span>
-						</div>
+					<div className="mb-10 lg:hidden">
+						<HomeStayLogo size={40} />
 					</div>
 
 					<div className="rounded-2xl bg-white px-8 py-10 shadow-[0_12px_30px_rgba(27,43,75,0.12)] sm:px-10">

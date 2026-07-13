@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isValidDemoLogin, SESSION_COOKIE_NAME, SESSION_COOKIE_VALUE } from "@/lib/auth";
+import { isValidDemoLogin, SESSION_COOKIE_NAME, SESSION_COOKIE_VALUE, SESSION_USER_COOKIE_NAME } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
 	const body: unknown = await request.json().catch(() => null);
@@ -14,6 +14,15 @@ export async function POST(request: NextRequest) {
 	response.cookies.set({
 		name: SESSION_COOKIE_NAME,
 		value: SESSION_COOKIE_VALUE,
+		httpOnly: true,
+		maxAge: 60 * 60 * 8,
+		path: "/",
+		sameSite: "lax",
+		secure: process.env.NODE_ENV === "production",
+	});
+	response.cookies.set({
+		name: SESSION_USER_COOKIE_NAME,
+		value: username.trim(),
 		httpOnly: true,
 		maxAge: 60 * 60 * 8,
 		path: "/",

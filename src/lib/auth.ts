@@ -1,5 +1,6 @@
 export const SESSION_COOKIE_NAME = "homestay_dorm_session";
 export const SESSION_COOKIE_VALUE = "authenticated";
+export const SESSION_USER_COOKIE_NAME = "homestay_dorm_user";
 
 export type Role = "admin" | "nhanvien" | "quanly" | "ketoan";
 
@@ -10,11 +11,11 @@ export const roleLabels: Record<Role, string> = {
 	ketoan: "Kế toán",
 };
 
-export const demoAccounts: Record<string, { password: string; role: Role }> = {
-	admin: { password: "admin123", role: "admin" },
-	nhanvien01: { password: "nv123", role: "nhanvien" },
-	quanly01: { password: "ql123", role: "quanly" },
-	ketoan01: { password: "kt123", role: "ketoan" },
+export const demoAccounts: Record<string, { password: string; role: Role; name: string }> = {
+	admin: { password: "admin123", role: "admin", name: "Nguyễn Văn An" },
+	nhanvien01: { password: "nv123", role: "nhanvien", name: "Phạm Thị Dung" },
+	quanly01: { password: "ql123", role: "quanly", name: "Trần Thị Bình" },
+	ketoan01: { password: "kt123", role: "ketoan", name: "Lê Minh Cường" },
 };
 
 export function isValidDemoLogin(username: string, password: string) {
