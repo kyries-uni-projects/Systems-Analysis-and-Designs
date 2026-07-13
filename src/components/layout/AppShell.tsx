@@ -6,14 +6,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Bell, ChevronDown, ChevronUp, LogOut, Menu, Search, UserRound, X } from "lucide-react";
 import { HomeStayLogo } from "@/components/branding/HomeStayLogo";
-import type { Role } from "@/lib/auth";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { canAccessWorkflowAction, workflowGroups } from "@/lib/workflow-navigation";
-
-type SessionUser = {
-	name: string;
-	role: Role;
-	roleLabel: string;
-};
 
 const fixedNavigation = [
 	{ href: "/", label: "Tổng quan", iconPath: "/icons/tong-quan.svg" },
@@ -24,19 +18,8 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 	const pathname = usePathname();
 	const router = useRouter();
 	const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-	const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
+	const { sessionUser } = useAuth();
 	const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
-
-	useEffect(() => {
-		if (pathname === "/login") {
-			return;
-		}
-
-		void fetch("/api/auth/session")
-			.then(async (response) => (response.ok ? (response.json() as Promise<SessionUser>) : null))
-			.then(setSessionUser)
-			.catch(() => setSessionUser(null));
-	}, [pathname]);
 
 	useEffect(() => {
 		const activeGroup = workflowGroups.find((group) => pathname === `/${group.slug}` || pathname.startsWith(`/${group.slug}/`));
