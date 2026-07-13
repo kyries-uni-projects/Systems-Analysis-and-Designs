@@ -58,6 +58,8 @@ type TaiSan = {
   soLuong: number;
   tinhTrangBanDau: string;
   tinhTrangKhiTra: string;
+  soLuongDaTra: string;
+  chiPhiBoiThuong: string;
   ghiChu: string;
 };
 
@@ -78,7 +80,7 @@ type NghiaVuConLai = {
 // Shape thô trả về từ GET /api/tra-phong/[maHoSo]/tai-san (TaiSanBanGiaoInfo ở tầng BUS).
 type TaiSanApiRaw = { idTaiSanBanGiao: number; tenTaiSan: string; soLuong: number; tinhTrang: string | null };
 
-function mapTaiSan(raw: TaiSanApiRaw): Omit<TaiSan, "tinhTrangKhiTra" | "ghiChu"> {
+function mapTaiSan(raw: TaiSanApiRaw): Omit<TaiSan, "tinhTrangKhiTra" | "ghiChu" | "soLuongDaTra" | "chiPhiBoiThuong"> {
   return {
     id: String(raw.idTaiSanBanGiao),
     tenTaiSan: raw.tenTaiSan,
@@ -380,7 +382,7 @@ function InspectScreen({
 }: {
   item: QueueItem;
   taiSanList: TaiSan[];
-  onTaiSanChange: (id: string, field: "tinhTrangKhiTra" | "ghiChu", value: string) => void;
+  onTaiSanChange: (id: string, field: "tinhTrangKhiTra" | "ghiChu" | "soLuongDaTra" | "chiPhiBoiThuong", value: string) => void;
   tinhTrangVeSinh: string;
   onTinhTrangVeSinhChange: (v: string) => void;
   ghiChuKiemTra: string;
@@ -422,13 +424,17 @@ function InspectScreen({
               <tr className="border-b border-gray-100 text-left text-gray-500 text-xs">
                 <th className="px-6 py-3 font-medium">Tên tài sản</th>
                 <th className="px-6 py-3 font-medium w-52">Tình trạng khi trả</th>
+                <th className="px-6 py-3 font-medium w-28">SL đã trả</th>
+                <th className="px-6 py-3 font-medium w-36">Chi phí bồi thường</th>
                 <th className="px-6 py-3 font-medium">Ghi chú</th>
               </tr>
             </thead>
             <tbody>
               {taiSanList.map((ts) => (
                 <tr key={ts.id} className="border-b border-gray-50 last:border-0">
-                  <td className="px-6 py-3 text-gray-800">{ts.tenTaiSan}</td>
+                  <td className="px-6 py-3 text-gray-800">
+                    {ts.tenTaiSan} <span className="text-gray-400 text-xs">(bàn giao {ts.soLuong})</span>
+                  </td>
                   <td className="px-6 py-3">
                     <div className="relative">
                       <select
@@ -447,6 +453,25 @@ function InspectScreen({
                       </select>
                       <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
+                  </td>
+                  <td className="px-6 py-3">
+                    <input
+                      type="number"
+                      min={0}
+                      value={ts.soLuongDaTra}
+                      onChange={(e) => onTaiSanChange(ts.id, "soLuongDaTra", e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </td>
+                  <td className="px-6 py-3">
+                    <input
+                      type="text"
+                      value={ts.chiPhiBoiThuong}
+                      onChange={(e) => onTaiSanChange(ts.id, "chiPhiBoiThuong", e.target.value)}
+                      placeholder="0 đ"
+                      disabled={!ts.tinhTrangKhiTra || ts.tinhTrangKhiTra === "Tốt"}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+                    />
                   </td>
                   <td className="px-6 py-3">
                     <input
@@ -904,7 +929,12 @@ export function KiemTraTinhTrangPhongGiuongPage() {
     setLoadingTaiSan(true);
     try {
       const data = await api.get<TaiSanApiRaw[]>(`/api/tra-phong/${item.maHoSo}/tai-san`);
-      setTaiSanList(data.map((t) => ({ ...mapTaiSan(t), tinhTrangKhiTra: "", ghiChu: "" })));
+      setTaiSanList(
+        data.map((t) => {
+          const mapped = mapTaiSan(t);
+          return { ...mapped, tinhTrangKhiTra: "", ghiChu: "", soLuongDaTra: String(mapped.soLuong), chiPhiBoiThuong: "" };
+        }),
+      );
     } catch {
       setTaiSanList([]);
     } finally {
@@ -921,7 +951,7 @@ export function KiemTraTinhTrangPhongGiuongPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maHoSoParam, loadingList]);
 
-  const updateTaiSan = (id: string, field: "tinhTrangKhiTra" | "ghiChu", value: string) => {
+  const updateTaiSan = (id: string, field: "tinhTrangKhiTra" | "ghiChu" | "soLuongDaTra" | "chiPhiBoiThuong", value: string) => {
     setTaiSanList((prev) => prev.map((ts) => (ts.id === id ? { ...ts, [field]: value } : ts)));
   };
 
@@ -949,6 +979,14 @@ export function KiemTraTinhTrangPhongGiuongPage() {
           tinhTrangVeSinh: tinhTrangVeSinh || undefined,
           ghiChuKiemTra: ghiChuKiemTra || undefined,
           coHuHong,
+          dsChiTietTaiSan: taiSanList.map((ts) => ({
+            idTaiSanBanGiao: Number(ts.id),
+            soLuongDaTra: Number(ts.soLuongDaTra) || 0,
+            tinhTrangKhiTra: ts.tinhTrangKhiTra || "Chưa kiểm tra",
+            coHuHongMatMat: !!ts.tinhTrangKhiTra && ts.tinhTrangKhiTra !== "Tốt",
+            chiPhiBoiThuong: Number(ts.chiPhiBoiThuong.replace(/[^\d]/g, "")) || 0,
+            ghiChu: ts.ghiChu || undefined,
+          })),
           dsKhauTru: khauTruList.map((kt) => ({
             loaiKhoanKhauTru: kt.loai,
             moTa: kt.moTa || undefined,

@@ -475,7 +475,8 @@ model TaiSanBanGiao {
   tinhTrang         String? @map("tinh_trang")
   ghiChu            String? @map("ghi_chu")
 
-  bienBanBanGiao  BienBanBanGiao  @relation(fields: [bienBanBanGiaoId], references: [bienBanBanGiaoId])
+  bienBanBanGiao          BienBanBanGiao          @relation(fields: [bienBanBanGiaoId], references: [bienBanBanGiaoId])
+  chiTietKiemTraTaiSans   ChiTietKiemTraTaiSan[]
 
   @@unique([bienBanBanGiaoId, tenTaiSan])
   @@map("tai_san_ban_giao")
@@ -522,13 +523,36 @@ model BienBanKiemTraTraPhong {
   trangThai          String   @default("Đang kiểm tra") @map("trang_thai")
   ngayKiemTra        DateTime @default(now()) @map("ngay_kiem_tra")
 
-  yeuCauTraPhong   YeuCauTraPhong    @relation(fields: [yeuCauTraPhongId], references: [yeuCauTraPhongId])
-  quanLy           NguoiDung         @relation("QuanLyKiemTra", fields: [quanLyId], references: [nguoiDungId])
-  khoanKhauTrus    KhoanKhauTru[]
-  nghiaVuConLais   NghiaVuConLai[]
-  doiSoatHoanCoc   DoiSoatHoanCoc?
+  yeuCauTraPhong        YeuCauTraPhong          @relation(fields: [yeuCauTraPhongId], references: [yeuCauTraPhongId])
+  quanLy                NguoiDung               @relation("QuanLyKiemTra", fields: [quanLyId], references: [nguoiDungId])
+  khoanKhauTrus         KhoanKhauTru[]
+  nghiaVuConLais        NghiaVuConLai[]
+  doiSoatHoanCoc        DoiSoatHoanCoc?
+  chiTietKiemTraTaiSans ChiTietKiemTraTaiSan[]
 
   @@map("bien_ban_kiem_tra_tra_phong")
+}
+
+// Bảng mới (bổ sung theo review) — ghi nhận TỪNG tài sản đã bàn giao lúc nhận phòng được
+// kiểm tra tình trạng ra sao lúc trả phòng (vd. "Nệm -> Bình thường", "Tủ -> Bị trầy",
+// "Chìa khóa -> Đã trả", "Thẻ từ -> Bị mất"). Trước đây chỉ có tình trạng TỔNG QUÁT
+// (BienBanKiemTraTraPhong.coHuHong) + khoản khấu trừ GỘP (KhoanKhauTru), không truy vết
+// được tình trạng của từng tài sản cụ thể.
+model ChiTietKiemTraTaiSan {
+  chiTietKiemTraId  Int     @id @default(autoincrement()) @map("chi_tiet_kiem_tra_id")
+  bienBanKiemTraId  Int     @map("bien_ban_kiem_tra_id")
+  idTaiSanBanGiao   Int     @map("id_tai_san_ban_giao")
+  soLuongDaTra      Int     @map("so_luong_da_tra")
+  tinhTrangKhiTra   String  @map("tinh_trang_khi_tra")
+  coHuHongMatMat    String  @default("Không") @map("co_hu_hong_mat_mat")
+  chiPhiBoiThuong   Float   @default(0) @map("chi_phi_boi_thuong")
+  ghiChu            String? @map("ghi_chu")
+
+  bienBanKiemTra  BienBanKiemTraTraPhong  @relation(fields: [bienBanKiemTraId], references: [bienBanKiemTraId])
+  taiSanBanGiao   TaiSanBanGiao           @relation(fields: [idTaiSanBanGiao], references: [idTaiSanBanGiao])
+
+  @@unique([bienBanKiemTraId, idTaiSanBanGiao])
+  @@map("chi_tiet_kiem_tra_tai_san")
 }
 
 model KhoanKhauTru {

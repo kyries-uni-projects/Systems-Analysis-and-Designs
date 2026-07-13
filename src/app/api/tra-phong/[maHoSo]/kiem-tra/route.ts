@@ -6,7 +6,8 @@ import { apiSuccess, apiError, withApiErrorHandling } from "@/lib/api-response";
 
 /**
  * POST /api/tra-phong/[maHoSo]/kiem-tra — UC2 Màn 3, nút "Xác nhận hoàn tất kiểm tra".
- * Body: { tinhTrangVeSinh?, ghiChuKiemTra?, coHuHong, dsKhauTru[], dsNghiaVu[] }
+ * Body: { tinhTrangVeSinh?, ghiChuKiemTra?, coHuHong, dsChiTietTaiSan[], dsKhauTru[], dsNghiaVu[] }
+ * `dsChiTietTaiSan`: [{ idTaiSanBanGiao, soLuongDaTra, tinhTrangKhiTra, coHuHongMatMat, chiPhiBoiThuong, ghiChu? }]
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ maHoSo: string }> }) {
 	const auth = await requireTraPhongRole(["quanly"]);
@@ -21,6 +22,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ maH
 		if (!Array.isArray(body?.dsKhauTru) || !Array.isArray(body?.dsNghiaVu)) {
 			return apiError("Thiếu dsKhauTru/dsNghiaVu.", 400);
 		}
+		if (!Array.isArray(body?.dsChiTietTaiSan)) {
+			return apiError("Thiếu dsChiTietTaiSan.", 400);
+		}
 
 		const bb = await BienBanKiemTraTraPhong.luu({
 			yeuCauTraPhongId: parsed.id,
@@ -28,6 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ maH
 			tinhTrangVeSinh: typeof body.tinhTrangVeSinh === "string" ? body.tinhTrangVeSinh : undefined,
 			ghiChuKiemTra: typeof body.ghiChuKiemTra === "string" ? body.ghiChuKiemTra : undefined,
 			coHuHong: !!body.coHuHong,
+			dsChiTietTaiSan: body.dsChiTietTaiSan,
 			dsKhauTru: body.dsKhauTru,
 			dsNghiaVu: body.dsNghiaVu,
 		});

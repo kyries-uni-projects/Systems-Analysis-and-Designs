@@ -9,6 +9,7 @@ import {
   type KhoanKhauTruInput,
   type NghiaVuConLaiInput,
 } from "../repositories/bienBanKiemTra.repository";
+import { ChiTietKiemTraTaiSanDB, type ChiTietKiemTraTaiSanInput } from "../repositories/chiTietKiemTraTaiSan.repository";
 import { YeuCauTraPhong } from "./yeuCauTraPhong.service";
 
 export const BienBanKiemTraTraPhong = {
@@ -16,9 +17,12 @@ export const BienBanKiemTraTraPhong = {
    * UC2 Màn 3, nút "Xác nhận hoàn tất kiểm tra". Gọi tuần tự (trong 1 transaction để đảm
    * bảo toàn vẹn — sequence diagram thể hiện các bước này là lời gọi nối tiếp nhau):
    *  1) tạo biên bản kiểm tra
-   *  2) lặp qua dsKhauTru, tạo từng KhoanKhauTru
-   *  3) lặp qua dsNghiaVu, tạo từng NghiaVuConLai
-   *  4) cập nhật YeuCauTraPhong.trangThai -> "Đã kiểm tra, chờ đối soát cọc"
+   *  2) lặp qua dsChiTietTaiSan, tạo từng ChiTietKiemTraTaiSan (SỬA — bổ sung theo review:
+   *     trước đây tình trạng TỪNG tài sản thu thập ở UI nhưng không có chỗ lưu, chỉ có tình
+   *     trạng tổng quát + khấu trừ gộp)
+   *  3) lặp qua dsKhauTru, tạo từng KhoanKhauTru
+   *  4) lặp qua dsNghiaVu, tạo từng NghiaVuConLai
+   *  5) cập nhật YeuCauTraPhong.trangThai -> "Đã kiểm tra, chờ đối soát cọc"
    *
    * SỬA (lỗi transaction giả): trước đây các bước trên gọi các hàm DB mà bản thân chúng
    * luôn dùng client toàn cục (không dùng `tx` được `$transaction` cấp) — nên KHÔNG thật sự
@@ -32,6 +36,7 @@ export const BienBanKiemTraTraPhong = {
     ghiChuKiemTra?: string;
     duongDanHinhAnh?: string;
     coHuHong: boolean;
+    dsChiTietTaiSan: ChiTietKiemTraTaiSanInput[];
     dsKhauTru: KhoanKhauTruInput[];
     dsNghiaVu: NghiaVuConLaiInput[];
   }) {
@@ -48,6 +53,9 @@ export const BienBanKiemTraTraPhong = {
         tx,
       );
 
+      for (const ct of params.dsChiTietTaiSan) {
+        await ChiTietKiemTraTaiSanDB.them(bb.bienBanKiemTraId, ct, tx);
+      }
       for (const kt of params.dsKhauTru) {
         await KhoanKhauTruDB.them(bb.bienBanKiemTraId, kt, tx);
       }
@@ -64,5 +72,10 @@ export const BienBanKiemTraTraPhong = {
   /** UC2 Màn 4 (Thành công): đọc lại biên bản vừa lưu. */
   async layThongTin(bienBanKiemTraId: number) {
     return BienBanKiemTraTraPhongDB.docThongTin(bienBanKiemTraId);
+  },
+
+  /** Đọc chi tiết tình trạng từng tài sản của 1 biên bản (dùng khi hiển thị lại/audit). */
+  async layChiTietTaiSan(bienBanKiemTraId: number) {
+    return ChiTietKiemTraTaiSanDB.layDanhSachTheoBienBan(bienBanKiemTraId);
   },
 };
