@@ -3317,6 +3317,7 @@ __metadata:
     dotenv: "npm:^17.4.2"
     eslint: "npm:^9"
     eslint-config-next: "npm:16.2.10"
+    lucide-react: "npm:^1.24.0"
     next: "npm:16.2.10"
     node-addon-api: "npm:^8.9.0"
     prisma: "npm:^7.8.0"
@@ -4004,6 +4005,15 @@ __metadata:
   version: 1.1.4
   resolution: "lru.min@npm:1.1.4"
   checksum: 10/c7041fb558fa0c39b3e14b8c711716af729a4df96af25e6a2d54f5d60d936a1e33edbabcfa3a71359f73f746763dc51da3fc679d60e2f087aa722f139f56ccd4
+  languageName: node
+  linkType: hard
+
+"lucide-react@npm:^1.24.0":
+  version: 1.24.0
+  resolution: "lucide-react@npm:1.24.0"
+  peerDependencies:
+    react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+  checksum: 10/01c5b0ce168631ad969f6b016cd2bc205d4b8d310ae468232d2dc9536e7d6df4151d25a0ff6001b72d5e371e1dd9918536bd3117c64333d437eea9a99f7cc625
   languageName: node
   linkType: hard
 
