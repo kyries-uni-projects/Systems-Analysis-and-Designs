@@ -1,10 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BedDouble, Bell, LogOut, Menu, Search, UserRound, UsersRound, X } from "lucide-react";
+import { BedDouble, Bell, ChevronDown, ChevronUp, LogOut, Menu, Search, UserRound, UsersRound, X } from "lucide-react";
 import { HomeStayLogo } from "@/components/branding/HomeStayLogo";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { canAccessWorkflowAction, getWorkflowActionHref, workflowGroups } from "@/lib/workflow-navigation";
@@ -21,6 +21,20 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 	const router = useRouter();
 	const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 	const { sessionUser, clearSession } = useAuth();
+	const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+
+	useEffect(() => {
+		const activeGroup = workflowGroups.find((group) =>
+			group.actions.some((action) => {
+				const href = getWorkflowActionHref(group, action);
+				return pathname === href || pathname.startsWith(`${href}/`);
+			}),
+		);
+		if (activeGroup) {
+			const expandTimer = window.setTimeout(() => setExpandedGroup(activeGroup.slug));
+			return () => window.clearTimeout(expandTimer);
+		}
+	}, [pathname]);
 
 	if (pathname === "/login") {
 		return children;
@@ -35,6 +49,10 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 
 	function isActive(href: string) {
 		return href === "/" ? pathname === "/" : pathname.startsWith(href);
+	}
+
+	function toggleGroup(groupSlug: string) {
+		setExpandedGroup((current) => (current === groupSlug ? null : groupSlug));
 	}
 
 	const sidebar = (
@@ -73,11 +91,15 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 						}
 
 						const isGroupActive = visibleActions.some((action) => isActive(getWorkflowActionHref(group, action)));
+						const isExpanded = expandedGroup === group.slug;
 
 						return (
 							<section key={group.slug} className="pt-2">
-								<div
-									className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium ${isGroupActive ? "bg-[#155DFC] text-white" : "text-blue-50"}`}
+								<button
+									type="button"
+									onClick={() => toggleGroup(group.slug)}
+									aria-expanded={isExpanded}
+									className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium transition ${isGroupActive || isExpanded ? "bg-[#155DFC] text-white" : "text-blue-50 hover:bg-[#2d4f7a]"}`}
 								>
 									<span className="flex min-w-0 flex-1 items-center gap-3">
 										{group.iconPath ? (
@@ -87,24 +109,31 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 										)}
 										<span className="truncate">{group.label}</span>
 									</span>
-								</div>
-								<div className="ml-6 border-l border-white/15 py-1">
-									{visibleActions.map((action) => {
-										const href = getWorkflowActionHref(group, action);
-										const isActionActive = isActive(href);
-										return (
-											<Link
-												key={action.slug}
-												href={href}
-												onClick={() => setIsSidebarOpen(false)}
-												className={`flex items-center gap-3 px-4 py-2.5 text-sm transition ${isActionActive ? "font-semibold text-white" : "text-blue-100/75 hover:text-white"}`}
-											>
-												<span className={`size-2 shrink-0 rounded-full ${isActionActive ? "bg-[#155DFC] ring-2 ring-white/25" : "bg-white/30"}`} />
-												<span className="truncate">{action.label}</span>
-											</Link>
-										);
-									})}
-								</div>
+									{isExpanded ? (
+										<ChevronUp className="size-4 shrink-0" aria-hidden="true" />
+									) : (
+										<ChevronDown className="size-4 shrink-0" aria-hidden="true" />
+									)}
+								</button>
+								{isExpanded && (
+									<div className="ml-6 border-l border-white/15 py-1">
+										{visibleActions.map((action) => {
+											const href = getWorkflowActionHref(group, action);
+											const isActionActive = isActive(href);
+											return (
+												<Link
+													key={action.slug}
+													href={href}
+													onClick={() => setIsSidebarOpen(false)}
+													className={`flex items-center gap-3 px-4 py-2.5 text-sm transition ${isActionActive ? "font-semibold text-white" : "text-blue-100/75 hover:text-white"}`}
+												>
+													<span className={`size-2 shrink-0 rounded-full ${isActionActive ? "bg-[#155DFC] ring-2 ring-white/25" : "bg-white/30"}`} />
+													<span className="truncate">{action.label}</span>
+												</Link>
+											);
+										})}
+									</div>
+								)}
 							</section>
 						);
 					})}
