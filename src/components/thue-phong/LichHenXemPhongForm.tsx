@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { AlertTriangle, CalendarDays, Check, CheckCircle2, ChevronRight, Clock, XCircle } from "lucide-react";
+import { AlertTriangle, BedDouble, Bell, CalendarDays, CalendarPlus, Check, CheckCircle2, ChevronRight, Clock, Eye, FileText, Hash, List, MonitorSmartphone, Search, User, UserCog, XCircle } from "lucide-react";
 
 // ============================================================
 // Types
@@ -134,7 +134,7 @@ function Stepper({ currentStep }: { currentStep: number }) {
 
 export default function LichHenXemPhongForm() {
 	// State management
-	const [view, setView] = useState<"list" | "form" | "success">("list");
+	const [view, setView] = useState<"list" | "rooms" | "form" | "success">("list");
 	const [yeuCauList, setYeuCauList] = useState<YeuCauListItem[]>([]);
 	const [selectedYeuCau, setSelectedYeuCau] = useState<DetailResponse | null>(null);
 	const [selectedPhongId, setSelectedPhongId] = useState<number | null>(null);
@@ -188,7 +188,7 @@ export default function LichHenXemPhongForm() {
 				throw new Error(payload.error ?? "Không thể tải chi tiết yêu cầu thuê");
 			}
 			setSelectedYeuCau(payload.data);
-			setView("form");
+			setView("rooms");
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Lỗi khi tải chi tiết yêu cầu thuê");
 		} finally {
@@ -342,10 +342,168 @@ export default function LichHenXemPhongForm() {
 	}
 
 	// ============================================================
+	// View: Rooms — Kết quả phòng phù hợp (Step 3)
+	// ============================================================
+
+	if (view === "rooms" && selectedYeuCau) {
+		const hasRooms = selectedYeuCau.phongPhuHop.length > 0;
+
+		return (
+			<div className="pb-10">
+				<div className="mb-2 flex items-center gap-2 text-sm text-[#4a5565]">
+					<span>Đăng ký thuê phòng</span>
+					<ChevronRight className="size-4" aria-hidden="true" />
+					<span className="font-medium text-[#101828]">Kết quả phòng/giường phù hợp</span>
+				</div>
+				<h1 className="text-2xl font-bold text-[#101828]">Kết quả phòng/giường phù hợp</h1>
+
+				<Stepper currentStep={2} />
+
+				{hasRooms ? (
+					<div className="mt-8">
+						<div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+							<div>
+								<label className="text-xs font-medium text-[#6a7282]">Sắp xếp</label>
+								<select className="mt-1 w-full rounded-[8px] border border-[#e5e7eb] px-3 py-2.5 text-sm text-[#101828] outline-none">
+									<option>Mặc định</option>
+								</select>
+							</div>
+							<div>
+								<label className="text-xs font-medium text-[#6a7282]">Khu vực</label>
+								<select className="mt-1 w-full rounded-[8px] border border-[#e5e7eb] px-3 py-2.5 text-sm text-[#101828] outline-none">
+									<option>Tất cả</option>
+								</select>
+							</div>
+							<div>
+								<label className="text-xs font-medium text-[#6a7282]">Loại phòng</label>
+								<select className="mt-1 w-full rounded-[8px] border border-[#e5e7eb] px-3 py-2.5 text-sm text-[#101828] outline-none">
+									<option>Tất cả</option>
+								</select>
+							</div>
+						</div>
+
+						<div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+							{selectedYeuCau.phongPhuHop.map((room) => (
+								<div key={room.phongId} className="overflow-hidden rounded-[10px] border border-[#e5e7eb] bg-white transition hover:shadow-md">
+									<div className="relative h-[180px] bg-slate-200">
+										{/* Placeholder for room image */}
+										<div className="absolute inset-0 flex items-center justify-center text-slate-400">
+											<BedDouble className="size-12 opacity-20" />
+										</div>
+										<div className="absolute right-3 top-3 rounded bg-[#00bba7] px-2 py-0.5 text-xs font-medium text-white">
+											Còn trống
+										</div>
+									</div>
+									<div className="p-5">
+										<h3 className="text-base font-bold text-[#101828]">Phòng {room.maPhong}</h3>
+										<p className="mt-1 text-xs text-[#6a7282]">
+											{room.khu ? `Khu ${room.khu}` : "Khu chung"} {room.tang ? `- Tầng ${room.tang}` : ""}
+										</p>
+										<p className="mt-1 text-xs text-[#6a7282]">Phòng {room.sucChua} người</p>
+										<p className="mt-3 text-base font-bold text-[#155dfc]">{formatPrice(room.donGia)}/tháng</p>
+
+										<div className="mt-4 flex gap-3 text-slate-400">
+											<BedDouble className="size-4" />
+											<MonitorSmartphone className="size-4" />
+										</div>
+
+										<button
+											type="button"
+											onClick={() => setSelectedPhongId(room.phongId)}
+											className={`mt-5 w-full rounded-[8px] py-2.5 text-sm font-medium transition ${
+												selectedPhongId === room.phongId ? "bg-green-600 text-white" : "bg-[#155dfc] text-white hover:bg-blue-700"
+											}`}
+										>
+											{selectedPhongId === room.phongId ? "Đã chọn" : "Chọn"}
+										</button>
+									</div>
+								</div>
+							))}
+						</div>
+
+						<div className="mt-8 flex items-center justify-between border-t border-[#e5e7eb] pt-6">
+							<button
+								type="button"
+								onClick={() => setView("list")}
+								className="rounded-[10px] border border-[#d1d5dc] bg-white px-6 py-2.5 text-sm font-medium text-[#364153] transition hover:bg-slate-50"
+							>
+								Quay lại
+							</button>
+							<button
+								type="button"
+								disabled={!selectedPhongId}
+								onClick={() => setView("form")}
+								className="rounded-[10px] bg-[#155dfc] px-6 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+							>
+								Lập lịch xem phòng
+							</button>
+						</div>
+					</div>
+				) : (
+					<div className="mx-auto mt-8 max-w-[960px]">
+						<div className="flex flex-col items-center justify-center rounded-[10px] border border-[#e5e7eb] bg-white py-20 text-center shadow-sm px-6">
+							<div className="flex size-24 items-center justify-center rounded-full bg-slate-100">
+								<Search className="size-10 text-slate-400" />
+							</div>
+							<h2 className="mt-6 text-xl font-bold text-[#101828]">Không có phòng/giường phù hợp</h2>
+							<p className="mt-2 max-w-[600px] text-sm text-[#6a7282]">
+								Hiện không tìm thấy phòng/giường còn trống và chưa được đặt cọc phù hợp với tiêu chí thuê của khách hàng.
+							</p>
+							<p className="mt-1 max-w-[600px] text-sm text-[#6a7282]">
+								Nhân viên sale có thể tư vấn khách hàng điều chỉnh lại tiêu chí thuê.
+							</p>
+
+							{/* Tiêu chí hiện tại */}
+							<div className="mt-8 w-full max-w-[800px] rounded-[10px] bg-slate-50 border border-[#e5e7eb] p-6 text-left">
+								<h3 className="font-semibold text-[#101828]">Tiêu chí hiện tại</h3>
+								<div className="mt-4 flex flex-wrap gap-3">
+									<div className="rounded-[8px] border border-[#e5e7eb] bg-white px-4 py-2.5 text-sm">
+										<span className="text-[#6a7282]">Loại thuê: </span>
+										<span className="font-medium text-[#101828]">{selectedYeuCau.yeuCau.loaiThue}</span>
+									</div>
+									<div className="rounded-[8px] border border-[#e5e7eb] bg-white px-4 py-2.5 text-sm">
+										<span className="text-[#6a7282]">Khu vực: </span>
+										<span className="font-medium text-[#101828]">{selectedYeuCau.yeuCau.khuVuc || "Tất cả khu vực"}</span>
+									</div>
+									<div className="rounded-[8px] border border-[#e5e7eb] bg-white px-4 py-2.5 text-sm">
+										<span className="text-[#6a7282]">Số người: </span>
+										<span className="font-medium text-[#101828]">{selectedYeuCau.yeuCau.soNguoiDuKien}</span>
+									</div>
+									<div className="rounded-[8px] border border-[#e5e7eb] bg-white px-4 py-2.5 text-sm">
+										<span className="text-[#6a7282]">Mức giá: </span>
+										<span className="font-medium text-[#101828]">{formatPrice(selectedYeuCau.yeuCau.giaTu || 0)} - {formatPrice(selectedYeuCau.yeuCau.giaDen || 0)}</span>
+									</div>
+								</div>
+							</div>
+
+							<div className="mt-8 flex gap-4 w-full max-w-[800px] justify-end border-t border-[#e5e7eb] pt-6">
+								<button
+									type="button"
+									onClick={() => setView("list")}
+									className="rounded-[10px] border border-[#d1d5dc] bg-white px-6 py-2.5 text-sm font-medium text-[#364153] transition hover:bg-slate-50"
+								>
+									Quay lại
+								</button>
+								<button
+									type="button"
+									onClick={() => setView("list")}
+									className="rounded-[10px] bg-[#155dfc] px-6 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
+								>
+									Điều chỉnh tiêu chí thuê
+								</button>
+							</div>
+						</div>
+					</div>
+				)}
+			</div>
+		);
+	}
+
+	// ============================================================
 	// View: Success — Kết quả tạo lịch hẹn
 	// ============================================================
 
-	if (view === "success" && result) {
+	if (view === "success" && result && selectedYeuCau) {
 		return (
 			<div className="pb-10">
 				<div className="mb-2 flex items-center gap-2 text-sm text-[#4a5565]">
@@ -357,66 +515,109 @@ export default function LichHenXemPhongForm() {
 
 				<Stepper currentStep={3} />
 
-				<div className="mx-auto mt-8 max-w-2xl">
-					{/* Kết quả thành công */}
-					<div className="rounded-xl border border-[#e5e7eb] bg-white p-8 shadow-sm">
-						<div className="flex items-start gap-4">
-							<div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-green-100">
-								<CheckCircle2 className="size-6 text-green-600" />
+				<div className="mx-auto mt-8 max-w-[960px]">
+					<div className="rounded-[10px] border border-[#e5e7eb] bg-white px-8 pb-8 pt-10 shadow-sm">
+						{/* Success Header */}
+						<div className="flex flex-col items-center text-center">
+							<div className="flex size-16 items-center justify-center rounded-full border-[3px] border-[#00bba7] bg-white">
+								<CheckCircle2 className="size-8 text-[#00bba7]" />
 							</div>
-							<div>
-								<h2 className="text-xl font-semibold text-[#101828]">Tạo lịch hẹn thành công!</h2>
-								<p className="mt-1 text-sm text-[#4a5565]">Lịch hẹn #{result.lichHen.lichHenId} đã được lưu vào hệ thống.</p>
+							<h2 className="mt-5 text-2xl font-bold text-[#101828]">Tạo lịch xem phòng thành công!</h2>
+							<p className="mt-2 text-sm text-[#6a7282]">
+								Lịch hẹn đã được lưu vào hệ thống và thông báo đã được gửi đến khách hàng qua email/SMS.
+							</p>
+						</div>
+
+						{/* Info Grid */}
+						<div className="mt-8 grid gap-x-8 gap-y-6 rounded-[10px] border border-[#e5e7eb] p-6 sm:grid-cols-2 md:grid-cols-3">
+							<div className="flex items-start gap-3">
+								<Hash className="mt-0.5 size-4 text-slate-400" />
+								<div>
+									<p className="text-xs text-[#6a7282]">Mã lịch hẹn</p>
+									<p className="text-sm font-medium text-[#101828] mt-0.5">SCH-{new Date().getFullYear()}-{String(result.lichHen.lichHenId).padStart(5, '0')}</p>
+								</div>
+							</div>
+							<div className="flex items-start gap-3">
+								<User className="mt-0.5 size-4 text-slate-400" />
+								<div>
+									<p className="text-xs text-[#6a7282]">Khách hàng</p>
+									<p className="text-sm font-medium text-[#101828] mt-0.5">{selectedYeuCau.khachHang.hoTen}</p>
+								</div>
+							</div>
+							<div className="flex items-start gap-3">
+								<MonitorSmartphone className="mt-0.5 size-4 text-slate-400" />
+								<div>
+									<p className="text-xs text-[#6a7282]">Hình thức</p>
+									<p className="text-sm font-medium text-[#101828] mt-0.5">Đến trực tiếp</p>
+								</div>
+							</div>
+							<div className="flex items-start gap-3">
+								<FileText className="mt-0.5 size-4 text-slate-400" />
+								<div>
+									<p className="text-xs text-[#6a7282]">Mã yêu cầu</p>
+									<p className="text-sm font-medium text-[#101828] mt-0.5">PCT-{new Date().getFullYear()}-{String(selectedYeuCau.yeuCau.yeuCauId).padStart(3, '0')}</p>
+								</div>
+							</div>
+							<div className="flex items-start gap-3">
+								<BedDouble className="mt-0.5 size-4 text-slate-400" />
+								<div>
+									<p className="text-xs text-[#6a7282]">Phòng/giường</p>
+									<p className="text-sm font-medium text-[#101828] mt-0.5">{result.lichHen.phong}</p>
+								</div>
+							</div>
+							<div className="flex items-start gap-3">
+								<Bell className="mt-0.5 size-4 text-slate-400" />
+								<div>
+									<p className="text-xs text-[#6a7282]">Phương thức gửi thông báo</p>
+									<p className="text-sm font-medium text-[#101828] mt-0.5">Email và SMS</p>
+								</div>
+							</div>
+							<div className="flex items-start gap-3">
+								<CalendarDays className="mt-0.5 size-4 text-slate-400" />
+								<div>
+									<p className="text-xs text-[#6a7282]">Ngày xem phòng</p>
+									<p className="text-sm font-medium text-[#101828] mt-0.5">{formatDate(result.lichHen.ngayXem)}</p>
+								</div>
+							</div>
+							<div className="flex items-start gap-3">
+								<Clock className="mt-0.5 size-4 text-slate-400" />
+								<div>
+									<p className="text-xs text-[#6a7282]">Thời gian</p>
+									<p className="text-sm font-medium text-[#101828] mt-0.5">{result.lichHen.gioBatDau} – {result.lichHen.gioKetThuc}</p>
+								</div>
+							</div>
+							<div className="flex items-start gap-3">
+								<UserCog className="mt-0.5 size-4 text-slate-400" />
+								<div>
+									<p className="text-xs text-[#6a7282]">Người tạo lịch</p>
+									<p className="text-sm font-medium text-[#101828] mt-0.5">Nguyễn Văn An</p>
+								</div>
 							</div>
 						</div>
 
-						<div className="mt-6 rounded-lg bg-slate-50 p-5">
-							<div className="grid gap-3 text-sm sm:grid-cols-2">
-								<div>
-									<span className="text-[#4a5565]">Phòng:</span>{" "}
-									<span className="font-medium text-[#101828]">{result.lichHen.phong}</span>
-								</div>
-								<div>
-									<span className="text-[#4a5565]">Ngày xem:</span>{" "}
-									<span className="font-medium text-[#101828]">{formatDate(result.lichHen.ngayXem)}</span>
-								</div>
-								<div>
-									<span className="text-[#4a5565]">Giờ bắt đầu:</span>{" "}
-									<span className="font-medium text-[#101828]">{result.lichHen.gioBatDau}</span>
-								</div>
-								<div>
-									<span className="text-[#4a5565]">Giờ kết thúc:</span>{" "}
-									<span className="font-medium text-[#101828]">{result.lichHen.gioKetThuc}</span>
-								</div>
-							</div>
+						{/* Actions */}
+						<div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+							<button
+								type="button"
+								className="inline-flex h-11 items-center gap-2 rounded-[10px] border border-[#d1d5dc] bg-white px-5 text-sm font-medium text-[#364153] transition hover:bg-slate-50"
+							>
+								<Eye className="size-4" /> Xem chi tiết lịch hẹn
+							</button>
+							<button
+								type="button"
+								onClick={handleCreateNew}
+								className="inline-flex h-11 items-center gap-2 rounded-[10px] border border-[#d1d5dc] bg-white px-5 text-sm font-medium text-[#364153] transition hover:bg-slate-50"
+							>
+								<CalendarPlus className="size-4" /> Tạo lịch hẹn khác
+							</button>
+							<button
+								type="button"
+								onClick={() => setView("list")}
+								className="inline-flex h-11 items-center gap-2 rounded-[10px] bg-[#155dfc] px-5 text-sm font-medium text-white transition hover:bg-blue-700"
+							>
+								<List className="size-4" /> Quay về danh sách yêu cầu
+							</button>
 						</div>
-
-						{/* Thông báo gửi */}
-						<div
-							className={`mt-4 flex items-start gap-3 rounded-lg border px-4 py-3 text-sm ${
-								result.thongBao.success
-									? "border-green-200 bg-green-50 text-green-700"
-									: "border-amber-200 bg-amber-50 text-amber-700"
-							}`}
-						>
-							{result.thongBao.success ? (
-								<CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-							) : (
-								<AlertTriangle className="mt-0.5 size-4 shrink-0" />
-							)}
-							{result.thongBao.message}
-						</div>
-					</div>
-
-					<div className="mt-6 flex justify-center">
-						<button
-							type="button"
-							onClick={handleCreateNew}
-							className="inline-flex h-11 items-center gap-2 rounded-lg bg-[#155DFC] px-6 text-base font-medium text-white transition hover:bg-blue-700"
-						>
-							<CalendarDays className="size-4" />
-							Tạo lịch hẹn mới
-						</button>
 					</div>
 				</div>
 			</div>
@@ -429,8 +630,9 @@ export default function LichHenXemPhongForm() {
 
 	const selectedPhong = selectedYeuCau?.phongPhuHop.find((p) => p.phongId === selectedPhongId);
 
-	return (
-		<form onSubmit={handleSubmit} className="pb-10">
+	if (view === "form") {
+		return (
+			<form onSubmit={handleSubmit} className="pb-10">
 			{/* Breadcrumb */}
 			<div className="mb-2 flex items-center gap-2 text-sm text-[#4a5565]">
 				<span>Đăng ký thuê phòng</span>
@@ -678,5 +880,8 @@ export default function LichHenXemPhongForm() {
 				</button>
 			</div>
 		</form>
-	);
+		);
+	}
+
+	return null;
 }
