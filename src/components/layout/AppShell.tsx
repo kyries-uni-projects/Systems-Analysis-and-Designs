@@ -85,12 +85,19 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 
 				{sessionUser &&
 					workflowGroups.map((group) => {
-						const visibleActions = group.actions.filter((action) => canAccessWorkflowAction(sessionUser.role, action));
+						const visibleActions = group.actions.filter((action) => canAccessWorkflowAction(sessionUser.role, action) && !action.hideInSidebar);
 						if (visibleActions.length === 0) {
 							return null;
 						}
 
-						const isGroupActive = visibleActions.some((action) => isActive(getWorkflowActionHref(group, action)));
+						const isGroupActive = group.actions.some((action) => {
+							if (!canAccessWorkflowAction(sessionUser.role, action)) return false;
+							const href = getWorkflowActionHref(group, action);
+							if (action.activePathPattern) {
+								return new RegExp(action.activePathPattern).test(pathname);
+							}
+							return isActive(href);
+						});
 						const isExpanded = expandedGroup === group.slug;
 
 						return (
@@ -119,7 +126,13 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 									<div className="ml-6 border-l border-white/15 py-1">
 										{visibleActions.map((action) => {
 											const href = getWorkflowActionHref(group, action);
-											const isActionActive = isActive(href);
+											let isActionActive = false;
+											if (action.activePathPattern) {
+												isActionActive = new RegExp(action.activePathPattern).test(pathname);
+											} else {
+												isActionActive = isActive(href);
+											}
+
 											return (
 												<Link
 													key={action.slug}

@@ -6,6 +6,8 @@ export type WorkflowAction = {
 	description: string;
 	roles: Role[];
 	href?: string;
+	hideInSidebar?: boolean;
+	activePathPattern?: string;
 };
 
 export type WorkflowGroup = {
@@ -42,17 +44,41 @@ export const workflowGroups: WorkflowGroup[] = [
 		label: "Đặt cọc và xác nhận thuê",
 		iconPath: "/icons/dat-coc.svg",
 		actions: [
-			{ slug: "lap-phieu-dat-coc", label: "Lập phiếu đặt cọc", description: "Ghi nhận khoản đặt cọc của khách hàng.", roles: ["nhanvien"] },
-			{ slug: "xac-nhan-thanh-toan", label: "Xác nhận thanh toán", description: "Xác nhận giao dịch đặt cọc đã được thanh toán.", roles: ["ketoan"] },
+			{
+				slug: "danh-sach-ho-so",
+				label: "Danh sách hồ sơ đặt cọc",
+				description: "Xem danh sách hồ sơ đặt cọc theo vai trò.",
+				roles: ["nhanvien", "quanly", "ketoan"],
+				href: "/dat-coc-xac-nhan-thue/danh-sach-ho-so",
+				activePathPattern: "^/dat-coc-xac-nhan-thue",
+			},
 			{
 				slug: "xac-nhan-thue",
-				label: "Xác nhận điều kiện đặt cọc",
+				label: "Xác nhận điều kiện cọc",
 				description: "Xác nhận điều kiện thuê sau khi hoàn tất đặt cọc.",
-				roles: ["nhanvien", "quanly"],
+				roles: ["nhanvien"],
 				href: "/dat-coc-xac-nhan-thue/xac-nhan-dieu-kien-dat-coc",
+				hideInSidebar: true,
+			},
+			{
+				slug: "xac-nhan-tinh-trang-phong",
+				label: "Xác nhận tình trạng phòng",
+				description: "Quản lý xác nhận tình trạng phòng/giường.",
+				roles: ["quanly"],
+				href: "/dat-coc-xac-nhan-thue/xac-nhan-tinh-trang-phong",
+				hideInSidebar: true,
+			},
+			{
+				slug: "lap-yeu-cau-thanh-toan",
+				label: "Thanh toán đặt cọc",
+				description: "Kế toán lập yêu cầu thanh toán cọc.",
+				roles: ["ketoan"],
+				href: "/dat-coc-xac-nhan-thue/lap-yeu-cau-thanh-toan",
+				hideInSidebar: true,
 			},
 		],
 	},
+
 	{
 		slug: "checkin",
 		label: "Nhận phòng",
