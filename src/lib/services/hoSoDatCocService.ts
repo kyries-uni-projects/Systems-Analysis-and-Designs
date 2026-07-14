@@ -20,7 +20,12 @@ const chiTietHoSoDatCocInclude = {
 	ketQuaKiemTraDieuKiens: {
 		include: { quyDinh: true },
 	},
-	yeuCauThanhToanCoc: true,
+	yeuCauThanhToanCoc: {
+		include: {
+			keToan: { select: { hoTen: true } },
+			chungTuThanhToans: { orderBy: { ngayTao: "desc" } },
+		},
+	},
 } as const;
 
 type HoSoDatCocWithRelations = Prisma.HoSoDatCocGetPayload<{ include: typeof chiTietHoSoDatCocInclude }>;
@@ -31,6 +36,7 @@ function chuanHoaHoSoDatCoc(hoSo: HoSoDatCocWithRelations) {
 	return {
 		...hoSo,
 		chiTietDatCoc,
+		chungTuThanhToan: hoSo.yeuCauThanhToanCoc?.chungTuThanhToans[0] ?? null,
 		phongId: chiTietDatCoc?.phongId ?? null,
 		giuongId: chiTietDatCoc?.giuongId ?? null,
 		phong: chiTietDatCoc?.phong ?? null,
@@ -70,7 +76,20 @@ export type XacDinhYeuCauDatCocInput = {
 	soGiuongQuyDoi: number;
 };
 
-const TRANG_THAI_DANG_GIU_CHO = ["Chờ xác nhận quản lý", "Đã xác nhận điều kiện", "Chờ thanh toán", "Đã xác nhận thanh toán"];
+export type CapNhatChungTuThanhToanInput = {
+	duongDanFile: string;
+	soTienThucNhan: number;
+	kenhThanhToan: string;
+	thoiDiemNhan: Date;
+};
+
+const TRANG_THAI_DANG_GIU_CHO = [
+	"Chờ xác nhận quản lý",
+	"Đã xác nhận điều kiện",
+	"Chờ thanh toán",
+	"Chờ xác nhận thanh toán",
+	"Đã xác nhận thanh toán",
+];
 
 function laTrangThaiPhongKhaDung(trangThai: string) {
 	return ["Trống", "DANG_HOAT_DONG", "Đang hoạt động"].includes(trangThai);
@@ -100,7 +119,7 @@ export async function layDanhSachHoSoDatCoc(role: Role) {
 
 	const hoSoDaChuanHoa = danhSach.map(chuanHoaHoSoDatCoc);
 	if (role === "quanly") {
-		return hoSoDaChuanHoa.filter((hoSo) => hoSo.trangThai === "Chờ xác nhận quản lý");
+		return hoSoDaChuanHoa.filter((hoSo) => ["Chờ xác nhận quản lý", "Chờ xác nhận thanh toán"].includes(hoSo.trangThai));
 	}
 	if (role === "ketoan") {
 		return hoSoDaChuanHoa.filter((hoSo) => hoSo.trangThai === "Đã xác nhận điều kiện" && !hoSo.yeuCauThanhToanCoc);
@@ -172,6 +191,108 @@ export async function lapYeuCauThanhToanCoc(hoSoId: number, keToanId: number) {
 		});
 		await tx.hoSoDatCoc.update({ where: { hoSoDatCocId: hoSoId }, data: { trangThai: "Chờ thanh toán" } });
 		return yeuCau;
+	});
+}
+
+/** Sale cập nhật chứng từ sau khi khách hàng đã thanh toán cọc. */
+export async function capNhatChungTuThanhToan(hoSoId: number, input: CapNhatChungTuThanhToanInput) {
+	if (!Number.isFinite(input.soTienThucNhan) || input.soTienThucNhan <= 0) {
+		throw new ApiValidationError("Số tiền thực nhận phải lớn hơn 0.");
+	}
+	if (!input.kenhThanhToan.trim()) throw new ApiValidationError("Kênh thanh toán là bắt buộc.");
+	if (Number.isNaN(input.thoiDiemNhan.getTime())) throw new ApiValidationError("Thời điểm nhận thanh toán không hợp lệ.");
+	if (input.thoiDiemNhan.getTime() > Date.now() + 5 * 60 * 1000) {
+		throw new ApiValidationError("Thời điểm nhận thanh toán không được ở tương lai.");
+	}
+
+	return prisma.$transaction(async (transaction) => {
+		const hoSo = await transaction.hoSoDatCoc.findUnique({
+			where: { hoSoDatCocId: hoSoId },
+			include: {
+				yeuCauThanhToanCoc: { include: { chungTuThanhToans: { orderBy: { ngayTao: "desc" }, take: 1 } } },
+			},
+		});
+		if (!hoSo) return null;
+		if (!hoSo.yeuCauThanhToanCoc) throw new ApiValidationError("Hồ sơ chưa có yêu cầu thanh toán cọc.");
+		if (hoSo.trangThai !== "Chờ thanh toán") {
+			throw new ApiValidationError("Hồ sơ không ở bước Sale cập nhật chứng từ thanh toán.");
+		}
+
+		const chungTuGanNhat = hoSo.yeuCauThanhToanCoc.chungTuThanhToans[0];
+		if (chungTuGanNhat && chungTuGanNhat.trangThaiXacNhan !== "Từ chối") {
+			throw new ApiValidationError("Chứng từ hiện tại đang chờ hoặc đã được Quản lý xác nhận.");
+		}
+
+		const data = {
+			duongDanFile: input.duongDanFile,
+			soTienThucNhan: input.soTienThucNhan,
+			kenhThanhToan: input.kenhThanhToan.trim(),
+			thoiDiemNhan: input.thoiDiemNhan,
+			trangThaiXacNhan: "Chờ xác nhận",
+			quanLyXacNhanId: null,
+			lyDoTuChoi: null,
+		};
+		const chungTu = chungTuGanNhat
+			? await transaction.chungTuThanhToan.update({ where: { chungTuId: chungTuGanNhat.chungTuId }, data })
+			: await transaction.chungTuThanhToan.create({
+					data: { ...data, yeuCauThanhToanId: hoSo.yeuCauThanhToanCoc.yeuCauThanhToanId },
+				});
+
+		await transaction.yeuCauThanhToanCoc.update({
+			where: { yeuCauThanhToanId: hoSo.yeuCauThanhToanCoc.yeuCauThanhToanId },
+			data: { trangThai: "Chờ xác nhận thanh toán" },
+		});
+		await transaction.hoSoDatCoc.update({
+			where: { hoSoDatCocId: hoSoId },
+			data: { trangThai: "Chờ xác nhận thanh toán", lyDoTuChoi: null },
+		});
+		return chungTu;
+	});
+}
+
+/** Quản lý xác nhận hoặc từ chối chứng từ thanh toán cọc. */
+export async function xacNhanThanhToanCoc(hoSoId: number, quanLyId: number, xacNhan: boolean, lyDoTuChoi?: string) {
+	if (!xacNhan && !lyDoTuChoi?.trim()) throw new ApiValidationError("Vui lòng nhập lý do từ chối chứng từ.");
+
+	return prisma.$transaction(async (transaction) => {
+		const hoSo = await transaction.hoSoDatCoc.findUnique({
+			where: { hoSoDatCocId: hoSoId },
+			include: {
+				yeuCauThanhToanCoc: { include: { chungTuThanhToans: { orderBy: { ngayTao: "desc" }, take: 1 } } },
+			},
+		});
+		if (!hoSo) return null;
+		if (hoSo.trangThai !== "Chờ xác nhận thanh toán" || !hoSo.yeuCauThanhToanCoc) {
+			throw new ApiValidationError("Hồ sơ không ở bước Quản lý xác nhận thanh toán cọc.");
+		}
+		const chungTu = hoSo.yeuCauThanhToanCoc.chungTuThanhToans[0];
+		if (!chungTu || chungTu.trangThaiXacNhan !== "Chờ xác nhận") {
+			throw new ApiValidationError("Không có chứng từ đang chờ xác nhận.");
+		}
+		if (xacNhan && Math.abs(chungTu.soTienThucNhan - hoSo.yeuCauThanhToanCoc.soTienCoc) > 0.01) {
+			throw new ApiValidationError("Số tiền trên chứng từ không khớp với số tiền cọc phải thu.");
+		}
+
+		const trangThaiChungTu = xacNhan ? "Đã xác nhận" : "Từ chối";
+		const trangThaiHoSo = xacNhan ? "Đã xác nhận thanh toán" : "Chờ thanh toán";
+		await transaction.chungTuThanhToan.update({
+			where: { chungTuId: chungTu.chungTuId },
+			data: {
+				quanLyXacNhanId: quanLyId,
+				trangThaiXacNhan: trangThaiChungTu,
+				lyDoTuChoi: xacNhan ? null : lyDoTuChoi?.trim(),
+			},
+		});
+		await transaction.yeuCauThanhToanCoc.update({
+			where: { yeuCauThanhToanId: hoSo.yeuCauThanhToanCoc.yeuCauThanhToanId },
+			data: { trangThai: trangThaiHoSo },
+		});
+		await transaction.hoSoDatCoc.update({
+			where: { hoSoDatCocId: hoSoId },
+			data: { trangThai: trangThaiHoSo, lyDoTuChoi: xacNhan ? null : lyDoTuChoi?.trim() },
+		});
+
+		return { xacNhan, trangThai: trangThaiHoSo, chungTuId: chungTu.chungTuId };
 	});
 }
 

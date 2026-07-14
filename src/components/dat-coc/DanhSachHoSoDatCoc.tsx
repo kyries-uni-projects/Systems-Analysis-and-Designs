@@ -34,11 +34,25 @@ function statusClass(status: string) {
 
 function actionFor(role: Role, hoSo: HoSoDatCoc) {
 	const detailHref = `/dat-coc-xac-nhan-thue/xac-nhan-dieu-kien-dat-coc?id=${hoSo.hoSoDatCocId}`;
+	const paymentConfirmationHref = `/deposit/xac-nhan-thanh-toan/${hoSo.hoSoDatCocId}`;
 	if (role === "ketoan") {
 		return { href: `/deposit/lap-yeu-cau-thanh-toan/${hoSo.hoSoDatCocId}`, label: "Lập yêu cầu" };
 	}
 	if (role === "quanly") {
-		return { href: detailHref, label: "Xác nhận" };
+		return hoSo.trangThai === "Chờ xác nhận thanh toán"
+			? { href: paymentConfirmationHref, label: "Xác nhận thanh toán" }
+			: { href: detailHref, label: "Xác nhận tình trạng" };
+	}
+	if (hoSo.trangThai === "Chờ thanh toán") {
+		return { href: `/deposit/cap-nhat-chung-tu/${hoSo.hoSoDatCocId}`, label: "Cập nhật chứng từ" };
+	}
+	if (hoSo.trangThai === "Chờ xác nhận thanh toán") {
+		return role === "admin"
+			? { href: paymentConfirmationHref, label: "Xác nhận thanh toán" }
+			: { href: `/deposit/cap-nhat-chung-tu/${hoSo.hoSoDatCocId}`, label: "Xem chứng từ" };
+	}
+	if (hoSo.trangThai === "Đã xác nhận thanh toán") {
+		return { href: paymentConfirmationHref, label: "Xem kết quả" };
 	}
 	if (["Chờ xác nhận điều kiện", "Mới tạo"].includes(hoSo.trangThai)) {
 		return { href: detailHref, label: "Xác định yêu cầu" };
