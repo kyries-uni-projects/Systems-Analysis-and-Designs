@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { AlertTriangle, Search } from "lucide-react";
+import { AlertTriangle, Plus, Search } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import type { Role } from "@/lib/auth";
 
@@ -38,9 +38,6 @@ function actionFor(role: Role, hoSo: HoSoDatCoc) {
 	}
 	if (role === "quanly") {
 		return { href: `/dat-coc-xac-nhan-thue/xac-nhan-dieu-kien-dat-coc?id=${hoSo.hoSoDatCocId}`, label: "Đối chiếu" };
-	}
-	if (hoSo.trangThai === "Chờ xác nhận điều kiện" || hoSo.trangThai === "Mới tạo") {
-		return { href: `/dat-coc-xac-nhan-thue/xac-nhan-dieu-kien-dat-coc?id=${hoSo.hoSoDatCocId}`, label: "Kiểm tra" };
 	}
 	return { href: `/deposit/lap-phieu-dat-coc?id=${hoSo.hoSoDatCocId}`, label: "Cập nhật" };
 }
@@ -111,7 +108,18 @@ export default function DanhSachHoSoDatCoc() {
 				<nav className="mb-3 text-[13px] text-slate-500" aria-label="Breadcrumb">
 					Đặt cọc &amp; xác nhận thuê &nbsp;&gt;&nbsp; Danh sách hồ sơ đặt cọc
 				</nav>
-				<h1 className="text-2xl font-bold text-[#101828]">{copy.title}</h1>
+				<div className="flex flex-wrap items-center justify-between gap-3">
+					<h1 className="text-2xl font-bold text-[#101828]">{copy.title}</h1>
+					{(role === "nhanvien" || role === "admin") && (
+						<Link
+							href="/deposit/lap-phieu-dat-coc"
+							className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#0f766e] px-4 text-sm font-semibold text-white transition hover:bg-[#0b625b]"
+						>
+							<Plus className="size-4" aria-hidden="true" />
+							Lập phiếu
+						</Link>
+					)}
+				</div>
 
 				<div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_216px_135px]">
 					<label className="relative block">

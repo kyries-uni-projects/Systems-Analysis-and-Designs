@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import type { Role } from "@/lib/auth";
 import { prisma } from "../prisma";
@@ -49,7 +50,15 @@ export type CapNhatThongTinHoSoDatCocInput = {
 		loaiThue: string;
 		khuVucMongMuon?: string;
 	};
+	ngayBatDauDuKien: Date;
+	ngayKetThucDuKien: Date;
 	lyDoTuChoi?: string;
+};
+
+type NguoiLapHoSo = {
+	username: string;
+	name: string;
+	role: Role;
 };
 
 /**
@@ -58,15 +67,6 @@ export type CapNhatThongTinHoSoDatCocInput = {
 export async function layChiTietHoSoDatCoc(hoSoId: number) {
 	const hoSo = await prisma.hoSoDatCoc.findUnique({
 		where: { hoSoDatCocId: hoSoId },
-		include: chiTietHoSoDatCocInclude,
-	});
-
-	return hoSo ? chuanHoaHoSoDatCoc(hoSo) : null;
-}
-
-export async function layHoSoDatCocMoiNhat() {
-	const hoSo = await prisma.hoSoDatCoc.findFirst({
-		orderBy: { ngayTao: "desc" },
 		include: chiTietHoSoDatCocInclude,
 	});
 
@@ -135,15 +135,72 @@ export async function capNhatThongTinHoSoDatCoc(hoSoId: number, input: CapNhatTh
 		}),
 		prisma.yeuCauThue.update({
 			where: { yeuCauId: hoSo.yeuCauId },
-			data: input.yeuCauThue,
+			data: {
+				...input.yeuCauThue,
+				thoiGianDuKienVaoO: input.ngayBatDauDuKien,
+			},
 		}),
 		prisma.hoSoDatCoc.update({
 			where: { hoSoDatCocId: hoSoId },
-			data: { lyDoTuChoi: input.lyDoTuChoi ?? null },
+			data: {
+				hinhThucThue: input.yeuCauThue.loaiThue,
+				ngayBatDauDuKien: input.ngayBatDauDuKien,
+				ngayKetThucDuKien: input.ngayKetThucDuKien,
+				lyDoTuChoi: input.lyDoTuChoi ?? null,
+			},
 		}),
 	]);
 
 	return layChiTietHoSoDatCoc(hoSoId);
+}
+
+/** Tạo mới toàn bộ hồ sơ đặt cọc từ màn hình Lập phiếu. */
+export async function taoHoSoDatCoc(input: CapNhatThongTinHoSoDatCocInput, nguoiLap: NguoiLapHoSo) {
+	return prisma.$transaction(async (transaction) => {
+		const khachHang = await transaction.khachHang.upsert({
+			where: { cccdPassport: input.khachHang.cccdPassport },
+			update: input.khachHang,
+			create: input.khachHang,
+		});
+
+		const nhanVien = await transaction.nguoiDung.upsert({
+			where: { tenDangNhap: nguoiLap.username },
+			update: {},
+			create: {
+				hoTen: nguoiLap.name,
+				tenDangNhap: nguoiLap.username,
+				matKhauHash: "session-authenticated",
+				vaiTro: nguoiLap.role === "nhanvien" ? "Sale" : nguoiLap.role,
+			},
+		});
+
+		const yeuCauThue = await transaction.yeuCauThue.create({
+			data: {
+				khachHangId: khachHang.khachHangId,
+				nhanVienId: nhanVien.nguoiDungId,
+				loaiThue: input.yeuCauThue.loaiThue,
+				khuVucMongMuon: input.yeuCauThue.khuVucMongMuon,
+				soNguoiDuKien: input.yeuCauThue.soNguoiDuKien,
+				thoiGianDuKienVaoO: input.ngayBatDauDuKien,
+				trangThai: "Đã lập hồ sơ đặt cọc",
+			},
+		});
+
+		const maHoSoDatCoc = `HSDC-${new Date().getFullYear()}-${randomUUID().slice(0, 8).toUpperCase()}`;
+		return transaction.hoSoDatCoc.create({
+			data: {
+				maHoSoDatCoc,
+				yeuCauId: yeuCauThue.yeuCauId,
+				khachHangId: khachHang.khachHangId,
+				nhanVienId: nhanVien.nguoiDungId,
+				hinhThucThue: input.yeuCauThue.loaiThue,
+				ngayBatDauDuKien: input.ngayBatDauDuKien,
+				ngayKetThucDuKien: input.ngayKetThucDuKien,
+				trangThai: "Mới tạo",
+				lyDoTuChoi: input.lyDoTuChoi ?? null,
+			},
+		});
+	});
 }
 
 /**

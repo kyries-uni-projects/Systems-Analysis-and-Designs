@@ -42,7 +42,13 @@ export const workflowGroups: WorkflowGroup[] = [
 		label: "Đặt cọc và xác nhận thuê",
 		iconPath: "/icons/dat-coc.svg",
 		actions: [
-			{ slug: "lap-phieu-dat-coc", label: "Lập phiếu đặt cọc", description: "Ghi nhận khoản đặt cọc của khách hàng.", roles: ["nhanvien"] },
+			{
+				slug: "danh-sach-ho-so-dat-coc",
+				label: "Danh sách hồ sơ đặt cọc",
+				description: "Tra cứu, lập mới và cập nhật hồ sơ đặt cọc.",
+				roles: ["nhanvien"],
+				href: "/deposit",
+			},
 			{ slug: "xac-nhan-thanh-toan", label: "Xác nhận thanh toán", description: "Xác nhận giao dịch đặt cọc đã được thanh toán.", roles: ["ketoan"] },
 			{
 				slug: "xac-nhan-thue",

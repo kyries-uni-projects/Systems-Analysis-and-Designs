@@ -119,7 +119,7 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 									<div className="ml-6 border-l border-white/15 py-1">
 										{visibleActions.map((action) => {
 											const href = getWorkflowActionHref(group, action);
-											const isActionActive = isActive(href);
+											const isActionActive = pathname === href || (href !== "/deposit" && pathname.startsWith(`${href}/`));
 											return (
 												<Link
 													key={action.slug}
