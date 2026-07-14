@@ -1,4 +1,5 @@
 import { ApiValidationError } from "@/lib/api-response";
+import { isGender } from "@/lib/gender";
 
 export interface CreateKhachHangInput {
 	hoTen: string;
@@ -14,6 +15,12 @@ export type UpdateKhachHangInput = Partial<CreateKhachHangInput>;
 
 function toOptionalString(value: unknown): string | undefined {
 	return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function toOptionalGender(value: unknown) {
+	const gender = toOptionalString(value);
+	if (gender && !isGender(gender)) throw new ApiValidationError("Giới tính không hợp lệ");
+	return gender;
 }
 
 /** Parse + validate the body of `POST /api/khach-hang`. Throws `ApiValidationError` on bad input. */
@@ -37,7 +44,7 @@ export function parseCreateKhachHangInput(body: unknown): CreateKhachHangInput {
 		hoTen: hoTen.trim(),
 		cccdPassport: cccdPassport.trim(),
 		soDienThoai: soDienThoai.trim(),
-		gioiTinh: toOptionalString(gioiTinh),
+		gioiTinh: toOptionalGender(gioiTinh),
 		quocTich: toOptionalString(quocTich),
 		email: toOptionalString(email),
 		ghiChu: toOptionalString(ghiChu),
@@ -71,7 +78,7 @@ export function parseUpdateKhachHangInput(body: unknown): UpdateKhachHangInput {
 		}
 		input.soDienThoai = soDienThoai.trim();
 	}
-	if (gioiTinh !== undefined) input.gioiTinh = toOptionalString(gioiTinh);
+	if (gioiTinh !== undefined) input.gioiTinh = toOptionalGender(gioiTinh);
 	if (quocTich !== undefined) input.quocTich = toOptionalString(quocTich);
 	if (email !== undefined) input.email = toOptionalString(email);
 	if (ghiChu !== undefined) input.ghiChu = toOptionalString(ghiChu);

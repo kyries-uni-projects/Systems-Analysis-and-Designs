@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { GENDER_OPTIONS } from "@/lib/gender";
 
 interface KhachHangFormProps {
 	khachHang?: {
@@ -86,7 +87,12 @@ export default function KhachHangForm({ khachHang }: KhachHangFormProps) {
 
 			<label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
 				Giới tính
-				<input name="gioiTinh" defaultValue={khachHang?.gioiTinh ?? ""} className={inputClass} />
+				<select name="gioiTinh" defaultValue={khachHang?.gioiTinh ?? ""} className={inputClass}>
+					<option value="">Chọn giới tính</option>
+					{GENDER_OPTIONS.map((gender) => (
+						<option key={gender} value={gender}>{gender}</option>
+					))}
+				</select>
 			</label>
 
 			<label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">

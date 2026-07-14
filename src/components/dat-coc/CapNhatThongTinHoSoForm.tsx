@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { GENDER_OPTIONS } from "@/lib/gender";
 
 type InitialData = {
 	hoSoId: number;
@@ -133,7 +134,12 @@ export default function CapNhatThongTinHoSoForm({ initialData, dieuKien = [] }: 
 							<input name="cccdPassport" required defaultValue={initialData?.khachHang.cccdPassport ?? ""} className={inputClass} />
 						</Field>
 						<Field label="Giới tính">
-							<input name="gioiTinh" defaultValue={initialData?.khachHang.gioiTinh ?? ""} className={inputClass} />
+							<select name="gioiTinh" defaultValue={initialData?.khachHang.gioiTinh ?? ""} className={inputClass}>
+								<option value="">Chọn giới tính</option>
+								{GENDER_OPTIONS.map((gender) => (
+									<option key={gender} value={gender}>{gender}</option>
+								))}
+							</select>
 						</Field>
 						<Field label="Quốc tịch">
 							<input name="quocTich" defaultValue={initialData?.khachHang.quocTich ?? ""} className={inputClass} />

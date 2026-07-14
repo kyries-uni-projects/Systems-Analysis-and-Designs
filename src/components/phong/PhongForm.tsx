@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { GENDER_OPTIONS } from "@/lib/gender";
 
 interface LoaiPhongOption {
 	idLoaiPhong: number;
@@ -111,7 +112,12 @@ export default function PhongForm({ loaiPhongs, phong }: PhongFormProps) {
 
 			<label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
 				Giới tính áp dụng
-				<input name="gioiTinhApDung" defaultValue={phong?.gioiTinhApDung ?? ""} className={inputClass} />
+				<select name="gioiTinhApDung" defaultValue={phong?.gioiTinhApDung ?? ""} className={inputClass}>
+					<option value="">Không giới hạn</option>
+					{GENDER_OPTIONS.map((gender) => (
+						<option key={gender} value={gender}>{gender}</option>
+					))}
+				</select>
 			</label>
 
 			<label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">

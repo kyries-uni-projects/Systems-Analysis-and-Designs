@@ -1,5 +1,6 @@
 import { ApiValidationError } from "@/lib/api-response";
 import type { CapNhatThongTinHoSoDatCocInput } from "@/lib/services/hoSoDatCocService";
+import { isGender } from "@/lib/gender";
 
 function optionalString(value: unknown) {
 	return typeof value === "string" && value.trim() ? value.trim() : undefined;
@@ -9,6 +10,12 @@ function requiredString(value: unknown, fieldName: string) {
 	const parsed = optionalString(value);
 	if (!parsed) throw new ApiValidationError(`${fieldName} là bắt buộc.`);
 	return parsed;
+}
+
+function optionalGender(value: unknown) {
+	const gender = optionalString(value);
+	if (gender && !isGender(gender)) throw new ApiValidationError("Giới tính không hợp lệ.");
+	return gender;
 }
 
 function requiredDate(value: unknown, fieldName: string) {
@@ -45,7 +52,7 @@ export function parseHoSoDatCocInput(body: unknown): CapNhatThongTinHoSoDatCocIn
 		khachHang: {
 			hoTen: requiredString(customer.hoTen, "Họ và tên"),
 			cccdPassport: requiredString(customer.cccdPassport, "Số CCCD"),
-			gioiTinh: optionalString(customer.gioiTinh),
+			gioiTinh: optionalGender(customer.gioiTinh),
 			quocTich: optionalString(customer.quocTich),
 			soDienThoai: requiredString(customer.soDienThoai, "Số điện thoại"),
 			email: optionalString(customer.email),
