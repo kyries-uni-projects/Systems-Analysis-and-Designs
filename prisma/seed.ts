@@ -1,12 +1,11 @@
 // prisma/seed.ts
-// Dữ liệu mẫu để test end-to-end 5 UC của Nhóm 4 (Trả phòng & Hoàn cọc). Chạy: yarn db:seed
+// Dữ liệu mẫu để test end-to-end 5 UC của Nhóm 4 (Trả phòng & Hoàn cọc), theo đúng schema
+// v7 (HopDong 1:1 HoSoNhanPhong, phòng/giường ở ChiTietHopDong — nhiều dòng/hợp đồng).
+// Chạy: yarn db:seed
 //
 // LƯU Ý: 4 tài khoản NguoiDung tạo dưới đây có `tenDangNhap` khớp CHÍNH XÁC với
-// `demoAccounts` trong src/lib/auth.ts (nguồn xác thực thật của cả app). Cột `matKhauHash`
-// ở đây KHÔNG được dùng để xác thực (login hiện tại so khớp thẳng với demoAccounts, không
-// tra DB) — chỉ tồn tại vì đây là cột NOT NULL trong schema. `src/lib/traPhongSession.ts`
-// tra bảng NguoiDung THEO tenDangNhap để lấy `nguoiDungId` thật cho các cột khóa ngoại của
-// Nhóm 4 (quanLyId, keToanId, nhanVienId...).
+// `demoAccounts` trong src/lib/auth.ts. Cột `matKhauHash` KHÔNG dùng để xác thực (login so
+// khớp thẳng với demoAccounts, không tra DB) — chỉ tồn tại vì là cột NOT NULL trong schema.
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
@@ -23,19 +22,24 @@ async function main() {
 	await prisma.doiSoatHoanCoc.deleteMany();
 	await prisma.nghiaVuConLai.deleteMany();
 	await prisma.khoanKhauTru.deleteMany();
+	await prisma.chiTietKiemTraTaiSan.deleteMany();
 	await prisma.bienBanKiemTraTraPhong.deleteMany();
 	await prisma.yeuCauTraPhong.deleteMany();
 	await prisma.taiSanBanGiao.deleteMany();
+	await prisma.taiSanMacDinh.deleteMany();
 	await prisma.bienBanBanGiao.deleteMany();
 	await prisma.ketQuaKiemTraDieuKien.deleteMany();
+	await prisma.khoanThuDauKy.deleteMany();
+	await prisma.khoanPhiHopDong.deleteMany();
 	await prisma.khoanPhiDichVu.deleteMany();
+	await prisma.chiTietHopDong.deleteMany();
+	await prisma.hopDong.deleteMany();
 	await prisma.pheDuyetLuuTru.deleteMany();
 	await prisma.thanhVienLuuTru.deleteMany();
-	await prisma.khoanThuDauKy.deleteMany();
 	await prisma.hoSoNhanPhong.deleteMany();
-	await prisma.hopDong.deleteMany();
 	await prisma.chungTuThanhToan.deleteMany();
 	await prisma.yeuCauThanhToanCoc.deleteMany();
+	await prisma.chiTietDatCoc.deleteMany();
 	await prisma.hoSoDatCoc.deleteMany();
 	await prisma.lichHenXemPhong.deleteMany();
 	await prisma.yeuCauThue.deleteMany();
@@ -61,7 +65,7 @@ async function main() {
 	});
 	void admin;
 
-	console.log("Tạo danh mục loại phòng, mẫu nội quy...");
+	console.log("Tạo danh mục loại phòng, mẫu nội quy, danh mục tài sản mặc định...");
 	const loaiPhongDon = await prisma.loaiPhong.create({ data: { tenLoaiPhong: "Phòng đơn", donGia: 3_000_000 } });
 	const loaiPhongTapThe = await prisma.loaiPhong.create({ data: { tenLoaiPhong: "Phòng tập thể", donGia: 1_500_000 } });
 
@@ -74,32 +78,38 @@ async function main() {
 		},
 	});
 
+	const [tsGiuong, tsTu, tsBan, tsGhe] = await Promise.all(
+		["Giường tầng", "Tủ quần áo", "Bàn học", "Ghế"].map((tenTaiSan) =>
+			prisma.taiSanMacDinh.create({ data: { tenTaiSan } }),
+		),
+	);
+
 	console.log("Tạo phòng & giường...");
 	const phongA101 = await prisma.phong.create({
-		data: { maPhong: "A-101", khu: "A", tang: 1, idLoaiPhong: loaiPhongTapThe.idLoaiPhong, sucChua: 4, trangThai: "Đang sử dụng" },
+		data: { maPhong: "A-101", khu: "A", tang: 1, idLoaiPhong: loaiPhongTapThe.idLoaiPhong, sucChua: 4, trangThai: "DANG_HOAT_DONG" },
 	});
 	const giuongA101G1 = await prisma.giuong.create({ data: { phongId: phongA101.phongId, maGiuongLocal: "G1", trangThai: "Đang sử dụng" } });
 
 	const phongB201 = await prisma.phong.create({
-		data: { maPhong: "B-201", khu: "B", tang: 2, idLoaiPhong: loaiPhongDon.idLoaiPhong, sucChua: 1, trangThai: "Đang sử dụng" },
+		data: { maPhong: "B-201", khu: "B", tang: 2, idLoaiPhong: loaiPhongDon.idLoaiPhong, sucChua: 1, trangThai: "DANG_HOAT_DONG" },
 	});
 
 	const phongD404 = await prisma.phong.create({
-		data: { maPhong: "D-404", khu: "D", tang: 4, idLoaiPhong: loaiPhongTapThe.idLoaiPhong, sucChua: 4, trangThai: "Đang sử dụng" },
+		data: { maPhong: "D-404", khu: "D", tang: 4, idLoaiPhong: loaiPhongTapThe.idLoaiPhong, sucChua: 4, trangThai: "DANG_HOAT_DONG" },
 	});
 	const giuongD404G2 = await prisma.giuong.create({ data: { phongId: phongD404.phongId, maGiuongLocal: "G2", trangThai: "Đang sử dụng" } });
 
 	const phongC303 = await prisma.phong.create({
-		data: { maPhong: "C-303", khu: "C", tang: 3, idLoaiPhong: loaiPhongTapThe.idLoaiPhong, sucChua: 4, trangThai: "Đang sử dụng" },
+		data: { maPhong: "C-303", khu: "C", tang: 3, idLoaiPhong: loaiPhongTapThe.idLoaiPhong, sucChua: 4, trangThai: "DANG_HOAT_DONG" },
 	});
 	const giuongC303G1 = await prisma.giuong.create({ data: { phongId: phongC303.phongId, maGiuongLocal: "G1", trangThai: "Đang sử dụng" } });
 
 	const phongB202 = await prisma.phong.create({
-		data: { maPhong: "B-202", khu: "B", tang: 2, idLoaiPhong: loaiPhongDon.idLoaiPhong, sucChua: 1, trangThai: "Đang sử dụng" },
+		data: { maPhong: "B-202", khu: "B", tang: 2, idLoaiPhong: loaiPhongDon.idLoaiPhong, sucChua: 1, trangThai: "DANG_HOAT_DONG" },
 	});
 
 	const phongE505 = await prisma.phong.create({
-		data: { maPhong: "E-505", khu: "E", tang: 5, idLoaiPhong: loaiPhongTapThe.idLoaiPhong, sucChua: 4, trangThai: "Đang sử dụng" },
+		data: { maPhong: "E-505", khu: "E", tang: 5, idLoaiPhong: loaiPhongTapThe.idLoaiPhong, sucChua: 4, trangThai: "DANG_HOAT_DONG" },
 	});
 	const giuongE505G2 = await prisma.giuong.create({ data: { phongId: phongE505.phongId, maGiuongLocal: "G2", trangThai: "Đang sử dụng" } });
 
@@ -118,6 +128,12 @@ async function main() {
 		),
 	);
 
+	let dem = 0;
+	const maTiepTheo = (tienTo: string) => `${tienTo}-2025-${String(++dem).padStart(6, "0")}`;
+
+	// Dựng trọn chuỗi: YeuCauThue -> HoSoDatCoc -> ChiTietDatCoc -> HoSoNhanPhong -> HopDong
+	// -> ChiTietHopDong (1 phòng) -> BienBanBanGiao (+ 4 tài sản mặc định), trả về
+	// chiTietHopDongId (khóa cần cho YeuCauTraPhong của Nhóm 4) và hopDongId.
 	async function taoHopDongDaKy(params: {
 		khachHangId: number;
 		phongId: number;
@@ -127,61 +143,74 @@ async function main() {
 		ngayKetThuc: Date;
 		tienCocGoc: number;
 		trangThaiHopDong: string;
-		soThangLuuTru: number;
 	}) {
+		const hinhThucThue = params.giuongId ? "Theo giường" : "Nguyên phòng";
+
 		const yc = await prisma.yeuCauThue.create({
-			data: {
-				khachHangId: params.khachHangId,
-				nhanVienId: nhanVien.nguoiDungId,
-				loaiThue: params.giuongId ? "Theo giường" : "Nguyên phòng",
-				soNguoiDuKien: 1,
-				trangThai: "Đã xử lý",
-			},
+			data: { khachHangId: params.khachHangId, nhanVienId: nhanVien.nguoiDungId, loaiThue: hinhThucThue, soNguoiDuKien: 1, trangThai: "Đã xử lý" },
 		});
 		const hoSoDatCoc = await prisma.hoSoDatCoc.create({
 			data: {
+				maHoSoDatCoc: maTiepTheo("DC"),
 				yeuCauId: yc.yeuCauId,
 				khachHangId: params.khachHangId,
+				nhanVienId: nhanVien.nguoiDungId,
+				hinhThucThue,
+				ngayBatDauDuKien: params.ngayBatDau,
+				ngayKetThucDuKien: params.ngayKetThuc,
+				trangThai: "DA_XAC_NHAN",
+			},
+		});
+		const chiTietDatCoc = await prisma.chiTietDatCoc.create({
+			data: {
+				hoSoDatCocId: hoSoDatCoc.hoSoDatCocId,
 				phongId: params.phongId,
 				giuongId: params.giuongId,
-				hinhThucThue: params.giuongId ? "Theo giường" : "Nguyên phòng",
-				soGiuongThue: 1,
-				nhanVienId: nhanVien.nguoiDungId,
+				giaThueThoaThuan: params.giuongId ? 1_500_000 : 3_000_000,
+				tienCocPhanBo: params.tienCocGoc,
 				quanLyXacNhanId: quanLy.nguoiDungId,
-				trangThai: "Đã xác nhận",
+				thoiDiemXacNhan: new Date(),
+				trangThai: "DA_XAC_NHAN",
+			},
+		});
+		const hoSoNhanPhong = await prisma.hoSoNhanPhong.create({
+			data: {
+				maHoSoNhanPhong: maTiepTheo("NP"),
+				hoSoDatCocId: hoSoDatCoc.hoSoDatCocId,
+				nhanVienId: nhanVien.nguoiDungId,
+				trangThai: "Đã duyệt",
 			},
 		});
 		const hopDong = await prisma.hopDong.create({
 			data: {
 				maHopDong: params.maHopDong,
+				hoSoNhanPhongId: hoSoNhanPhong.hoSoNhanPhongId,
 				khachHangId: params.khachHangId,
 				nhanVienId: nhanVien.nguoiDungId,
 				idMauNoiQuy: mauNoiQuy.idMauNoiQuy,
-				ngayBatDau: params.ngayBatDau,
-				ngayKetThuc: params.ngayKetThuc,
 				tienCocGoc: params.tienCocGoc,
 				trangThai: params.trangThaiHopDong,
 				ngayKy: params.ngayBatDau,
 			},
 		});
-		const hoSoNhanPhong = await prisma.hoSoNhanPhong.create({
+		const chiTietHopDong = await prisma.chiTietHopDong.create({
 			data: {
-				hoSoDatCocId: hoSoDatCoc.hoSoDatCocId,
 				hopDongId: hopDong.hopDongId,
-				nhanVienId: nhanVien.nguoiDungId,
-				ngayBatDauCuTru: params.ngayBatDau,
-				thoiHanThuetThang: params.soThangLuuTru,
+				chiTietDatCocId: chiTietDatCoc.chiTietDatCocId,
+				phongId: params.phongId,
+				giuongId: params.giuongId,
+				hinhThucThue,
 				giaThueThoaThuan: params.giuongId ? 1_500_000 : 3_000_000,
-				trangThai: "Đang thuê",
+				tienCocPhanBo: params.tienCocGoc,
+				ngayBatDau: params.ngayBatDau,
+				ngayKetThuc: params.ngayKetThuc,
+				trangThai: "Đang hiệu lực",
 			},
 		});
-		return { hoSoNhanPhongId: hoSoNhanPhong.hoSoNhanPhongId, maHopDong: hopDong.maHopDong };
-	}
 
-	async function taoBienBanBanGiao(hoSoNhanPhongId: number) {
 		const bbbg = await prisma.bienBanBanGiao.create({
 			data: {
-				hoSoNhanPhongId,
+				hopDongId: hopDong.hopDongId,
 				quanLyId: quanLy.nguoiDungId,
 				tinhTrangVeSinh: "Sạch sẽ",
 				xacNhanKyKhach: "Đã ký",
@@ -191,18 +220,20 @@ async function main() {
 		});
 		await prisma.taiSanBanGiao.createMany({
 			data: [
-				{ bienBanBanGiaoId: bbbg.bienBanBanGiaoId, tenTaiSan: "Giường tầng", soLuong: 1, tinhTrang: "Tốt" },
-				{ bienBanBanGiaoId: bbbg.bienBanBanGiaoId, tenTaiSan: "Tủ quần áo", soLuong: 1, tinhTrang: "Tốt" },
-				{ bienBanBanGiaoId: bbbg.bienBanBanGiaoId, tenTaiSan: "Bàn học", soLuong: 1, tinhTrang: "Tốt" },
-				{ bienBanBanGiaoId: bbbg.bienBanBanGiaoId, tenTaiSan: "Ghế", soLuong: 1, tinhTrang: "Tốt" },
+				{ bienBanBanGiaoId: bbbg.bienBanBanGiaoId, idTaiSanMacDinh: tsGiuong.idTaiSanMacDinh, soLuong: 1, tinhTrang: "Tốt" },
+				{ bienBanBanGiaoId: bbbg.bienBanBanGiaoId, idTaiSanMacDinh: tsTu.idTaiSanMacDinh, soLuong: 1, tinhTrang: "Tốt" },
+				{ bienBanBanGiaoId: bbbg.bienBanBanGiaoId, idTaiSanMacDinh: tsBan.idTaiSanMacDinh, soLuong: 1, tinhTrang: "Tốt" },
+				{ bienBanBanGiaoId: bbbg.bienBanBanGiaoId, idTaiSanMacDinh: tsGhe.idTaiSanMacDinh, soLuong: 1, tinhTrang: "Tốt" },
 			],
 		});
+
+		return { hopDongId: hopDong.hopDongId, chiTietHopDongId: chiTietHopDong.chiTietHopDongId };
 	}
 
 	const nam = (n: number) => new Date(Date.UTC(2025, n - 1, 1));
 
 	console.log("Kịch bản S1 — HĐ đang cho thuê, CHƯA đăng ký trả phòng (test UC1 từ đầu)...");
-	const s1 = await taoHopDongDaKy({
+	await taoHopDongDaKy({
 		khachHangId: khKhoa.khachHangId,
 		phongId: phongA101.phongId,
 		giuongId: giuongA101G1.giuongId,
@@ -211,12 +242,10 @@ async function main() {
 		ngayKetThuc: nam(9),
 		tienCocGoc: 3_000_000,
 		trangThaiHopDong: "Đang cho thuê",
-		soThangLuuTru: 6,
 	});
-	await taoBienBanBanGiao(s1.hoSoNhanPhongId);
 
 	console.log("Kịch bản S2 — HĐ đã hết hạn, CHƯA đăng ký trả phòng (test UC1 nhánh A4)...");
-	const s2 = await taoHopDongDaKy({
+	await taoHopDongDaKy({
 		khachHangId: khLan.khachHangId,
 		phongId: phongB201.phongId,
 		maHopDong: "HD-2025-000222",
@@ -224,9 +253,7 @@ async function main() {
 		ngayKetThuc: nam(4),
 		tienCocGoc: 4_000_000,
 		trangThaiHopDong: "Đã hết hạn",
-		soThangLuuTru: 2,
 	});
-	await taoBienBanBanGiao(s2.hoSoNhanPhongId);
 
 	console.log("Kịch bản S3 — đã đăng ký trả phòng, sẵn sàng cho UC2 (Quản lý kiểm tra)...");
 	const s3 = await taoHopDongDaKy({
@@ -238,12 +265,10 @@ async function main() {
 		ngayKetThuc: nam(12),
 		tienCocGoc: 2_500_000,
 		trangThaiHopDong: "Đang cho thuê",
-		soThangLuuTru: 6,
 	});
-	await taoBienBanBanGiao(s3.hoSoNhanPhongId);
 	await prisma.yeuCauTraPhong.create({
 		data: {
-			hoSoNhanPhongId: s3.hoSoNhanPhongId,
+			chiTietHopDongId: s3.chiTietHopDongId,
 			nhanVienId: nhanVien.nguoiDungId,
 			ngayTraPhongDuKien: nam(12),
 			gioTraPhong: "14:00",
@@ -263,12 +288,10 @@ async function main() {
 		ngayKetThuc: nam(5),
 		tienCocGoc: 2_800_000,
 		trangThaiHopDong: "Đang cho thuê",
-		soThangLuuTru: 4,
 	});
-	await taoBienBanBanGiao(s4.hoSoNhanPhongId);
 	const yc4 = await prisma.yeuCauTraPhong.create({
 		data: {
-			hoSoNhanPhongId: s4.hoSoNhanPhongId,
+			chiTietHopDongId: s4.chiTietHopDongId,
 			nhanVienId: nhanVien.nguoiDungId,
 			ngayTraPhongDuKien: nam(5),
 			gioTraPhong: "10:00",
@@ -295,12 +318,10 @@ async function main() {
 		ngayKetThuc: nam(5),
 		tienCocGoc: 4_000_000,
 		trangThaiHopDong: "Đã hết hạn",
-		soThangLuuTru: 8,
 	});
-	await taoBienBanBanGiao(s5.hoSoNhanPhongId);
 	const yc5 = await prisma.yeuCauTraPhong.create({
 		data: {
-			hoSoNhanPhongId: s5.hoSoNhanPhongId,
+			chiTietHopDongId: s5.chiTietHopDongId,
 			nhanVienId: nhanVien.nguoiDungId,
 			ngayTraPhongDuKien: nam(5),
 			coHetHanTheoLich: "Có",
@@ -320,6 +341,7 @@ async function main() {
 	});
 	await prisma.doiSoatHoanCoc.create({
 		data: {
+			yeuCauTraPhongId: yc5.yeuCauTraPhongId,
 			bienBanKiemTraId: bbkt5.bienBanKiemTraId,
 			keToanId: keToan.nguoiDungId,
 			tienCocGoc: 4_000_000,
@@ -343,12 +365,10 @@ async function main() {
 		ngayKetThuc: nam(5),
 		tienCocGoc: 2_800_000,
 		trangThaiHopDong: "Đang cho thuê",
-		soThangLuuTru: 4,
 	});
-	await taoBienBanBanGiao(s6.hoSoNhanPhongId);
 	const yc6 = await prisma.yeuCauTraPhong.create({
 		data: {
-			hoSoNhanPhongId: s6.hoSoNhanPhongId,
+			chiTietHopDongId: s6.chiTietHopDongId,
 			nhanVienId: nhanVien.nguoiDungId,
 			ngayTraPhongDuKien: nam(5),
 			coHetHanTheoLich: "Không",
@@ -365,6 +385,7 @@ async function main() {
 	});
 	await prisma.doiSoatHoanCoc.create({
 		data: {
+			yeuCauTraPhongId: yc6.yeuCauTraPhongId,
 			bienBanKiemTraId: bbkt6.bienBanKiemTraId,
 			keToanId: keToan.nguoiDungId,
 			tienCocGoc: 2_800_000,

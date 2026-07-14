@@ -10,9 +10,14 @@ export const DoiSoatHoanCocDB = {
    * hàng đã đồng ý (xacNhanKhachHang = "Đã đồng ý", là điều kiện tiên quyết để gọi luu()),
    * nên để mặc định schema "Chờ xác nhận" là sai ngay từ lúc tạo, gây lệch với
    * xacNhanKhachHang.
+   * SỬA (schema v7 — lỗi thật, bỏ sót ở lần review trước): DoiSoatHoanCoc giờ có field
+   * `yeuCauTraPhongId` BẮT BUỘC (unique, không có default) — trước đây hàm này không nhận
+   * field này, khiến Prisma từ chối câu lệnh tạo (toàn bộ transaction thất bại, hiện "Lỗi
+   * hệ thống" khi bấm "Xác nhận đối soát").
    */
   async them(
     data: {
+      yeuCauTraPhongId: number;
       bienBanKiemTraId: number;
       keToanId: number;
       tienCocGoc: number;
@@ -28,11 +33,10 @@ export const DoiSoatHoanCocDB = {
     return db.doiSoatHoanCoc.create({ data: { ...data, trangThai: "Đã xác nhận" } });
   },
 
-  /** Tìm theo yeuCauTraPhongId (đi qua bienBanKiemTraTraPhong) — dùng ở UC3 M4, UC4, UC5. */
+  /** Tìm theo yeuCauTraPhongId — SỬA (schema v7): giờ đọc trực tiếp field này trên
+   *  DoiSoatHoanCoc (trước đây phải đi vòng qua bienBanKiemTra, nay bienBanKiemTraId là
+   *  optional nên đường vòng cũ không còn đáng tin). */
   async timTheoYeuCauTraPhongId(yeuCauTraPhongId: number, db: Db = prisma) {
-    return db.doiSoatHoanCoc.findFirst({
-      where: { bienBanKiemTra: { yeuCauTraPhongId } },
-      include: { bienBanKiemTra: true },
-    });
+    return db.doiSoatHoanCoc.findUnique({ where: { yeuCauTraPhongId } });
   },
 };

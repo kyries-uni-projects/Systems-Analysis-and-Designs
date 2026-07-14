@@ -20,10 +20,10 @@ export const BienBanTraPhong = {
    */
   async luu(params: {
     yeuCauTraPhongId: number;
-    hoSoNhanPhongId: number;
+    chiTietHopDongId: number;
+    hopDongId: number;
     doiSoatId: number;
     quanLyId: number;
-    maHopDong: string;
     ngayTraPhongThucTe: Date;
     tinhTrangBanGiaoCuoi?: string;
   }) {
@@ -38,7 +38,7 @@ export const BienBanTraPhong = {
         },
         tx,
       );
-      await HopDong.capNhatTrangThaiNeuHetPhong(params.maHopDong, params.hoSoNhanPhongId, tx);
+      await HopDong.capNhatTrangThaiNeuHetPhong(params.hopDongId, params.chiTietHopDongId, tx);
       return bb;
     });
   },

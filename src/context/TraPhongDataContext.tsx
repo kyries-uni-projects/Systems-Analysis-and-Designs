@@ -19,7 +19,8 @@ export type TrangThaiHoSo =
 export type HoSoTraPhong = {
 	maHoSo: string;
 	yeuCauTraPhongId: number;
-	hoSoNhanPhongId: number | null;
+	hopDongId: number | null;
+	chiTietHopDongId: number | null;
 	phongId: number | null;
 	giuongId: number | null;
 	soHopDong: string;
@@ -61,7 +62,8 @@ function soThangGiua(tuISO: string | null | undefined, denISO: string | null | u
 type RawHoSo = {
 	yeuCauTraPhongId: number;
 	maHoSo: string;
-	hoSoNhanPhongId: number | null;
+	hopDongId: number | null;
+	chiTietHopDongId: number | null;
 	phongId: number | null;
 	giuongId: number | null;
 	soHopDong: string;
@@ -86,7 +88,8 @@ function mapRaw(hs: RawHoSo): HoSoTraPhong {
 	return {
 		maHoSo: hs.maHoSo,
 		yeuCauTraPhongId: hs.yeuCauTraPhongId,
-		hoSoNhanPhongId: hs.hoSoNhanPhongId,
+		hopDongId: hs.hopDongId,
+		chiTietHopDongId: hs.chiTietHopDongId,
 		phongId: hs.phongId,
 		giuongId: hs.giuongId,
 		soHopDong: hs.soHopDong,

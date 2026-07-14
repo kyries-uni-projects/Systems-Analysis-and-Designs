@@ -44,7 +44,7 @@ type ViewState =
   | "success";
 
 type HopDongInfo = {
-  hoSoNhanPhongId: number; // khóa thật — cần để tạo hồ sơ trả phòng (YeuCauTraPhong.taoMoi)
+  chiTietHopDongId: number; // khóa thật — cần để tạo hồ sơ trả phòng (YeuCauTraPhong.taoMoi)
   soHopDong: string;
   khachHang: string;
   phongGiuong: string;
@@ -57,7 +57,7 @@ type HopDongInfo = {
 // Shape thô trả về từ GET /api/hop-dong/tim-kiem (HopDongInfo ở tầng BUS, số/ngày thật).
 type HopDongApiRaw = {
   maHopDong: string;
-  hoSoNhanPhongId: number | null;
+  chiTietHopDongId: number | null;
   khachHang: string;
   phongGiuong: string;
   ngayBatDau: string;
@@ -74,9 +74,9 @@ function formatDate(iso: string): string {
 }
 
 function toDisplayContract(raw: HopDongApiRaw): HopDongInfo | null {
-  if (raw.hoSoNhanPhongId == null) return null; // hợp đồng lỗi dữ liệu, chưa gán phòng nào
+  if (raw.chiTietHopDongId == null) return null; // hợp đồng lỗi dữ liệu, chưa gán phòng nào
   return {
-    hoSoNhanPhongId: raw.hoSoNhanPhongId,
+    chiTietHopDongId: raw.chiTietHopDongId,
     soHopDong: raw.maHopDong,
     khachHang: raw.khachHang,
     phongGiuong: raw.phongGiuong,

@@ -6,8 +6,6 @@ export type WorkflowAction = {
 	description: string;
 	roles: Role[];
 	href?: string;
-	hideInSidebar?: boolean;
-	activePathPattern?: string;
 };
 
 export type WorkflowGroup = {
@@ -44,41 +42,17 @@ export const workflowGroups: WorkflowGroup[] = [
 		label: "Đặt cọc và xác nhận thuê",
 		iconPath: "/icons/dat-coc.svg",
 		actions: [
-			{
-				slug: "danh-sach-ho-so",
-				label: "Danh sách hồ sơ đặt cọc",
-				description: "Xem danh sách hồ sơ đặt cọc theo vai trò.",
-				roles: ["nhanvien", "quanly", "ketoan"],
-				href: "/dat-coc-xac-nhan-thue/danh-sach-ho-so",
-				activePathPattern: "^/dat-coc-xac-nhan-thue",
-			},
+			{ slug: "lap-phieu-dat-coc", label: "Lập phiếu đặt cọc", description: "Ghi nhận khoản đặt cọc của khách hàng.", roles: ["nhanvien"] },
+			{ slug: "xac-nhan-thanh-toan", label: "Xác nhận thanh toán", description: "Xác nhận giao dịch đặt cọc đã được thanh toán.", roles: ["ketoan"] },
 			{
 				slug: "xac-nhan-thue",
-				label: "Xác nhận điều kiện cọc",
+				label: "Xác nhận điều kiện đặt cọc",
 				description: "Xác nhận điều kiện thuê sau khi hoàn tất đặt cọc.",
-				roles: ["nhanvien"],
+				roles: ["nhanvien", "quanly"],
 				href: "/dat-coc-xac-nhan-thue/xac-nhan-dieu-kien-dat-coc",
-				hideInSidebar: true,
-			},
-			{
-				slug: "xac-nhan-tinh-trang-phong",
-				label: "Xác nhận tình trạng phòng",
-				description: "Quản lý xác nhận tình trạng phòng/giường.",
-				roles: ["quanly"],
-				href: "/dat-coc-xac-nhan-thue/xac-nhan-tinh-trang-phong",
-				hideInSidebar: true,
-			},
-			{
-				slug: "lap-yeu-cau-thanh-toan",
-				label: "Thanh toán đặt cọc",
-				description: "Kế toán lập yêu cầu thanh toán cọc.",
-				roles: ["ketoan"],
-				href: "/dat-coc-xac-nhan-thue/lap-yeu-cau-thanh-toan",
-				hideInSidebar: true,
 			},
 		],
 	},
-
 	{
 		slug: "checkin",
 		label: "Nhận phòng",
@@ -88,11 +62,11 @@ export const workflowGroups: WorkflowGroup[] = [
 				slug: "kiem-tra-thong-tin",
 				label: "Kiểm tra thông tin",
 				description: "Đối chiếu hồ sơ, người thuê và phòng trước khi nhận phòng.",
-				roles: ["nhanvien"],
+				roles: ["nhanvien", "quanly"],
 			},
 			{ slug: "phe-duyet-ho-so", label: "Phê duyệt hồ sơ", description: "Phê duyệt hồ sơ đủ điều kiện nhận phòng.", roles: ["quanly"] },
-			{ slug: "ban-giao-phong", label: "Bàn giao phòng", description: "Ghi nhận tình trạng và thực hiện bàn giao phòng.", roles: ["quanly"] },
-			{ slug: "lap-hop-dong", label: "Lập hợp đồng", description: "Tạo hợp đồng thuê cho hồ sơ đã được phê duyệt.", roles: ["nhanvien"] },
+			{ slug: "ban-giao-phong", label: "Bàn giao phòng", description: "Ghi nhận tình trạng và thực hiện bàn giao phòng.", roles: ["nhanvien"] },
+			{ slug: "lap-hop-dong", label: "Lập hợp đồng", description: "Tạo hợp đồng thuê cho hồ sơ đã được phê duyệt.", roles: ["nhanvien", "quanly"] },
 			{
 				slug: "thanh-toan-dau-ky",
 				label: "Thanh toán đầu kỳ",

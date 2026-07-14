@@ -48,6 +48,7 @@ export const DoiSoatHoanCoc = {
     return prisma.$transaction(async (tx) => {
       const doiSoat = await DoiSoatHoanCocDB.them(
         {
+          yeuCauTraPhongId: params.yeuCauTraPhongId,
           bienBanKiemTraId: params.bienBanKiemTraId,
           keToanId: params.keToanId,
           tienCocGoc: params.tienCocGoc,

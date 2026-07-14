@@ -74,6 +74,16 @@ export const BienBanKiemTraTraPhong = {
     return BienBanKiemTraTraPhongDB.docThongTin(bienBanKiemTraId);
   },
 
+  /**
+   * UC3 Màn 2 (Khấu trừ phát sinh): đọc lại danh sách khoản khấu trừ Quản lý đã ghi nhận ở
+   * UC2, để Kế toán thấy ngay khi mở hồ sơ (thay vì phải gõ lại từ đầu — đây chính là lỗi
+   * đã sửa: trước đây UC3 không hề gọi hàm này, màn "Khấu trừ phát sinh" luôn trống).
+   */
+  async layDsKhauTru(bienBanKiemTraId: number) {
+    const bb = await BienBanKiemTraTraPhongDB.docThongTin(bienBanKiemTraId);
+    return bb?.khoanKhauTrus ?? [];
+  },
+
   /** Đọc chi tiết tình trạng từng tài sản của 1 biên bản (dùng khi hiển thị lại/audit). */
   async layChiTietTaiSan(bienBanKiemTraId: number) {
     return ChiTietKiemTraTaiSanDB.layDanhSachTheoBienBan(bienBanKiemTraId);

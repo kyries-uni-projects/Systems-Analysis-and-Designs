@@ -128,7 +128,7 @@ INSERT INTO "new_bien_ban_ban_giao" ("bien_ban_ban_giao_id", "ghi_chu_kiem_tra",
 DROP TABLE "bien_ban_ban_giao";
 ALTER TABLE "new_bien_ban_ban_giao" RENAME TO "bien_ban_ban_giao";
 CREATE UNIQUE INDEX "bien_ban_ban_giao_hop_dong_id_key" ON "bien_ban_ban_giao"("hop_dong_id");
-CREATE TABLE "new_chi_tiet_kiem_tra_tai_san" (
+CREATE TABLE "chi_tiet_kiem_tra_tai_san" (
     "chi_tiet_kiem_tra_id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "bien_ban_kiem_tra_id" INTEGER NOT NULL,
     "id_tai_san_ban_giao" INTEGER NOT NULL,
@@ -140,9 +140,6 @@ CREATE TABLE "new_chi_tiet_kiem_tra_tai_san" (
     CONSTRAINT "chi_tiet_kiem_tra_tai_san_bien_ban_kiem_tra_id_fkey" FOREIGN KEY ("bien_ban_kiem_tra_id") REFERENCES "bien_ban_kiem_tra_tra_phong" ("bien_ban_kiem_tra_id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "chi_tiet_kiem_tra_tai_san_id_tai_san_ban_giao_fkey" FOREIGN KEY ("id_tai_san_ban_giao") REFERENCES "tai_san_ban_giao" ("id_tai_san_ban_giao") ON DELETE RESTRICT ON UPDATE CASCADE
 );
-INSERT INTO "new_chi_tiet_kiem_tra_tai_san" ("bien_ban_kiem_tra_id", "chi_phi_boi_thuong", "chi_tiet_kiem_tra_id", "co_hu_hong_mat_mat", "ghi_chu", "id_tai_san_ban_giao", "so_luong_da_tra", "tinh_trang_khi_tra") SELECT "bien_ban_kiem_tra_id", "chi_phi_boi_thuong", "chi_tiet_kiem_tra_id", "co_hu_hong_mat_mat", "ghi_chu", "id_tai_san_ban_giao", "so_luong_da_tra", "tinh_trang_khi_tra" FROM "chi_tiet_kiem_tra_tai_san";
-DROP TABLE "chi_tiet_kiem_tra_tai_san";
-ALTER TABLE "new_chi_tiet_kiem_tra_tai_san" RENAME TO "chi_tiet_kiem_tra_tai_san";
 CREATE UNIQUE INDEX "chi_tiet_kiem_tra_tai_san_bien_ban_kiem_tra_id_id_tai_san_ban_giao_key" ON "chi_tiet_kiem_tra_tai_san"("bien_ban_kiem_tra_id", "id_tai_san_ban_giao");
 CREATE TABLE "new_doi_soat_hoan_coc" (
     "doi_soat_id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,

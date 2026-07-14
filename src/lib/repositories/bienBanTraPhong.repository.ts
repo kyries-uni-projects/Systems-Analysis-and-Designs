@@ -26,11 +26,13 @@ export const BienBanTraPhongDB = {
     });
   },
 
-  /** UC4 Màn 4: đánh dấu đã thu hồi chìa khóa. */
+  /** UC4 Màn 4: đánh dấu đã thu hồi chìa khóa.
+   *  SỬA: lỗi gõ nhầm tên trường (`daaThuHoiChiaKhoa` -> `daThuHoiChiaKhoa`, đúng tên cột
+   *  schema) — trước đây sẽ khiến Prisma từ chối câu lệnh update khi chạy tới bước này. */
   async capNhatThuHoiChiaKhoa(bienBanTraPhongId: number, daThuHoi: boolean, db: Db = prisma) {
     const r = await db.bienBanTraPhong.update({
       where: { bienBanTraPhongId },
-      data: { daaThuHoiChiaKhoa: daThuHoi ? "Đã" : "Chưa", trangThai: "Hoàn tất" },
+      data: { daThuHoiChiaKhoa: daThuHoi ? "Đã" : "Chưa", trangThai: "Hoàn tất" },
     });
     return !!r;
   },

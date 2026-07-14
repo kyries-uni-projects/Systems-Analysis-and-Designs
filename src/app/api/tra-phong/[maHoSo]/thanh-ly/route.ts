@@ -31,16 +31,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ maH
 
 		const hoSo = await HoSoTraPhong.layThongTin(parsed.id);
 		if (!hoSo) return apiError("Không tìm thấy hồ sơ.", 404);
-		if (hoSo.doiSoatId == null || hoSo.hoSoNhanPhongId == null) {
-			return apiError("Hồ sơ chưa đủ điều kiện lập biên bản thanh lý (thiếu đối soát hoặc hoSoNhanPhong).", 409);
+		if (hoSo.doiSoatId == null || hoSo.chiTietHopDongId == null || hoSo.hopDongId == null) {
+			return apiError("Hồ sơ chưa đủ điều kiện lập biên bản thanh lý (thiếu đối soát hoặc chi tiết hợp đồng).", 409);
 		}
 
 		const bb = await BienBanTraPhong.luu({
 			yeuCauTraPhongId: parsed.id,
-			hoSoNhanPhongId: hoSo.hoSoNhanPhongId,
+			chiTietHopDongId: hoSo.chiTietHopDongId,
+			hopDongId: hoSo.hopDongId,
 			doiSoatId: hoSo.doiSoatId,
 			quanLyId: auth.user.nguoiDungId,
-			maHopDong: hoSo.soHopDong,
 			ngayTraPhongThucTe,
 			tinhTrangBanGiaoCuoi:
 				typeof body.tinhTrangBanGiaoCuoi === "string" && body.tinhTrangBanGiaoCuoi ? body.tinhTrangBanGiaoCuoi : undefined,

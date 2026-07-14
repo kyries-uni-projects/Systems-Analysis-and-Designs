@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
 		if (!hopDong) {
 			return apiError("Không tìm thấy hợp đồng.", 404);
 		}
-		if (hopDong.hoSoNhanPhongId == null) {
+		if (hopDong.chiTietHopDongId == null) {
 			return apiError("Hợp đồng chưa có phòng nào được gán, không thể đăng ký trả phòng.", 409);
 		}
 
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
 		}
 
 		const created = await YeuCauTraPhong.taoMoi({
-			hoSoNhanPhongId: hopDong.hoSoNhanPhongId,
+			chiTietHopDongId: hopDong.chiTietHopDongId,
 			hopDong: { trangThai: hopDong.trangThai },
 			ngayTraPhongDuKien,
 			gioTraPhong,

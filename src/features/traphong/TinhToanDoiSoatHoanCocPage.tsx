@@ -1191,6 +1191,7 @@ export function TinhToanDoiSoatHoanCocPage() {
   const [selectedItem, setSelectedItem] =
     useState<QueueItem | null>(null);
   const [rate, setRate] = useState(50);
+  const [loadingKhauTru, setLoadingKhauTru] = useState(false);
   const [khauTruList, setKhauTruList] = useState<
     KhoanKhauTru[]
   >([]);
@@ -1198,13 +1199,34 @@ export function TinhToanDoiSoatHoanCocPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const openItem = (item: QueueItem) => {
+  const openItem = async (item: QueueItem) => {
     setSelectedItem(item);
     setRate(suggestRate(item));
     setKhauTruList([]);
     setDisputeNote("");
     setSubmitError(null);
     setView("rate");
+
+    // SỬA: trước đây màn "Khấu trừ phát sinh" luôn bắt đầu trống — Kế toán phải tự gõ lại
+    // từ đầu, dễ bỏ sót khoản Quản lý đã ghi nhận ở UC2. Giờ tự fetch lại đúng danh sách đó.
+    setLoadingKhauTru(true);
+    try {
+      const raw = await api.get<{ sttKhauTru: number; loaiKhoanKhauTru: string; moTa: string | null; soTien: number }[]>(
+        `/api/tra-phong/${item.maHoSo}/khau-tru`,
+      );
+      setKhauTruList(
+        raw.map((kt) => ({
+          id: nextId("kt"),
+          loai: kt.loaiKhoanKhauTru,
+          moTa: kt.moTa ?? "",
+          soTien: String(kt.soTien),
+        })),
+      );
+    } catch {
+      setKhauTruList([]);
+    } finally {
+      setLoadingKhauTru(false);
+    }
   };
 
   // Tự động mở đúng hồ sơ khi được điều hướng tới từ UC2 (URL có :maHoSo)
