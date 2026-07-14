@@ -463,7 +463,7 @@ export default function LichHenXemPhongForm() {
 									</div>
 									<div className="rounded-[8px] border border-[#e5e7eb] bg-white px-4 py-2.5 text-sm">
 										<span className="text-[#6a7282]">Khu vực: </span>
-										<span className="font-medium text-[#101828]">{selectedYeuCau.yeuCau.khuVuc || "Tất cả khu vực"}</span>
+										<span className="font-medium text-[#101828]">{selectedYeuCau.yeuCau.khuVucMongMuon || "Tất cả khu vực"}</span>
 									</div>
 									<div className="rounded-[8px] border border-[#e5e7eb] bg-white px-4 py-2.5 text-sm">
 										<span className="text-[#6a7282]">Số người: </span>
@@ -471,7 +471,7 @@ export default function LichHenXemPhongForm() {
 									</div>
 									<div className="rounded-[8px] border border-[#e5e7eb] bg-white px-4 py-2.5 text-sm">
 										<span className="text-[#6a7282]">Mức giá: </span>
-										<span className="font-medium text-[#101828]">{formatPrice(selectedYeuCau.yeuCau.giaTu || 0)} - {formatPrice(selectedYeuCau.yeuCau.giaDen || 0)}</span>
+										<span className="font-medium text-[#101828]">Theo yêu cầu đã tiếp nhận</span>
 									</div>
 								</div>
 							</div>

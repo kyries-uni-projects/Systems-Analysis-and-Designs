@@ -1,14 +1,13 @@
 import type { NextRequest } from "next/server";
 import { apiSuccess, ApiValidationError, withApiErrorHandling } from "@/lib/api-response";
-import { SESSION_COOKIE_NAME, SESSION_COOKIE_VALUE } from "@/lib/auth";
+import { requireApiSession } from "@/lib/api-auth";
 import { getYeuCauThueWithDetails, timPhongPhuHop } from "@/lib/services/lichHenXemPhongService";
 
 /** GET — Lấy chi tiết yêu cầu thuê + KH + phòng phù hợp */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ yeuCauId: string }> }) {
 	return withApiErrorHandling(async () => {
-		if (request.cookies.get(SESSION_COOKIE_NAME)?.value !== SESSION_COOKIE_VALUE) {
-			throw new ApiValidationError("Vui lòng đăng nhập");
-		}
+		const auth = await requireApiSession(request, ["nhanvien"]);
+		if ("error" in auth) return auth.error;
 
 		const { yeuCauId } = await params;
 		const id = Number(yeuCauId);

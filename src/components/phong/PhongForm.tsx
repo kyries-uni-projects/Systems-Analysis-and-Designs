@@ -23,7 +23,8 @@ interface PhongFormProps {
 	};
 }
 
-const inputClass = "rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900";
+const inputClass =
+	"rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-[#101828] outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100";
 
 /** Create/edit form for Phong — same component posts to POST or PATCH depending on `phong` prop. */
 export default function PhongForm({ loaiPhongs, phong }: PhongFormProps) {
@@ -73,15 +74,15 @@ export default function PhongForm({ loaiPhongs, phong }: PhongFormProps) {
 	}
 
 	return (
-		<form onSubmit={handleSubmit} className="flex flex-col gap-4">
-			{error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">{error}</p>}
+		<form onSubmit={handleSubmit} className="flex flex-col gap-4 rounded-xl border border-[#d7ece7] bg-white p-6 shadow-sm">
+			{error && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-			<label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+			<label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
 				Mã phòng *
 				<input name="maPhong" required defaultValue={phong?.maPhong} className={inputClass} />
 			</label>
 
-			<label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+			<label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
 				Loại phòng *
 				<select name="idLoaiPhong" required defaultValue={phong?.idLoaiPhong ?? ""} className={inputClass}>
 					<option value="">-- Chọn loại phòng --</option>
@@ -93,27 +94,27 @@ export default function PhongForm({ loaiPhongs, phong }: PhongFormProps) {
 				</select>
 			</label>
 
-			<label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+			<label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
 				Sức chứa *
 				<input name="sucChua" type="number" min={1} required defaultValue={phong?.sucChua} className={inputClass} />
 			</label>
 
-			<label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+			<label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
 				Khu
 				<input name="khu" defaultValue={phong?.khu ?? ""} className={inputClass} />
 			</label>
 
-			<label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+			<label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
 				Tầng
 				<input name="tang" type="number" defaultValue={phong?.tang ?? ""} className={inputClass} />
 			</label>
 
-			<label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+			<label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
 				Giới tính áp dụng
 				<input name="gioiTinhApDung" defaultValue={phong?.gioiTinhApDung ?? ""} className={inputClass} />
 			</label>
 
-			<label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+			<label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
 				Tiện ích
 				<input name="tienIch" defaultValue={phong?.tienIch ?? ""} className={inputClass} />
 			</label>
@@ -121,7 +122,7 @@ export default function PhongForm({ loaiPhongs, phong }: PhongFormProps) {
 			<button
 				type="submit"
 				disabled={isSubmitting}
-				className="mt-2 rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900"
+				className="mt-2 rounded-lg bg-[#0f766e] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b625b] disabled:opacity-50"
 			>
 				{isSubmitting ? "Đang lưu..." : isEditing ? "Cập nhật" : "Tạo mới"}
 			</button>

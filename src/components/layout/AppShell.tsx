@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { BedDouble, Bell, ChevronDown, ChevronUp, LogOut, Menu, Search, UserRound, UsersRound, X } from "lucide-react";
 import { HomeStayLogo } from "@/components/branding/HomeStayLogo";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { canAccessWorkflowAction, getWorkflowActionHref, workflowGroups } from "@/lib/workflow-navigation";
+import { canAccessWorkflowAction, getWorkflowActionByPath, getWorkflowActionHref, workflowGroups } from "@/lib/workflow-navigation";
 
 const fixedNavigation = [
 	{ href: "/", label: "Tổng quan", iconPath: "/icons/tong-quan.svg" },
@@ -22,12 +22,13 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 	const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 	const { sessionUser, clearSession } = useAuth();
 	const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+	const activeWorkflow = getWorkflowActionByPath(pathname);
 
 	useEffect(() => {
 		const activeGroup = workflowGroups.find((group) =>
 			group.actions.some((action) => {
 				const href = getWorkflowActionHref(group, action);
-				return pathname === href || pathname.startsWith(`${href}/`);
+				return [href, ...(action.relatedPaths ?? [])].some((path) => pathname === path || pathname.startsWith(`${path}/`));
 			}),
 		);
 		if (activeGroup) {
@@ -90,7 +91,10 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 							return null;
 						}
 
-						const isGroupActive = visibleActions.some((action) => isActive(getWorkflowActionHref(group, action)));
+							const isGroupActive = visibleActions.some((action) => {
+								const href = getWorkflowActionHref(group, action);
+								return [href, ...(action.relatedPaths ?? [])].some((path) => pathname === path || pathname.startsWith(`${path}/`));
+							});
 						const isExpanded = expandedGroup === group.slug;
 
 						return (
@@ -119,7 +123,7 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 									<div className="ml-6 border-l border-white/15 py-1">
 										{visibleActions.map((action) => {
 											const href = getWorkflowActionHref(group, action);
-											const isActionActive = pathname === href || (href !== "/deposit" && pathname.startsWith(`${href}/`));
+											const isActionActive = activeWorkflow?.group.slug === group.slug && activeWorkflow.action.slug === action.slug;
 											return (
 												<Link
 													key={action.slug}

@@ -1,5 +1,5 @@
 export const SESSION_COOKIE_NAME = "homestay_dorm_session";
-export const SESSION_COOKIE_VALUE = "authenticated";
+/** Legacy cookie removed from the signed-session flow; kept only so logout can clean it up. */
 export const SESSION_USER_COOKIE_NAME = "homestay_dorm_user";
 
 export type Role = "admin" | "nhanvien" | "quanly" | "ketoan";

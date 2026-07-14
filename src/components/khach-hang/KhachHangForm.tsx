@@ -16,7 +16,8 @@ interface KhachHangFormProps {
 	};
 }
 
-const inputClass = "rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900";
+const inputClass =
+	"rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-[#101828] outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100";
 
 /** Create/edit form for KhachHang — same component posts to POST or PATCH depending on `khachHang` prop. */
 export default function KhachHangForm({ khachHang }: KhachHangFormProps) {
@@ -65,40 +66,40 @@ export default function KhachHangForm({ khachHang }: KhachHangFormProps) {
 	}
 
 	return (
-		<form onSubmit={handleSubmit} className="flex flex-col gap-4">
-			{error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">{error}</p>}
+		<form onSubmit={handleSubmit} className="flex flex-col gap-4 rounded-xl border border-[#d7ece7] bg-white p-6 shadow-sm">
+			{error && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-			<label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+			<label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
 				Họ tên *
 				<input name="hoTen" required defaultValue={khachHang?.hoTen} className={inputClass} />
 			</label>
 
-			<label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+			<label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
 				CCCD/Passport *
 				<input name="cccdPassport" required defaultValue={khachHang?.cccdPassport} className={inputClass} />
 			</label>
 
-			<label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+			<label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
 				Số điện thoại *
 				<input name="soDienThoai" required defaultValue={khachHang?.soDienThoai} className={inputClass} />
 			</label>
 
-			<label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+			<label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
 				Giới tính
 				<input name="gioiTinh" defaultValue={khachHang?.gioiTinh ?? ""} className={inputClass} />
 			</label>
 
-			<label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+			<label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
 				Quốc tịch
 				<input name="quocTich" defaultValue={khachHang?.quocTich ?? ""} className={inputClass} />
 			</label>
 
-			<label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+			<label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
 				Email
 				<input name="email" type="email" defaultValue={khachHang?.email ?? ""} className={inputClass} />
 			</label>
 
-			<label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+			<label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
 				Ghi chú
 				<textarea name="ghiChu" defaultValue={khachHang?.ghiChu ?? ""} className={inputClass} />
 			</label>
@@ -106,7 +107,7 @@ export default function KhachHangForm({ khachHang }: KhachHangFormProps) {
 			<button
 				type="submit"
 				disabled={isSubmitting}
-				className="mt-2 rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900"
+				className="mt-2 rounded-lg bg-[#0f766e] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b625b] disabled:opacity-50"
 			>
 				{isSubmitting ? "Đang lưu..." : isEditing ? "Cập nhật" : "Tạo mới"}
 			</button>

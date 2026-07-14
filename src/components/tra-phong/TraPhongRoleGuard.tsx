@@ -4,13 +4,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import type { Role } from "@/lib/auth";
 
-/**
- * (Nhóm 4) `proxy.ts` (middleware chung) chặn quyền theo vai trò dựa trên khớp CHÍNH XÁC
- * URL với `workflowGroups` — chỉ bao phủ 5 URL cấp 1 (màn danh sách chờ của mỗi UC), CHƯA
- * bao phủ route con dạng `/tra-phong/kiem-tra-tinh-trang/[maHoSo]` (màn xử lý 1 hồ sơ cụ
- * thể). Component này bù đắp đúng chỗ đó cho riêng route con của Nhóm 4 — không đụng
- * `proxy.ts` chung.
- */
+/** Client-side defense in depth; proxy and API routes enforce the same role server-side. */
 export function TraPhongRoleGuard({ roles, children }: { roles: Role[]; children: ReactNode }) {
 	const { sessionUser, isLoading } = useAuth();
 	const router = useRouter();

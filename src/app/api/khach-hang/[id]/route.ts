@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { apiSuccess, apiError, withApiErrorHandling } from "@/lib/api-response";
 import { getKhachHangById, updateKhachHang, deleteKhachHang } from "@/lib/services/khachHangService";
 import { parseUpdateKhachHangInput } from "@/types/khach-hang";
+import { requireApiSession } from "@/lib/api-auth";
 
 interface RouteParams {
 	params: Promise<{ id: string }>;
@@ -13,8 +14,10 @@ function parseId(idParam: string): number | null {
 }
 
 // GET /api/khach-hang/:id
-export async function GET(_request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
 	return withApiErrorHandling(async () => {
+		const auth = await requireApiSession(request);
+		if ("error" in auth) return auth.error;
 		const { id: idParam } = await params;
 		const id = parseId(idParam);
 		if (id === null) return apiError("id không hợp lệ", 400);
@@ -27,6 +30,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 // PATCH /api/khach-hang/:id
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
 	return withApiErrorHandling(async () => {
+		const auth = await requireApiSession(request, ["nhanvien"]);
+		if ("error" in auth) return auth.error;
 		const { id: idParam } = await params;
 		const id = parseId(idParam);
 		if (id === null) return apiError("id không hợp lệ", 400);
@@ -39,8 +44,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 }
 
 // DELETE /api/khach-hang/:id
-export async function DELETE(_request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
 	return withApiErrorHandling(async () => {
+		const auth = await requireApiSession(request, ["nhanvien"]);
+		if ("error" in auth) return auth.error;
 		const { id: idParam } = await params;
 		const id = parseId(idParam);
 		if (id === null) return apiError("id không hợp lệ", 400);

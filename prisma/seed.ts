@@ -9,11 +9,10 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { ensureDemoAccounts } from "../src/lib/demo-account-seed";
 
 const adapter = new PrismaBetterSqlite3({ url: process.env.DATABASE_URL ?? "file:./dev.db" });
 const prisma = new PrismaClient({ adapter });
-
-const KHONG_DUNG_DE_XAC_THUC = "khong-dung-de-xac-thuc-xem-src-lib-auth-ts";
 
 async function main() {
 	console.log("Đang xoá dữ liệu cũ của Nhóm 4 + danh mục dùng chung (nếu có)...");
@@ -51,18 +50,7 @@ async function main() {
 	await prisma.nguoiDung.deleteMany();
 
 	console.log("Tạo tài khoản người dùng (khớp đúng demoAccounts trong src/lib/auth.ts)...");
-	const admin = await prisma.nguoiDung.create({
-		data: { hoTen: "Nguyễn Văn An", tenDangNhap: "admin", matKhauHash: KHONG_DUNG_DE_XAC_THUC, vaiTro: "Admin" },
-	});
-	const nhanVien = await prisma.nguoiDung.create({
-		data: { hoTen: "Phạm Thị Dung", tenDangNhap: "nhanvien01", matKhauHash: KHONG_DUNG_DE_XAC_THUC, vaiTro: "Sale" },
-	});
-	const quanLy = await prisma.nguoiDung.create({
-		data: { hoTen: "Trần Thị Bình", tenDangNhap: "quanly01", matKhauHash: KHONG_DUNG_DE_XAC_THUC, vaiTro: "QuanLy" },
-	});
-	const keToan = await prisma.nguoiDung.create({
-		data: { hoTen: "Lê Minh Cường", tenDangNhap: "ketoan01", matKhauHash: KHONG_DUNG_DE_XAC_THUC, vaiTro: "KeToan" },
-	});
+	const { admin, nhanvien01: nhanVien, quanly01: quanLy, ketoan01: keToan } = await ensureDemoAccounts(prisma);
 	void admin;
 
 	console.log("Tạo danh mục loại phòng, mẫu nội quy, danh mục tài sản mặc định...");

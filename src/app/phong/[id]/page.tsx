@@ -13,9 +13,10 @@ export default async function PhongDetailPage({ params }: PageProps) {
 	if (!phong) notFound();
 
 	return (
-		<div className="mx-auto w-full max-w-xl px-6 py-10">
-			<h1 className="mb-6 text-2xl font-semibold text-zinc-900 dark:text-zinc-50">Cập nhật phòng</h1>
+		<main className="min-h-full bg-[#f4faf8] px-4 py-6 sm:px-8"><div className="mx-auto w-full max-w-2xl">
+			<p className="text-[13px] text-slate-500">Phòng &gt; Cập nhật</p>
+			<h1 className="mb-6 mt-2 text-2xl font-bold text-[#101828]">Cập nhật phòng</h1>
 			<PhongForm phong={phong} loaiPhongs={loaiPhongs} />
-		</div>
+		</div></main>
 	);
 }

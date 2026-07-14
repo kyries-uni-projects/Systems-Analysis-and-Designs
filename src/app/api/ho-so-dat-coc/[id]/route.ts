@@ -1,15 +1,12 @@
 import type { NextRequest } from "next/server";
 import { apiError, apiSuccess, withApiErrorHandling } from "@/lib/api-response";
-import { demoAccounts, SESSION_COOKIE_NAME, SESSION_COOKIE_VALUE, SESSION_USER_COOKIE_NAME } from "@/lib/auth";
+import { canReadDepositAtStatus, requireApiSession } from "@/lib/api-auth";
 import { kiemTraTinhTrangPhong, layChiTietHoSoDatCoc, layDanhSachQuyDinhDatCoc } from "@/lib/services/hoSoDatCocService";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
 	return withApiErrorHandling(async () => {
-		const username = request.cookies.get(SESSION_USER_COOKIE_NAME)?.value;
-		const account = username ? demoAccounts[username] : undefined;
-		if (request.cookies.get(SESSION_COOKIE_NAME)?.value !== SESSION_COOKIE_VALUE || !account) {
-			return apiError("Chưa xác thực.", 401);
-		}
+		const auth = await requireApiSession(request);
+		if ("error" in auth) return auth.error;
 
 		const { id } = await params;
 		const hoSoId = Number(id);
@@ -17,6 +14,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		const hoSo = await layChiTietHoSoDatCoc(hoSoId);
 		if (!hoSo) return apiError("Không tìm thấy hồ sơ đặt cọc.", 404);
+		if (!canReadDepositAtStatus(auth.user.role, hoSo.trangThai)) {
+			return apiError("Tài khoản không có quyền xem hồ sơ ở bước hiện tại.", 403);
+		}
 
 		const isSaleStage = ["Chờ xác nhận điều kiện", "Mới tạo"].includes(hoSo.trangThai);
 		const quyDinhList = isSaleStage ? await layDanhSachQuyDinhDatCoc() : null;

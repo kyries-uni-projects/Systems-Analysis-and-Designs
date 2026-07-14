@@ -6,6 +6,13 @@ export type WorkflowAction = {
 	description: string;
 	roles: Role[];
 	href?: string;
+	relatedPaths?: string[];
+};
+
+export type WorkflowRouteAccessRule = {
+	path: string;
+	roles: Role[];
+	match?: "exact" | "prefix" | "children";
 };
 
 export type WorkflowGroup = {
@@ -48,6 +55,7 @@ export const workflowGroups: WorkflowGroup[] = [
 				description: "Tra cứu, lập mới và cập nhật hồ sơ đặt cọc.",
 				roles: ["nhanvien", "quanly", "ketoan"],
 				href: "/deposit",
+				relatedPaths: ["/dat-coc-xac-nhan-thue/xac-nhan-dieu-kien-dat-coc"],
 			},
 			// { slug: "xac-nhan-thanh-toan", label: "Xác nhận thanh toán", description: "Xác nhận giao dịch đặt cọc đã được thanh toán.", roles: ["ketoan"] },
 			// {
@@ -86,6 +94,13 @@ export const workflowGroups: WorkflowGroup[] = [
 		label: "Trả phòng",
 		iconPath: "/icons/tra-phong.svg",
 		actions: [
+			{
+				slug: "danh-sach-tra-phong",
+				label: "Danh sách hồ sơ trả phòng",
+				description: "Theo dõi toàn bộ hồ sơ trả phòng và hoàn cọc.",
+				roles: ["nhanvien", "quanly", "ketoan"],
+				href: "/tra-phong",
+			},
 			{ slug: "dang-ky-tra-phong", label: "Đăng ký trả phòng", description: "Tiếp nhận yêu cầu trả phòng của khách hàng.", roles: ["nhanvien"] },
 			{
 				slug: "kiem-tra-tinh-trang",
@@ -98,6 +113,20 @@ export const workflowGroups: WorkflowGroup[] = [
 			{ slug: "thuc-hien-hoan-coc", label: "Thực hiện hoàn cọc", description: "Thực hiện hoàn tiền cọc sau khi đối soát.", roles: ["ketoan"] },
 		],
 	},
+];
+
+/**
+ * Rules for workflow detail/create screens that are intentionally not rendered as
+ * separate sidebar items. Longest matching prefix wins in `getWorkflowRouteAccessRule`.
+ */
+export const workflowRouteAccessRules: WorkflowRouteAccessRule[] = [
+	{ path: "/khach-hang", roles: ["nhanvien"], match: "children" },
+	{ path: "/phong", roles: ["quanly"], match: "children" },
+	{ path: "/deposit/lap-phieu-dat-coc", roles: ["nhanvien"], match: "prefix" },
+	{ path: "/deposit/cap-nhat-chung-tu", roles: ["nhanvien"], match: "prefix" },
+	{ path: "/deposit/lap-yeu-cau-thanh-toan", roles: ["ketoan"], match: "prefix" },
+	{ path: "/deposit/xac-nhan-thanh-toan", roles: ["quanly"], match: "prefix" },
+	{ path: "/dat-coc-xac-nhan-thue/xac-nhan-dieu-kien-dat-coc", roles: ["nhanvien", "quanly"], match: "exact" },
 ];
 
 export function canAccessWorkflowAction(role: Role, action: WorkflowAction) {
@@ -115,12 +144,27 @@ export function getWorkflowActionHref(group: WorkflowGroup, action: WorkflowActi
 }
 
 export function getWorkflowActionByPath(pathname: string) {
-	for (const group of workflowGroups) {
-		const action = group.actions.find((item) => getWorkflowActionHref(group, item) === pathname);
-		if (action) {
-			return { group, action };
-		}
-	}
+	const matches = workflowGroups.flatMap((group) =>
+		group.actions.flatMap((action) => {
+			const href = getWorkflowActionHref(group, action);
+			const paths = [href, ...(action.relatedPaths ?? [])];
+			const matchingPath = paths.find((path) => pathname === path || pathname.startsWith(`${path}/`));
+			return matchingPath ? [{ group, action, matchingPath }] : [];
+		}),
+	);
+	return matches.sort((left, right) => right.matchingPath.length - left.matchingPath.length)[0] ?? null;
+}
 
-	return null;
+export function getWorkflowRouteAccessRule(pathname: string) {
+	const explicitRule = workflowRouteAccessRules
+		.filter((rule) => {
+			if (rule.match === "prefix") return pathname === rule.path || pathname.startsWith(`${rule.path}/`);
+			if (rule.match === "children") return pathname.startsWith(`${rule.path}/`);
+			return pathname === rule.path;
+		})
+		.sort((left, right) => right.path.length - left.path.length)[0];
+	if (explicitRule) return explicitRule;
+
+	const workflow = getWorkflowActionByPath(pathname);
+	return workflow ? { path: workflow.matchingPath, roles: workflow.action.roles, match: "prefix" as const } : null;
 }

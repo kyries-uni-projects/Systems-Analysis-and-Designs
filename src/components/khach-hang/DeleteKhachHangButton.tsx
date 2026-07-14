@@ -30,7 +30,7 @@ export default function DeleteKhachHangButton({ id }: { id: number }) {
 		<button
 			onClick={handleDelete}
 			disabled={isDeleting}
-			className="rounded-lg border border-red-300 px-3 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950"
+			className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
 		>
 			{isDeleting ? "..." : "Xóa"}
 		</button>

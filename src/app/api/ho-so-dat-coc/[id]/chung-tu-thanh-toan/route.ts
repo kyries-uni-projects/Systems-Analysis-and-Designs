@@ -3,7 +3,7 @@ import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { NextRequest } from "next/server";
 import { apiError, apiSuccess, ApiValidationError, withApiErrorHandling } from "@/lib/api-response";
-import { demoAccounts, SESSION_COOKIE_NAME, SESSION_COOKIE_VALUE, SESSION_USER_COOKIE_NAME } from "@/lib/auth";
+import { requireApiSession } from "@/lib/api-auth";
 import { capNhatChungTuThanhToan } from "@/lib/services/hoSoDatCocService";
 
 const extensionByMimeType: Record<string, string> = {
@@ -14,12 +14,8 @@ const extensionByMimeType: Record<string, string> = {
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
 	return withApiErrorHandling(async () => {
-		const username = request.cookies.get(SESSION_USER_COOKIE_NAME)?.value;
-		const account = username ? demoAccounts[username] : undefined;
-		if (request.cookies.get(SESSION_COOKIE_NAME)?.value !== SESSION_COOKIE_VALUE || !account) return apiError("Chưa xác thực.", 401);
-		if (account.role !== "nhanvien" && account.role !== "admin") {
-			return apiError("Tài khoản không có quyền cập nhật chứng từ thanh toán.", 403);
-		}
+		const auth = await requireApiSession(request, ["nhanvien"]);
+		if ("error" in auth) return auth.error;
 
 		const { id } = await params;
 		const hoSoId = Number(id);

@@ -1,7 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireApiSession } from "@/lib/api-auth";
+import { ensureDemoAccounts } from "@/lib/demo-account-seed";
 
-export async function GET() {
+/** Admin-only, idempotent demo-data helper. The full fixture remains available through `yarn db:seed`. */
+export async function POST(request: NextRequest) {
+	const auth = await requireApiSession(request, ["admin"]);
+	if ("error" in auth) return auth.error;
+
 	try {
 		// 1. Seed QuyDinhKyTucXa
 		const quyDinhs = [
@@ -39,17 +45,8 @@ export async function GET() {
 			},
 		});
 
-		// 3. Ensure an Employee exists
-		const sale = await prisma.nguoiDung.upsert({
-			where: { tenDangNhap: "sale1" },
-			update: {},
-			create: {
-				hoTen: "Nguyễn Văn An",
-				tenDangNhap: "sale1",
-				matKhauHash: "123",
-				vaiTro: "Sale",
-			},
-		});
+		// 3. Ensure all preset login accounts exist in the database.
+		const { nhanvien01: sale } = await ensureDemoAccounts(prisma);
 
 		// 4. Ensure a Room type and Room exists
 		const loaiPhong = await prisma.loaiPhong.upsert({

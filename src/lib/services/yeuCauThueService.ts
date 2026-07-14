@@ -88,7 +88,7 @@ export async function createYeuCauThue(input: CreateYeuCauThueInput, tiepNhanVie
 				soNguoiDuKien: input.soNguoiDuKien,
 				mucGiaMongMuon: input.mucGiaDen,
 				thoiGianDuKienVaoO: input.thoiGianDuKienVaoO,
-				thoiHanThuetThang: input.thoiHanThueThang,
+				thoiHanThueThang: input.thoiHanThueThang,
 				tieuChiUuTien: JSON.stringify({ tienIch: input.tieuChiUuTien, mucGiaTu: input.mucGiaTu, mucGiaDen: input.mucGiaDen }),
 			},
 			select: { yeuCauId: true, trangThai: true },

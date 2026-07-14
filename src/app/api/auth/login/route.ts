@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isValidDemoLogin, SESSION_COOKIE_NAME, SESSION_COOKIE_VALUE, SESSION_USER_COOKIE_NAME } from "@/lib/auth";
+import { isValidDemoLogin, SESSION_COOKIE_NAME, SESSION_USER_COOKIE_NAME } from "@/lib/auth";
+import { createSessionToken } from "@/lib/session";
 
 export async function POST(request: NextRequest) {
 	const body: unknown = await request.json().catch(() => null);
@@ -10,25 +11,18 @@ export async function POST(request: NextRequest) {
 		return NextResponse.json({ error: "Tên đăng nhập hoặc mật khẩu không chính xác." }, { status: 401 });
 	}
 
+	const normalizedUsername = username.trim();
 	const response = NextResponse.json({ ok: true });
 	response.cookies.set({
 		name: SESSION_COOKIE_NAME,
-		value: SESSION_COOKIE_VALUE,
+		value: await createSessionToken(normalizedUsername),
 		httpOnly: true,
 		maxAge: 60 * 60 * 8,
 		path: "/",
 		sameSite: "lax",
 		secure: process.env.NODE_ENV === "production",
 	});
-	response.cookies.set({
-		name: SESSION_USER_COOKIE_NAME,
-		value: username.trim(),
-		httpOnly: true,
-		maxAge: 60 * 60 * 8,
-		path: "/",
-		sameSite: "lax",
-		secure: process.env.NODE_ENV === "production",
-	});
+	response.cookies.delete(SESSION_USER_COOKIE_NAME);
 
 	return response;
 }

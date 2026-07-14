@@ -10,7 +10,8 @@
 // NguoiDung cần có sẵn 4 dòng ứng với 4 tài khoản demo (prisma/seed.ts của Nhóm 4 tạo sẵn).
 import { cookies } from "next/headers";
 import type { NextResponse } from "next/server";
-import { demoAccounts, SESSION_COOKIE_NAME, SESSION_COOKIE_VALUE, SESSION_USER_COOKIE_NAME, type Role } from "@/lib/auth";
+import type { Role } from "@/lib/auth";
+import { getSessionFromCookieStore } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { apiError } from "@/lib/api-response";
 
@@ -24,11 +25,9 @@ export type TraPhongSessionUser = {
 /** Đọc phiên đăng nhập hiện tại — null nếu chưa đăng nhập hoặc tài khoản không hợp lệ. */
 export async function getTraPhongSession(): Promise<TraPhongSessionUser | null> {
 	const store = await cookies();
-	if (store.get(SESSION_COOKIE_NAME)?.value !== SESSION_COOKIE_VALUE) return null;
-
-	const username = store.get(SESSION_USER_COOKIE_NAME)?.value;
-	const account = username ? demoAccounts[username] : undefined;
-	if (!account || !username) return null;
+	const account = await getSessionFromCookieStore(store);
+	if (!account) return null;
+	const username = account.username;
 
 	const nguoiDung = await prisma.nguoiDung.findUnique({ where: { tenDangNhap: username } });
 	if (!nguoiDung) return null; // tài khoản demo tồn tại nhưng chưa có dòng NguoiDung tương ứng — chưa seed

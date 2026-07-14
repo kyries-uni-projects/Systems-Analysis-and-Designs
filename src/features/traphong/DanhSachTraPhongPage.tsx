@@ -72,7 +72,7 @@ export default function DanhSachTraPhongPage() {
         {canRegister && (
           <button
             onClick={() => router.push("/tra-phong/dang-ky-tra-phong")}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-2 rounded-lg bg-[#0f766e] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#0b625b]"
           >
             <Plus size={16} /> Đăng ký trả phòng mới
           </button>
@@ -82,7 +82,7 @@ export default function DanhSachTraPhongPage() {
       {loading ? (
         <div className="text-center py-16 text-gray-400 text-sm">Đang tải danh sách hồ sơ...</div>
       ) : (
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+      <div className="rounded-xl border border-[#d7ece7] bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -136,7 +136,7 @@ export default function DanhSachTraPhongPage() {
                             <button
                               key={action.path}
                               onClick={() => router.push(action.path)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700 transition-colors"
+                              className="ml-auto flex items-center gap-1.5 rounded-md bg-[#0f766e] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#0b625b]"
                             >
                               {action.label} <ArrowRight size={13} />
                             </button>

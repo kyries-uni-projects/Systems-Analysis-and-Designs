@@ -12,21 +12,23 @@ export default async function Home() {
 	];
 
 	return (
-		<main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-16">
+		<main className="min-h-full bg-[#f4faf8] px-4 py-8 sm:px-8">
+			<div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
 			<div>
-				<h1 className="text-3xl font-semibold text-zinc-900 dark:text-zinc-50">HomeStay Dorm — Bảng điều khiển</h1>
-				<p className="mt-2 text-zinc-600 dark:text-zinc-400">
-					Boilerplate quản lý khách hàng &amp; phòng — ví dụ CRUD Backend/API/Frontend kết nối Prisma + SQLite.
+				<p className="text-[13px] text-slate-500">Tổng quan hệ thống</p>
+				<h1 className="mt-2 text-2xl font-bold text-[#101828]">HomeStay Dorm</h1>
+				<p className="mt-2 text-sm text-slate-500">
+					Theo dõi nhanh dữ liệu vận hành ký túc xá và truy cập các phân hệ quản lý.
 				</p>
 			</div>
 
 			<div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
 				{stats.map((stat) => {
-					const cardClass = "rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950";
+					const cardClass = "rounded-xl border border-[#d7ece7] bg-white p-6 shadow-sm";
 					const content = (
 						<>
-							<p className="text-sm text-zinc-500 dark:text-zinc-400">{stat.label}</p>
-							<p className="mt-2 text-3xl font-semibold text-zinc-900 dark:text-zinc-50">{stat.value}</p>
+							<p className="text-sm text-slate-500">{stat.label}</p>
+							<p className="mt-2 text-3xl font-bold text-[#101828]">{stat.value}</p>
 						</>
 					);
 
@@ -39,11 +41,12 @@ export default async function Home() {
 					}
 
 					return (
-						<Link key={stat.label} href={stat.href} className={`${cardClass} transition-colors hover:border-zinc-400 dark:hover:border-zinc-600`}>
+						<Link key={stat.label} href={stat.href} className={`${cardClass} transition hover:border-teal-300 hover:shadow-md`}>
 							{content}
 						</Link>
 					);
 				})}
+			</div>
 			</div>
 		</main>
 	);
