@@ -1,16 +1,39 @@
+import type { Prisma } from "@prisma/client";
+import type { Role } from "@/lib/auth";
 import { prisma } from "../prisma";
 
 const chiTietHoSoDatCocInclude = {
 	khachHang: true,
 	yeuCauThue: true,
-	phong: {
-		include: { loaiPhong: true },
+	chiTietDatCocs: {
+		include: {
+			phong: {
+				include: { loaiPhong: true },
+			},
+			giuong: true,
+		},
+		orderBy: { chiTietDatCocId: "asc" },
 	},
-	giuong: true,
 	ketQuaKiemTraDieuKiens: {
 		include: { quyDinh: true },
 	},
+	yeuCauThanhToanCoc: true,
 } as const;
+
+type HoSoDatCocWithRelations = Prisma.HoSoDatCocGetPayload<{ include: typeof chiTietHoSoDatCocInclude }>;
+
+function chuanHoaHoSoDatCoc(hoSo: HoSoDatCocWithRelations) {
+	const chiTietDatCoc = hoSo.chiTietDatCocs[0] ?? null;
+
+	return {
+		...hoSo,
+		chiTietDatCoc,
+		phongId: chiTietDatCoc?.phongId ?? null,
+		giuongId: chiTietDatCoc?.giuongId ?? null,
+		phong: chiTietDatCoc?.phong ?? null,
+		giuong: chiTietDatCoc?.giuong ?? null,
+	};
+}
 
 export type CapNhatThongTinHoSoDatCocInput = {
 	khachHang: {
@@ -38,14 +61,63 @@ export async function layChiTietHoSoDatCoc(hoSoId: number) {
 		include: chiTietHoSoDatCocInclude,
 	});
 
-	if (!hoSo) return null;
-	return hoSo;
+	return hoSo ? chuanHoaHoSoDatCoc(hoSo) : null;
 }
 
 export async function layHoSoDatCocMoiNhat() {
-	return prisma.hoSoDatCoc.findFirst({
+	const hoSo = await prisma.hoSoDatCoc.findFirst({
 		orderBy: { ngayTao: "desc" },
 		include: chiTietHoSoDatCocInclude,
+	});
+
+	return hoSo ? chuanHoaHoSoDatCoc(hoSo) : null;
+}
+
+export async function layDanhSachHoSoDatCoc(role: Role) {
+	const danhSach = await prisma.hoSoDatCoc.findMany({
+		include: chiTietHoSoDatCocInclude,
+		orderBy: { ngayTao: "desc" },
+	});
+
+	const hoSoDaChuanHoa = danhSach.map(chuanHoaHoSoDatCoc);
+	if (role === "quanly") {
+		return hoSoDaChuanHoa.filter((hoSo) => hoSo.trangThai === "Chờ xác nhận quản lý");
+	}
+	if (role === "ketoan") {
+		return hoSoDaChuanHoa.filter((hoSo) => hoSo.trangThai === "Đã xác nhận điều kiện" && !hoSo.yeuCauThanhToanCoc);
+	}
+
+	return hoSoDaChuanHoa;
+}
+
+export async function lapYeuCauThanhToanCoc(hoSoId: number, keToanId: number) {
+	const hoSo = await prisma.hoSoDatCoc.findUnique({
+		where: { hoSoDatCocId: hoSoId },
+		include: { chiTietDatCocs: true, yeuCauThanhToanCoc: true },
+	});
+	if (!hoSo) return null;
+	if (hoSo.yeuCauThanhToanCoc) return hoSo.yeuCauThanhToanCoc;
+	if (hoSo.trangThai !== "Đã xác nhận điều kiện") {
+		throw new Error("Hồ sơ chưa đủ điều kiện để lập yêu cầu thanh toán.");
+	}
+
+	const soTienCoc = hoSo.chiTietDatCocs.reduce((tong, chiTiet) => tong + chiTiet.giaThueThoaThuan * 2 * chiTiet.soGiuongQuyDoi, 0);
+	const hanThanhToan = new Date();
+	hanThanhToan.setHours(hanThanhToan.getHours() + 24);
+
+	return prisma.$transaction(async (tx) => {
+		const yeuCau = await tx.yeuCauThanhToanCoc.create({
+			data: {
+				hoSoDatCocId: hoSoId,
+				soTienCoc,
+				keToanId,
+				hanThanhToan,
+				soTaiKhoanNhan: "1234567890",
+				trangThai: "Chờ thanh toán",
+			},
+		});
+		await tx.hoSoDatCoc.update({ where: { hoSoDatCocId: hoSoId }, data: { trangThai: "Chờ thanh toán" } });
+		return yeuCau;
 	});
 }
 
@@ -80,7 +152,7 @@ export async function capNhatThongTinHoSoDatCoc(hoSoId: number, input: CapNhatTh
 export async function layDanhSachQuyDinhDatCoc() {
 	return await prisma.quyDinhKyTucXa.findMany({
 		where: {
-			trangThai: "Dang ap dung",
+			trangThai: { in: ["Dang ap dung", "Đang áp dụng"] },
 		},
 		orderBy: { quyDinhId: "asc" },
 	});
@@ -89,7 +161,7 @@ export async function layDanhSachQuyDinhDatCoc() {
 /**
  * Kiểm tra tình trạng phòng tự động cho Quản lý
  */
-export async function kiemTraTinhTrangPhong(phongId: number, giuongId?: number | null) {
+export async function kiemTraTinhTrangPhong(phongId: number, giuongId?: number | null, hoSoDatCocId?: number) {
 	const phong = await prisma.phong.findUnique({
 		where: { phongId },
 		include: { giuongs: true },
@@ -101,22 +173,26 @@ export async function kiemTraTinhTrangPhong(phongId: number, giuongId?: number |
 	const soGiuongTrong = phong.giuongs.filter((g) => g.trangThai === "Trống").length;
 
 	// Kiểm tra xem có ai khác đang cọc phòng này không
-	const cacsHoSoKhac = await prisma.hoSoDatCoc.findMany({
+	const cacsHoSoKhac = await prisma.chiTietDatCoc.findMany({
 		where: {
 			phongId,
-			trangThai: { in: ["Chờ xác nhận quản lý", "Đã xác nhận điều kiện", "Chờ thanh toán"] },
+			...(hoSoDatCocId ? { hoSoDatCocId: { not: hoSoDatCocId } } : {}),
+			hoSoDatCoc: {
+				trangThai: { in: ["Chờ xác nhận quản lý", "Đã xác nhận điều kiện", "Chờ thanh toán"] },
+			},
 		},
+		select: { giuongId: true },
 	});
 
 	let hasOtherDeposit = false;
 	if (giuongId) {
-		hasOtherDeposit = cacsHoSoKhac.some((hs) => hs.giuongId === giuongId);
+		hasOtherDeposit = cacsHoSoKhac.some((chiTietDatCoc) => chiTietDatCoc.giuongId === giuongId);
 	} else {
 		hasOtherDeposit = cacsHoSoKhac.length > 0;
 	}
 
 	return {
-		tinhTrangPhong: phong.trangThai,
+		tinhTrangPhong: soGiuongTrong > 0 ? "Trống" : phong.trangThai,
 		datCocChoTuSaleKhac: hasOtherDeposit,
 		phuHopGioiTinh: true, // Mock logic for demo
 		sucChuaConLai: `${soGiuongTrong}/${phong.sucChua} giường trống`,
@@ -171,14 +247,24 @@ export async function xacNhanDieuKienSale(
 export async function xacNhanTinhTrangQuanLy(hoSoId: number, quanLyId: number, lyDoTuChoi?: string) {
 	const trangThaiMoi = lyDoTuChoi ? "Từ chối" : "Đã xác nhận điều kiện";
 
-	await prisma.hoSoDatCoc.update({
-		where: { hoSoDatCocId: hoSoId },
-		data: {
-			trangThai: trangThaiMoi,
-			lyDoTuChoi: lyDoTuChoi || null,
-			quanLyXacNhanId: quanLyId,
-		},
-	});
+	await prisma.$transaction([
+		prisma.hoSoDatCoc.update({
+			where: { hoSoDatCocId: hoSoId },
+			data: {
+				trangThai: trangThaiMoi,
+				lyDoTuChoi: lyDoTuChoi || null,
+			},
+		}),
+		prisma.chiTietDatCoc.updateMany({
+			where: { hoSoDatCocId: hoSoId },
+			data: {
+				quanLyXacNhanId: quanLyId,
+				thoiDiemXacNhan: new Date(),
+				trangThai: trangThaiMoi,
+				lyDoTuChoi: lyDoTuChoi || null,
+			},
+		}),
+	]);
 
 	return { success: true };
 }
