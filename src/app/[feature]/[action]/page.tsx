@@ -1,6 +1,15 @@
 import { notFound } from "next/navigation";
 import { ArrowRight, ClipboardCheck } from "lucide-react";
 import { getWorkflowAction, workflowGroups } from "@/lib/workflow-navigation";
+import NhanPhongMockApp, { type NhanPhongScreen } from "@/components/nhan-phong/NhanPhongMockApp";
+
+const checkinScreens: Record<string, NhanPhongScreen> = {
+	"kiem-tra-thong-tin": "check-in",
+	"phe-duyet-ho-so": "approve-list",
+	"ban-giao-phong": "handover",
+	"lap-hop-dong": "contract",
+	"thanh-toan-dau-ky": "payment",
+};
 
 export function generateStaticParams() {
 	return workflowGroups.flatMap((group) => group.actions.map((action) => ({ feature: group.slug, action: action.slug })));
@@ -12,6 +21,10 @@ export default async function WorkflowActionPage({ params }: { params: Promise<{
 
 	if (!workflow) {
 		notFound();
+	}
+
+	if (feature === "checkin" && checkinScreens[action]) {
+		return <NhanPhongMockApp initialScreen={checkinScreens[action]} />;
 	}
 
 	return (
