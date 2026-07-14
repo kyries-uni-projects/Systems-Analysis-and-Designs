@@ -1,41 +1,30 @@
-import { NextRequest, NextResponse } from "next/server";
-import { layChiTietHoSoDatCoc, layDanhSachQuyDinhDatCoc, kiemTraTinhTrangPhong } from "@/lib/services/hoSoDatCocService";
+import type { NextRequest } from "next/server";
+import { apiError, apiSuccess, withApiErrorHandling } from "@/lib/api-response";
+import { demoAccounts, SESSION_COOKIE_NAME, SESSION_COOKIE_VALUE, SESSION_USER_COOKIE_NAME } from "@/lib/auth";
+import { kiemTraTinhTrangPhong, layChiTietHoSoDatCoc, layDanhSachQuyDinhDatCoc } from "@/lib/services/hoSoDatCocService";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-	try {
-		const { id } = await params;
-		const hoSoId = parseInt(id, 10);
-		if (isNaN(hoSoId)) {
-			return NextResponse.json({ success: false, error: "ID hồ sơ không hợp lệ" }, { status: 400 });
+	return withApiErrorHandling(async () => {
+		const username = request.cookies.get(SESSION_USER_COOKIE_NAME)?.value;
+		const account = username ? demoAccounts[username] : undefined;
+		if (request.cookies.get(SESSION_COOKIE_NAME)?.value !== SESSION_COOKIE_VALUE || !account) {
+			return apiError("Chưa xác thực.", 401);
 		}
+
+		const { id } = await params;
+		const hoSoId = Number(id);
+		if (!Number.isInteger(hoSoId) || hoSoId < 1) return apiError("ID hồ sơ không hợp lệ.", 400);
 
 		const hoSo = await layChiTietHoSoDatCoc(hoSoId);
-		if (!hoSo) {
-			return NextResponse.json({ success: false, error: "Không tìm thấy hồ sơ đặt cọc" }, { status: 404 });
-		}
+		if (!hoSo) return apiError("Không tìm thấy hồ sơ đặt cọc.", 404);
 
-		// Nếu trạng thái là "Chờ xác nhận điều kiện" -> Lấy danh sách quy định cho Sale
-		let quyDinhList = null;
-		if (hoSo.trangThai === "Chờ xác nhận điều kiện" || hoSo.trangThai === "Mới tạo") {
-			quyDinhList = await layDanhSachQuyDinhDatCoc();
-		}
+		const isSaleStage = ["Chờ xác nhận điều kiện", "Mới tạo"].includes(hoSo.trangThai);
+		const quyDinhList = isSaleStage ? await layDanhSachQuyDinhDatCoc() : null;
+		const tinhTrangPhong =
+			hoSo.trangThai === "Chờ xác nhận quản lý" && hoSo.phongId !== null
+				? await kiemTraTinhTrangPhong(hoSo.phongId, hoSo.giuongId, hoSo.hoSoDatCocId)
+				: null;
 
-		// Nếu trạng thái là "Chờ xác nhận quản lý" -> Lấy kết quả check tình trạng phòng
-		let tinhTrangPhong = null;
-		if (hoSo.trangThai === "Chờ xác nhận quản lý" && hoSo.phongId !== null) {
-			tinhTrangPhong = await kiemTraTinhTrangPhong(hoSo.phongId, hoSo.giuongId, hoSo.hoSoDatCocId);
-		}
-
-		return NextResponse.json({
-			success: true,
-			data: {
-				hoSo,
-				quyDinhList,
-				tinhTrangPhong,
-			},
-		});
-	} catch (error) {
-		console.error("Lỗi lấy chi tiết hồ sơ đặt cọc:", error);
-		return NextResponse.json({ success: false, error: "Lỗi máy chủ nội bộ" }, { status: 500 });
-	}
+		return apiSuccess({ hoSo, quyDinhList, tinhTrangPhong });
+	});
 }

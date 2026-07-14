@@ -1,25 +1,65 @@
-import { NextRequest, NextResponse } from "next/server";
-import { xacNhanDieuKienSale, xacNhanTinhTrangQuanLy } from "@/lib/services/hoSoDatCocService";
-import { SESSION_USER_COOKIE_NAME, demoAccounts } from "@/lib/auth";
+import type { NextRequest } from "next/server";
+import { apiError, apiSuccess, ApiValidationError, withApiErrorHandling } from "@/lib/api-response";
+import { demoAccounts, SESSION_COOKIE_NAME, SESSION_COOKIE_VALUE, SESSION_USER_COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+	layChiTietHoSoDatCoc,
+	xacNhanDieuKienSale,
+	xacNhanTinhTrangQuanLy,
+	type XacDinhYeuCauDatCocInput,
+} from "@/lib/services/hoSoDatCocService";
+
+type KetQuaKiemTraInput = { quyDinhId: number; ketQua: string; ghiChu?: string };
+
+function optionalString(value: unknown) {
+	return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function parseKetQua(value: unknown): KetQuaKiemTraInput[] {
+	if (value === undefined) return [];
+	if (!Array.isArray(value)) throw new ApiValidationError("Kết quả kiểm tra điều kiện không hợp lệ.");
+	return value.map((item) => {
+		if (typeof item !== "object" || item === null) throw new ApiValidationError("Kết quả kiểm tra điều kiện không hợp lệ.");
+		const record = item as Record<string, unknown>;
+		const quyDinhId = Number(record.quyDinhId);
+		if (!Number.isInteger(quyDinhId) || quyDinhId < 1 || !["Đạt", "Không đạt"].includes(String(record.ketQua))) {
+			throw new ApiValidationError("Kết quả kiểm tra điều kiện không hợp lệ.");
+		}
+		return { quyDinhId, ketQua: String(record.ketQua), ghiChu: optionalString(record.ghiChu) };
+	});
+}
+
+function parseChiTiet(value: unknown): XacDinhYeuCauDatCocInput | undefined {
+	if (value === undefined || value === null) return undefined;
+	if (typeof value !== "object") throw new ApiValidationError("Thông tin phòng hoặc giường không hợp lệ.");
+	const record = value as Record<string, unknown>;
+	const phongId = Number(record.phongId);
+	const giuongId = record.giuongId ? Number(record.giuongId) : undefined;
+	const giaThueThoaThuan = Number(record.giaThueThoaThuan);
+	const soGiuongQuyDoi = Number(record.soGiuongQuyDoi);
+	if (!Number.isInteger(phongId) || phongId < 1 || (giuongId !== undefined && (!Number.isInteger(giuongId) || giuongId < 1))) {
+		throw new ApiValidationError("Phòng hoặc giường đã chọn không hợp lệ.");
+	}
+	return { phongId, giuongId, giaThueThoaThuan, soGiuongQuyDoi };
+}
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-	try {
-		const { id } = await params;
-		const hoSoId = parseInt(id, 10);
-		if (isNaN(hoSoId)) {
-			return NextResponse.json({ success: false, error: "ID hồ sơ không hợp lệ" }, { status: 400 });
-		}
-
+	return withApiErrorHandling(async () => {
 		const username = request.cookies.get(SESSION_USER_COOKIE_NAME)?.value;
-		const account = username ? demoAccounts[username] : null;
-
-		if (!account) {
-			return NextResponse.json({ success: false, error: "Chưa xác thực" }, { status: 401 });
+		const account = username ? demoAccounts[username] : undefined;
+		if (request.cookies.get(SESSION_COOKIE_NAME)?.value !== SESSION_COOKIE_VALUE || !account || !username) {
+			return apiError("Chưa xác thực.", 401);
 		}
 
-		const body = await request.json();
-		const { ketQuaKiemTra, lyDoTuChoi } = body;
+		const { id } = await params;
+		const hoSoId = Number(id);
+		if (!Number.isInteger(hoSoId) || hoSoId < 1) return apiError("ID hồ sơ không hợp lệ.", 400);
+
+		const body = (await request.json()) as Record<string, unknown>;
+		const lyDoTuChoi = optionalString(body.lyDoTuChoi);
+		const hoSo = await layChiTietHoSoDatCoc(hoSoId);
+		if (!hoSo) return apiError("Không tìm thấy hồ sơ đặt cọc.", 404);
+
 		const nguoiDung = await prisma.nguoiDung.upsert({
 			where: { tenDangNhap: username },
 			update: {},
@@ -29,19 +69,28 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 				matKhauHash: "demo-session-account",
 				vaiTro: account.role,
 			},
+			select: { nguoiDungId: true },
 		});
 
-		if (account.role === "nhanvien") {
-			await xacNhanDieuKienSale(hoSoId, nguoiDung.nguoiDungId, ketQuaKiemTra || [], lyDoTuChoi);
-			return NextResponse.json({ success: true, message: "Đã gửi yêu cầu xác nhận lên Quản lý" });
-		} else if (account.role === "quanly") {
-			await xacNhanTinhTrangQuanLy(hoSoId, nguoiDung.nguoiDungId, lyDoTuChoi);
-			return NextResponse.json({ success: true, message: "Đã xác nhận tình trạng phòng" });
-		} else {
-			return NextResponse.json({ success: false, error: "Tài khoản không có quyền thao tác" }, { status: 403 });
+		const isSaleStage = ["Chờ xác nhận điều kiện", "Mới tạo"].includes(hoSo.trangThai);
+		if ((account.role === "nhanvien" || account.role === "admin") && isSaleStage) {
+			const result = await xacNhanDieuKienSale(
+				hoSoId,
+				nguoiDung.nguoiDungId,
+				parseKetQua(body.ketQuaKiemTra),
+				parseChiTiet(body.chiTietDatCoc),
+				lyDoTuChoi,
+			);
+			if (!result) return apiError("Không tìm thấy hồ sơ đặt cọc.", 404);
+			return apiSuccess({ message: lyDoTuChoi ? "Đã từ chối hồ sơ." : "Đã gửi yêu cầu xác nhận lên Quản lý." });
 		}
-	} catch (error) {
-		console.error("Lỗi xác nhận hồ sơ đặt cọc:", error);
-		return NextResponse.json({ success: false, error: "Lỗi máy chủ nội bộ" }, { status: 500 });
-	}
+
+		if ((account.role === "quanly" || account.role === "admin") && hoSo.trangThai === "Chờ xác nhận quản lý") {
+			const result = await xacNhanTinhTrangQuanLy(hoSoId, nguoiDung.nguoiDungId, lyDoTuChoi);
+			if (!result) return apiError("Không tìm thấy hồ sơ đặt cọc.", 404);
+			return apiSuccess({ message: lyDoTuChoi ? "Đã từ chối hồ sơ." : "Đã xác nhận tình trạng phòng hoặc giường." });
+		}
+
+		return apiError("Tài khoản không có quyền xử lý hồ sơ ở bước hiện tại.", 403);
+	});
 }

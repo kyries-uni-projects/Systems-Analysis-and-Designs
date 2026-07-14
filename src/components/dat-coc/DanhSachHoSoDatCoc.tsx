@@ -33,11 +33,21 @@ function statusClass(status: string) {
 }
 
 function actionFor(role: Role, hoSo: HoSoDatCoc) {
+	const detailHref = `/dat-coc-xac-nhan-thue/xac-nhan-dieu-kien-dat-coc?id=${hoSo.hoSoDatCocId}`;
 	if (role === "ketoan") {
 		return { href: `/deposit/lap-yeu-cau-thanh-toan/${hoSo.hoSoDatCocId}`, label: "Lập yêu cầu" };
 	}
 	if (role === "quanly") {
-		return { href: `/dat-coc-xac-nhan-thue/xac-nhan-dieu-kien-dat-coc?id=${hoSo.hoSoDatCocId}`, label: "Đối chiếu" };
+		return { href: detailHref, label: "Xác nhận" };
+	}
+	if (["Chờ xác nhận điều kiện", "Mới tạo"].includes(hoSo.trangThai)) {
+		return { href: detailHref, label: "Xác định yêu cầu" };
+	}
+	if (role === "admin" && hoSo.trangThai === "Chờ xác nhận quản lý") {
+		return { href: detailHref, label: "Xác nhận" };
+	}
+	if (role === "admin" && hoSo.trangThai === "Đã xác nhận điều kiện") {
+		return { href: `/deposit/lap-yeu-cau-thanh-toan/${hoSo.hoSoDatCocId}`, label: "Lập yêu cầu" };
 	}
 	return { href: `/deposit/lap-phieu-dat-coc?id=${hoSo.hoSoDatCocId}`, label: "Cập nhật" };
 }

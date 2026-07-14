@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import type { Role } from "@/lib/auth";
+import { ApiValidationError } from "@/lib/api-response";
 import { prisma } from "../prisma";
 
 const chiTietHoSoDatCocInclude = {
 	khachHang: true,
 	yeuCauThue: true,
+	nhanVien: { select: { hoTen: true } },
 	chiTietDatCocs: {
 		include: {
 			phong: {
@@ -61,6 +63,23 @@ type NguoiLapHoSo = {
 	role: Role;
 };
 
+export type XacDinhYeuCauDatCocInput = {
+	phongId: number;
+	giuongId?: number;
+	giaThueThoaThuan: number;
+	soGiuongQuyDoi: number;
+};
+
+const TRANG_THAI_DANG_GIU_CHO = ["Chờ xác nhận quản lý", "Đã xác nhận điều kiện", "Chờ thanh toán", "Đã xác nhận thanh toán"];
+
+function laTrangThaiPhongKhaDung(trangThai: string) {
+	return ["Trống", "DANG_HOAT_DONG", "Đang hoạt động"].includes(trangThai);
+}
+
+function laTrangThaiGiuongTrong(trangThai: string) {
+	return ["Trống", "TRONG"].includes(trangThai);
+}
+
 /**
  * Lấy chi tiết hồ sơ đặt cọc, bao gồm khách hàng, phòng, yêu cầu thuê.
  */
@@ -90,6 +109,40 @@ export async function layDanhSachHoSoDatCoc(role: Role) {
 	return hoSoDaChuanHoa;
 }
 
+export async function layDanhSachPhongGiuongKhaDung() {
+	const [danhSach, chiTietDangGiuCho] = await Promise.all([
+		prisma.phong.findMany({
+			where: { trangThai: { in: ["Trống", "DANG_HOAT_DONG", "Đang hoạt động"] } },
+			include: { loaiPhong: true, giuongs: { orderBy: { maGiuongLocal: "asc" } } },
+			orderBy: { maPhong: "asc" },
+		}),
+		prisma.chiTietDatCoc.findMany({
+			where: { hoSoDatCoc: { trangThai: { in: TRANG_THAI_DANG_GIU_CHO } } },
+			select: { phongId: true, giuongId: true },
+		}),
+	]);
+	const phongDaGiuNguyen = new Set(chiTietDangGiuCho.filter((chiTiet) => chiTiet.giuongId === null).map((chiTiet) => chiTiet.phongId));
+	const giuongDaGiu = new Set(chiTietDangGiuCho.flatMap((chiTiet) => (chiTiet.giuongId ? [chiTiet.giuongId] : [])));
+
+	return danhSach.filter((phong) => !phongDaGiuNguyen.has(phong.phongId)).map((phong) => ({
+		phongId: phong.phongId,
+		maPhong: phong.maPhong,
+		khu: phong.khu,
+		tang: phong.tang,
+		sucChua: phong.sucChua,
+		gioiTinhApDung: phong.gioiTinhApDung,
+		trangThai: phong.trangThai,
+		loaiPhong: phong.loaiPhong.tenLoaiPhong,
+		donGia: phong.loaiPhong.donGia,
+		giuongs: phong.giuongs.map((giuong) => ({
+			giuongId: giuong.giuongId,
+			maGiuongLocal: giuong.maGiuongLocal,
+			trangThai: giuong.trangThai,
+			khaDung: laTrangThaiGiuongTrong(giuong.trangThai) && !giuongDaGiu.has(giuong.giuongId),
+		})),
+	}));
+}
+
 export async function lapYeuCauThanhToanCoc(hoSoId: number, keToanId: number) {
 	const hoSo = await prisma.hoSoDatCoc.findUnique({
 		where: { hoSoDatCocId: hoSoId },
@@ -98,8 +151,9 @@ export async function lapYeuCauThanhToanCoc(hoSoId: number, keToanId: number) {
 	if (!hoSo) return null;
 	if (hoSo.yeuCauThanhToanCoc) return hoSo.yeuCauThanhToanCoc;
 	if (hoSo.trangThai !== "Đã xác nhận điều kiện") {
-		throw new Error("Hồ sơ chưa đủ điều kiện để lập yêu cầu thanh toán.");
+		throw new ApiValidationError("Hồ sơ chưa đủ điều kiện để lập yêu cầu thanh toán.");
 	}
+	if (hoSo.chiTietDatCocs.length === 0) throw new ApiValidationError("Hồ sơ chưa có thông tin phòng hoặc giường đặt cọc.");
 
 	const soTienCoc = hoSo.chiTietDatCocs.reduce((tong, chiTiet) => tong + chiTiet.giaThueThoaThuan * 2 * chiTiet.soGiuongQuyDoi, 0);
 	const hanThanhToan = new Date();
@@ -196,7 +250,7 @@ export async function taoHoSoDatCoc(input: CapNhatThongTinHoSoDatCocInput, nguoi
 				hinhThucThue: input.yeuCauThue.loaiThue,
 				ngayBatDauDuKien: input.ngayBatDauDuKien,
 				ngayKetThucDuKien: input.ngayKetThucDuKien,
-				trangThai: "Mới tạo",
+				trangThai: "Chờ xác nhận điều kiện",
 				lyDoTuChoi: input.lyDoTuChoi ?? null,
 			},
 		});
@@ -226,8 +280,8 @@ export async function kiemTraTinhTrangPhong(phongId: number, giuongId?: number |
 
 	if (!phong) return null;
 
-	// Đếm số giường trống
-	const soGiuongTrong = phong.giuongs.filter((g) => g.trangThai === "Trống").length;
+	const soGiuongTrong = phong.giuongs.filter((g) => laTrangThaiGiuongTrong(g.trangThai)).length;
+	const giuongYeuCau = giuongId ? phong.giuongs.find((giuong) => giuong.giuongId === giuongId) : null;
 
 	// Kiểm tra xem có ai khác đang cọc phòng này không
 	const cacsHoSoKhac = await prisma.chiTietDatCoc.findMany({
@@ -235,7 +289,7 @@ export async function kiemTraTinhTrangPhong(phongId: number, giuongId?: number |
 			phongId,
 			...(hoSoDatCocId ? { hoSoDatCocId: { not: hoSoDatCocId } } : {}),
 			hoSoDatCoc: {
-				trangThai: { in: ["Chờ xác nhận quản lý", "Đã xác nhận điều kiện", "Chờ thanh toán"] },
+				trangThai: { in: TRANG_THAI_DANG_GIU_CHO },
 			},
 		},
 		select: { giuongId: true },
@@ -243,16 +297,27 @@ export async function kiemTraTinhTrangPhong(phongId: number, giuongId?: number |
 
 	let hasOtherDeposit = false;
 	if (giuongId) {
-		hasOtherDeposit = cacsHoSoKhac.some((chiTietDatCoc) => chiTietDatCoc.giuongId === giuongId);
+		hasOtherDeposit = cacsHoSoKhac.some((chiTietDatCoc) => chiTietDatCoc.giuongId === giuongId || chiTietDatCoc.giuongId === null);
 	} else {
 		hasOtherDeposit = cacsHoSoKhac.length > 0;
 	}
 
+	const hoSo = hoSoDatCocId
+		? await prisma.hoSoDatCoc.findUnique({ where: { hoSoDatCocId }, include: { khachHang: true } })
+		: null;
+	const phuHopGioiTinh =
+		!phong.gioiTinhApDung || !hoSo?.khachHang.gioiTinh || phong.gioiTinhApDung.toLocaleLowerCase("vi-VN") === hoSo.khachHang.gioiTinh.toLocaleLowerCase("vi-VN");
+	const doiTuongKhaDung = giuongYeuCau
+		? laTrangThaiGiuongTrong(giuongYeuCau.trangThai)
+		: laTrangThaiPhongKhaDung(phong.trangThai) && phong.giuongs.every((giuong) => laTrangThaiGiuongTrong(giuong.trangThai));
+	const coTheXacNhan = doiTuongKhaDung && !hasOtherDeposit && phuHopGioiTinh && (giuongYeuCau !== undefined || !giuongId);
+
 	return {
-		tinhTrangPhong: soGiuongTrong > 0 ? "Trống" : phong.trangThai,
+		tinhTrangPhong: doiTuongKhaDung ? "Trống" : "Không khả dụng",
 		datCocChoTuSaleKhac: hasOtherDeposit,
-		phuHopGioiTinh: true, // Mock logic for demo
+		phuHopGioiTinh,
 		sucChuaConLai: `${soGiuongTrong}/${phong.sucChua} giường trống`,
+		coTheXacNhan,
 	};
 }
 
@@ -263,53 +328,115 @@ export async function xacNhanDieuKienSale(
 	hoSoId: number,
 	nhanVienId: number,
 	ketQuaKiemTra: { quyDinhId: number; ketQua: string; ghiChu?: string }[],
+	chiTietDatCoc?: XacDinhYeuCauDatCocInput,
 	lyDoTuChoi?: string,
 ) {
-	// 1. Cập nhật hồ sơ
-	const trangThaiMoi = lyDoTuChoi ? "Từ chối" : "Chờ xác nhận quản lý";
+	return prisma.$transaction(async (transaction) => {
+		const hoSo = await transaction.hoSoDatCoc.findUnique({ where: { hoSoDatCocId: hoSoId } });
+		if (!hoSo) return null;
+		if (!["Chờ xác nhận điều kiện", "Mới tạo"].includes(hoSo.trangThai)) {
+			throw new ApiValidationError("Hồ sơ không ở bước Sale xác định yêu cầu đặt cọc.");
+		}
 
-	await prisma.hoSoDatCoc.update({
-		where: { hoSoDatCocId: hoSoId },
-		data: {
-			trangThai: trangThaiMoi,
-			lyDoTuChoi: lyDoTuChoi || null,
-		},
-	});
+		const isRejected = Boolean(lyDoTuChoi?.trim());
+		if (!isRejected) {
+			if (!chiTietDatCoc) throw new ApiValidationError("Vui lòng chọn phòng hoặc giường cần đặt cọc.");
+			const thueTheoGiuong = hoSo.hinhThucThue.toLocaleLowerCase("vi-VN").includes("giường");
+			if (thueTheoGiuong && !chiTietDatCoc.giuongId) throw new ApiValidationError("Vui lòng chọn giường cần đặt cọc.");
+			if (!thueTheoGiuong && chiTietDatCoc.giuongId) throw new ApiValidationError("Hồ sơ thuê nguyên phòng không được chọn giường riêng lẻ.");
+			if (!Number.isFinite(chiTietDatCoc.giaThueThoaThuan) || chiTietDatCoc.giaThueThoaThuan <= 0) {
+				throw new ApiValidationError("Giá thuê thỏa thuận phải lớn hơn 0.");
+			}
+			if (!Number.isInteger(chiTietDatCoc.soGiuongQuyDoi) || chiTietDatCoc.soGiuongQuyDoi < 1) {
+				throw new ApiValidationError("Số giường quy đổi phải lớn hơn 0.");
+			}
 
-	// 2. Lưu kết quả kiểm tra
-	if (ketQuaKiemTra.length > 0) {
-		// Xoá cũ
-		await prisma.ketQuaKiemTraDieuKien.deleteMany({
+			const quyDinhBatBuoc = await transaction.quyDinhKyTucXa.findMany({
+				where: { batBuoc: true, trangThai: { in: ["Dang ap dung", "Đang áp dụng"] } },
+				select: { quyDinhId: true },
+			});
+			const ketQuaById = new Map(ketQuaKiemTra.map((item) => [item.quyDinhId, item.ketQua]));
+			if (quyDinhBatBuoc.some((quyDinh) => ketQuaById.get(quyDinh.quyDinhId) !== "Đạt")) {
+				throw new ApiValidationError("Tất cả điều kiện lưu trú bắt buộc phải được xác nhận đạt.");
+			}
+
+			const phong = await transaction.phong.findUnique({
+				where: { phongId: chiTietDatCoc.phongId },
+				include: { giuongs: true },
+			});
+			if (!phong || !laTrangThaiPhongKhaDung(phong.trangThai)) throw new ApiValidationError("Phòng đã chọn không khả dụng.");
+			if (chiTietDatCoc.giuongId) {
+				const giuong = phong.giuongs.find((item) => item.giuongId === chiTietDatCoc.giuongId);
+				if (!giuong || !laTrangThaiGiuongTrong(giuong.trangThai)) throw new ApiValidationError("Giường đã chọn không khả dụng.");
+			}
+
+			const hoSoKhac = await transaction.chiTietDatCoc.findFirst({
+				where: {
+					hoSoDatCocId: { not: hoSoId },
+					phongId: chiTietDatCoc.phongId,
+					hoSoDatCoc: { trangThai: { in: TRANG_THAI_DANG_GIU_CHO } },
+					...(chiTietDatCoc.giuongId ? { OR: [{ giuongId: chiTietDatCoc.giuongId }, { giuongId: null }] } : {}),
+				},
+			});
+			if (hoSoKhac) throw new ApiValidationError("Phòng hoặc giường đã có hồ sơ đặt cọc khác đang giữ chỗ.");
+
+			await transaction.chiTietDatCoc.deleteMany({ where: { hoSoDatCocId: hoSoId } });
+			await transaction.chiTietDatCoc.create({
+				data: {
+					hoSoDatCocId: hoSoId,
+					phongId: chiTietDatCoc.phongId,
+					giuongId: chiTietDatCoc.giuongId,
+					giaThueThoaThuan: chiTietDatCoc.giaThueThoaThuan,
+					soGiuongQuyDoi: chiTietDatCoc.soGiuongQuyDoi,
+					tienCocPhanBo: chiTietDatCoc.giaThueThoaThuan * 2 * chiTietDatCoc.soGiuongQuyDoi,
+					trangThai: "Chờ xác nhận quản lý",
+				},
+			});
+		}
+
+		await transaction.ketQuaKiemTraDieuKien.deleteMany({ where: { hoSoDatCocId: hoSoId } });
+		if (ketQuaKiemTra.length > 0) {
+			await transaction.ketQuaKiemTraDieuKien.createMany({
+				data: ketQuaKiemTra.map((ketQua) => ({
+					hoSoDatCocId: hoSoId,
+					quyDinhId: ketQua.quyDinhId,
+					nguoiKiemTraId: nhanVienId,
+					ketQua: ketQua.ketQua,
+					ghiChu: ketQua.ghiChu,
+				})),
+			});
+		}
+
+		await transaction.hoSoDatCoc.update({
 			where: { hoSoDatCocId: hoSoId },
+			data: { trangThai: isRejected ? "Từ chối" : "Chờ xác nhận quản lý", lyDoTuChoi: lyDoTuChoi?.trim() || null },
 		});
-
-		// Thêm mới
-		await prisma.ketQuaKiemTraDieuKien.createMany({
-			data: ketQuaKiemTra.map((kq) => ({
-				hoSoDatCocId: hoSoId,
-				quyDinhId: kq.quyDinhId,
-				nguoiKiemTraId: nhanVienId,
-				ketQua: kq.ketQua,
-				ghiChu: kq.ghiChu,
-			})),
-		});
-	}
-
-	return { success: true };
+		return { success: true };
+	});
 }
 
 /**
  * Quản lý xác nhận
  */
 export async function xacNhanTinhTrangQuanLy(hoSoId: number, quanLyId: number, lyDoTuChoi?: string) {
-	const trangThaiMoi = lyDoTuChoi ? "Từ chối" : "Đã xác nhận điều kiện";
+	const hoSo = await layChiTietHoSoDatCoc(hoSoId);
+	if (!hoSo) return null;
+	if (hoSo.trangThai !== "Chờ xác nhận quản lý") throw new ApiValidationError("Hồ sơ không ở bước Quản lý xác nhận tình trạng.");
+	if (!hoSo.phongId) throw new ApiValidationError("Hồ sơ chưa có phòng hoặc giường cần xác nhận.");
+
+	const isRejected = Boolean(lyDoTuChoi?.trim());
+	const tinhTrang = await kiemTraTinhTrangPhong(hoSo.phongId, hoSo.giuongId, hoSoId);
+	if (!isRejected && !tinhTrang?.coTheXacNhan) {
+		throw new ApiValidationError("Phòng hoặc giường không còn đáp ứng điều kiện nhận cọc.");
+	}
+	const trangThaiMoi = isRejected ? "Từ chối" : "Đã xác nhận điều kiện";
 
 	await prisma.$transaction([
 		prisma.hoSoDatCoc.update({
 			where: { hoSoDatCocId: hoSoId },
 			data: {
 				trangThai: trangThaiMoi,
-				lyDoTuChoi: lyDoTuChoi || null,
+				lyDoTuChoi: lyDoTuChoi?.trim() || null,
 			},
 		}),
 		prisma.chiTietDatCoc.updateMany({
@@ -318,7 +445,7 @@ export async function xacNhanTinhTrangQuanLy(hoSoId: number, quanLyId: number, l
 				quanLyXacNhanId: quanLyId,
 				thoiDiemXacNhan: new Date(),
 				trangThai: trangThaiMoi,
-				lyDoTuChoi: lyDoTuChoi || null,
+				lyDoTuChoi: lyDoTuChoi?.trim() || null,
 			},
 		}),
 	]);
