@@ -25,7 +25,7 @@ const pageCopy: Record<Role, { title: string; sectionTitle: string }> = {
 };
 
 function statusClass(status: string) {
-	if (status === "Đã xác nhận điều kiện" || status === "Đã xác nhận thanh toán") return "bg-emerald-50 text-emerald-700";
+	if (["Đã xác nhận điều kiện", "Đã xác nhận thanh toán", "Đã đặt cọc"].includes(status)) return "bg-emerald-50 text-emerald-700";
 	if (status === "Chờ thanh toán") return "bg-blue-50 text-blue-700";
 	if (status.includes("Chờ")) return "bg-amber-50 text-amber-700";
 	if (status === "Từ chối") return "bg-red-50 text-red-700";
@@ -39,9 +39,9 @@ function actionFor(role: Role, hoSo: HoSoDatCoc) {
 		return { href: `/deposit/lap-yeu-cau-thanh-toan/${hoSo.hoSoDatCocId}`, label: "Lập yêu cầu" };
 	}
 	if (role === "quanly") {
-		return hoSo.trangThai === "Chờ xác nhận thanh toán"
-			? { href: paymentConfirmationHref, label: "Xác nhận thanh toán" }
-			: { href: detailHref, label: "Xác nhận tình trạng" };
+		if (hoSo.trangThai === "Chờ xác nhận thanh toán") return { href: paymentConfirmationHref, label: "Xác nhận thanh toán" };
+		if (hoSo.trangThai === "Đã xác nhận thanh toán") return { href: paymentConfirmationHref, label: "Xem kết quả" };
+		return { href: detailHref, label: "Xác nhận tình trạng" };
 	}
 	if (hoSo.trangThai === "Chờ thanh toán") {
 		return { href: `/deposit/cap-nhat-chung-tu/${hoSo.hoSoDatCocId}`, label: "Cập nhật chứng từ" };
@@ -52,7 +52,10 @@ function actionFor(role: Role, hoSo: HoSoDatCoc) {
 			: { href: `/deposit/cap-nhat-chung-tu/${hoSo.hoSoDatCocId}`, label: "Xem chứng từ" };
 	}
 	if (hoSo.trangThai === "Đã xác nhận thanh toán") {
-		return { href: paymentConfirmationHref, label: "Xem kết quả" };
+		return { href: `/deposit/ghi-nhan-dat-coc/${hoSo.hoSoDatCocId}`, label: "Ghi nhận đặt cọc" };
+	}
+	if (["Chờ nhập lịch nhận phòng", "Đã đặt cọc"].includes(hoSo.trangThai)) {
+		return { href: `/deposit/ghi-nhan-dat-coc/${hoSo.hoSoDatCocId}`, label: hoSo.trangThai === "Đã đặt cọc" ? "Xem lịch hẹn" : "Nhập lịch hẹn" };
 	}
 	if (["Chờ xác nhận điều kiện", "Mới tạo"].includes(hoSo.trangThai)) {
 		return { href: detailHref, label: "Xác định yêu cầu" };
@@ -66,7 +69,7 @@ function actionFor(role: Role, hoSo: HoSoDatCoc) {
 	return { href: `/deposit/lap-phieu-dat-coc?id=${hoSo.hoSoDatCocId}`, label: "Cập nhật" };
 }
 
-export default function DanhSachHoSoDatCoc() {
+export default function DanhSachHoSoDatCoc({ mode = "all" }: { mode?: "all" | "recognition" }) {
 	const { sessionUser, isLoading: isAuthLoading } = useAuth();
 	const [danhSach, setDanhSach] = useState<HoSoDatCoc[]>([]);
 	const [searchTerm, setSearchTerm] = useState("");
@@ -114,10 +117,15 @@ export default function DanhSachHoSoDatCoc() {
 	}
 
 	const role = sessionUser.role;
-	const copy = pageCopy[role];
-	const statuses = [...new Set(danhSach.map((hoSo) => hoSo.trangThai))];
+	const copy = mode === "recognition"
+		? { title: "Ghi nhận thông tin đặt cọc", sectionTitle: "Hồ sơ sau xác nhận thanh toán" }
+		: pageCopy[role];
+	const availableDanhSach = mode === "all"
+		? danhSach
+		: danhSach.filter((hoSo) => ["Đã xác nhận thanh toán", "Chờ nhập lịch nhận phòng", "Đã đặt cọc"].includes(hoSo.trangThai));
+	const statuses = [...new Set(availableDanhSach.map((hoSo) => hoSo.trangThai))];
 	const normalizedSearch = searchTerm.trim().toLocaleLowerCase("vi-VN");
-	const filteredDanhSach = danhSach.filter((hoSo) => {
+	const filteredDanhSach = availableDanhSach.filter((hoSo) => {
 		const matchesSearch =
 			!normalizedSearch ||
 			[hoSo.maHoSoDatCoc, hoSo.khachHang.hoTen, hoSo.phong?.maPhong ?? ""].some((value) =>
@@ -130,11 +138,11 @@ export default function DanhSachHoSoDatCoc() {
 		<main className="min-h-full bg-[#f4faf8] px-4 py-6 sm:px-8">
 			<div className="mx-auto w-full max-w-5xl">
 				<nav className="mb-3 text-[13px] text-slate-500" aria-label="Breadcrumb">
-					Đặt cọc &amp; xác nhận thuê &nbsp;&gt;&nbsp; Danh sách hồ sơ đặt cọc
+					Đặt cọc &amp; xác nhận thuê &nbsp;&gt;&nbsp; {mode === "recognition" ? "Ghi nhận thông tin đặt cọc" : "Danh sách hồ sơ đặt cọc"}
 				</nav>
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<h1 className="text-2xl font-bold text-[#101828]">{copy.title}</h1>
-					{(role === "nhanvien" || role === "admin") && (
+					{mode === "all" && (role === "nhanvien" || role === "admin") && (
 						<Link
 							href="/deposit/lap-phieu-dat-coc"
 							className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#0f766e] px-4 text-sm font-semibold text-white transition hover:bg-[#0b625b]"

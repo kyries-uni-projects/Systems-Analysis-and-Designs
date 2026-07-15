@@ -4,6 +4,7 @@ import { parseHoSoDatCocInput } from "../src/lib/hoSoDatCocInput";
 import { DoiSoatHoanCoc } from "../src/lib/services/doiSoatHoanCoc.service";
 import { HopDong } from "../src/lib/services/hopDong.service";
 import { getWorkflowAction, workflowGroups } from "../src/lib/workflow-navigation";
+import { parseLichHenNhanPhongInput } from "../src/lib/lichHenNhanPhongInput";
 
 test("navigation only exposes the two rental-registration use cases from the report", () => {
 	const group = workflowGroups.find((item) => item.slug === "dang-ky-thue-phong");
@@ -21,6 +22,14 @@ test("deposit creation preserves the source rental request", () => {
 	});
 	assert.equal(input.yeuCauId, 12);
 	assert.equal(input.yeuCauThue.loaiThue, "Thuê giường");
+});
+
+test("check-in appointment input rejects invalid calendar values", () => {
+	const parsed = parseLichHenNhanPhongInput({ ngayNhanPhong: "2026-08-15", gioNhanPhong: "08:30", ghiChu: "Mang CCCD" });
+	assert.equal(parsed.gioNhanPhong, "08:30");
+	assert.equal(parsed.ghiChu, "Mang CCCD");
+	assert.throws(() => parseLichHenNhanPhongInput({ ngayNhanPhong: "2026-02-30", gioNhanPhong: "08:30" }), /không tồn tại/);
+	assert.throws(() => parseLichHenNhanPhongInput({ ngayNhanPhong: "2026-08-15", gioNhanPhong: "25:00" }), /không hợp lệ/);
 });
 
 test("return-room eligibility follows the report", () => {

@@ -30,6 +30,7 @@ test("nested workflow routes resolve to their intended roles", () => {
 	assert.deepEqual(getWorkflowRouteAccessRule("/deposit/lap-phieu-dat-coc")?.roles, ["nhanvien"]);
 	assert.deepEqual(getWorkflowRouteAccessRule("/deposit/lap-yeu-cau-thanh-toan/42")?.roles, ["ketoan"]);
 	assert.deepEqual(getWorkflowRouteAccessRule("/deposit/xac-nhan-thanh-toan/42")?.roles, ["quanly"]);
+	assert.deepEqual(getWorkflowRouteAccessRule("/deposit/ghi-nhan-dat-coc/42")?.roles, ["nhanvien"]);
 	assert.deepEqual(getWorkflowRouteAccessRule("/tra-phong/kiem-tra-tinh-trang/TP-1")?.roles, ["quanly"]);
 	assert.deepEqual(getWorkflowRouteAccessRule("/khach-hang/42")?.roles, ["nhanvien"]);
 	assert.deepEqual(getWorkflowRouteAccessRule("/phong")?.roles, ["admin"]);
@@ -43,6 +44,7 @@ test("sidebar route resolution covers deposit aliases and return-room base list"
 		"danh-sach-ho-so-dat-coc",
 	);
 	assert.equal(getWorkflowActionByPath("/deposit/cap-nhat-chung-tu/4")?.action.slug, "danh-sach-ho-so-dat-coc");
+	assert.equal(getWorkflowActionByPath("/deposit/ghi-nhan-dat-coc/4")?.action.slug, "ghi-nhan-dat-coc");
 	assert.equal(getWorkflowActionByPath("/tra-phong")?.action.slug, "danh-sach-tra-phong");
 	assert.equal(getWorkflowActionByPath("/tra-phong/doi-soat-hoan-coc/TP-1")?.action.slug, "doi-soat-hoan-coc");
 });

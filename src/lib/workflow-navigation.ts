@@ -55,6 +55,13 @@ export const workflowGroups: WorkflowGroup[] = [
 				href: "/deposit",
 				relatedPaths: ["/dat-coc-xac-nhan-thue/xac-nhan-dieu-kien-dat-coc"],
 			},
+			{
+				slug: "ghi-nhan-dat-coc",
+				label: "Ghi nhận đặt cọc",
+				description: "Chốt thông tin cọc và lập lịch hẹn nhận phòng sau khi thanh toán được xác nhận.",
+				roles: ["nhanvien"],
+				href: "/deposit/ghi-nhan-dat-coc",
+			},
 			// { slug: "xac-nhan-thanh-toan", label: "Xác nhận thanh toán", description: "Xác nhận giao dịch đặt cọc đã được thanh toán.", roles: ["ketoan"] },
 			// {
 			// 	slug: "xac-nhan-thue",
@@ -125,6 +132,7 @@ export const workflowRouteAccessRules: WorkflowRouteAccessRule[] = [
 	{ path: "/deposit/cap-nhat-chung-tu", roles: ["nhanvien"], match: "prefix" },
 	{ path: "/deposit/lap-yeu-cau-thanh-toan", roles: ["ketoan"], match: "prefix" },
 	{ path: "/deposit/xac-nhan-thanh-toan", roles: ["quanly"], match: "prefix" },
+	{ path: "/deposit/ghi-nhan-dat-coc", roles: ["nhanvien"], match: "prefix" },
 	{ path: "/dat-coc-xac-nhan-thue/xac-nhan-dieu-kien-dat-coc", roles: ["nhanvien", "quanly"], match: "exact" },
 ];
 

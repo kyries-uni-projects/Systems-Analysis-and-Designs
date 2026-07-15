@@ -84,6 +84,12 @@ export type CapNhatChungTuThanhToanInput = {
 	thoiDiemNhan: Date;
 };
 
+export type LichHenNhanPhongInput = {
+	ngayNhanPhong: Date;
+	gioNhanPhong: string;
+	ghiChu?: string;
+};
+
 const TRANG_THAI_DANG_GIU_CHO = [
 	"Chờ xác nhận quản lý",
 	"Đã xác nhận điều kiện",
@@ -344,6 +350,112 @@ export async function xacNhanThanhToanCoc(hoSoId: number, quanLyId: number, xacN
 
 		return { xacNhan, trangThai: trangThaiHoSo, chungTuId: chungTu.chungTuId };
 	});
+}
+
+/**
+ * Sale chốt thông tin cọc sau khi chứng từ đã được Quản lý xác nhận.
+ * Việc khóa phòng/giường được thực hiện trong cùng transaction để không có
+ * khoảng trống mà một Sale khác có thể chọn lại tài nguyên vừa đặt cọc.
+ */
+export async function ghiNhanThongTinDatCoc(hoSoId: number) {
+	return prisma.$transaction(async (transaction) => {
+		const hoSo = await transaction.hoSoDatCoc.findUnique({
+			where: { hoSoDatCocId: hoSoId },
+			include: {
+				chiTietDatCocs: true,
+				yeuCauThanhToanCoc: { include: { chungTuThanhToans: { orderBy: { ngayTao: "desc" }, take: 1 } } },
+			},
+		});
+		if (!hoSo) return null;
+		if (hoSo.trangThai === "Chờ nhập lịch nhận phòng" || hoSo.trangThai === "Đã đặt cọc") {
+			return { trangThai: hoSo.trangThai, maHoSoDatCoc: hoSo.maHoSoDatCoc };
+		}
+		if (hoSo.trangThai !== "Đã xác nhận thanh toán") {
+			throw new ApiValidationError("Hồ sơ chưa được xác nhận thanh toán để ghi nhận đặt cọc.");
+		}
+		const chungTu = hoSo.yeuCauThanhToanCoc?.chungTuThanhToans[0];
+		if (!hoSo.yeuCauThanhToanCoc || hoSo.yeuCauThanhToanCoc.trangThai !== "Đã xác nhận thanh toán" || chungTu?.trangThaiXacNhan !== "Đã xác nhận") {
+			throw new ApiValidationError("Khoản thanh toán cọc chưa được Quản lý xác nhận hợp lệ.");
+		}
+		if (hoSo.chiTietDatCocs.length === 0) {
+			throw new ApiValidationError("Hồ sơ chưa có thông tin phòng hoặc giường đặt cọc.");
+		}
+
+		for (const chiTiet of hoSo.chiTietDatCocs) {
+			if (chiTiet.giuongId) {
+				const result = await transaction.giuong.updateMany({
+					where: { giuongId: chiTiet.giuongId, trangThai: { in: ["Đang chờ xác nhận", "Đã cọc"] } },
+					data: { trangThai: "Đã cọc" },
+				});
+				if (result.count !== 1) throw new ApiValidationError("Giường không còn ở trạng thái giữ chỗ để ghi nhận đặt cọc.");
+			} else if (chiTiet.phongId) {
+				const result = await transaction.phong.updateMany({
+					where: { phongId: chiTiet.phongId, trangThai: { in: ["Đang chờ xác nhận", "Đã cọc"] } },
+					data: { trangThai: "Đã cọc" },
+				});
+				if (result.count !== 1) throw new ApiValidationError("Phòng không còn ở trạng thái giữ chỗ để ghi nhận đặt cọc.");
+			}
+		}
+
+		await transaction.chiTietDatCoc.updateMany({
+			where: { hoSoDatCocId: hoSoId },
+			data: { trangThai: "Đã cọc" },
+		});
+		await transaction.hoSoDatCoc.update({
+			where: { hoSoDatCocId: hoSoId },
+			data: { trangThai: "Chờ nhập lịch nhận phòng" },
+		});
+
+		return { trangThai: "Chờ nhập lịch nhận phòng", maHoSoDatCoc: hoSo.maHoSoDatCoc };
+	});
+}
+
+/** Lưu lịch nhận phòng đã thống nhất; thông tin cọc vẫn được giữ nếu bước thông báo gặp lỗi. */
+export async function luuLichHenNhanPhong(hoSoId: number, input: LichHenNhanPhongInput) {
+	if (Number.isNaN(input.ngayNhanPhong.getTime())) throw new ApiValidationError("Ngày nhận phòng không hợp lệ.");
+	if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(input.gioNhanPhong)) throw new ApiValidationError("Giờ nhận phòng không hợp lệ.");
+	const [hours, minutes] = input.gioNhanPhong.split(":").map(Number);
+	const thoiDiemHen = new Date(input.ngayNhanPhong);
+	thoiDiemHen.setHours(hours, minutes, 0, 0);
+	if (thoiDiemHen.getTime() <= Date.now()) throw new ApiValidationError("Lịch hẹn nhận phòng phải ở tương lai.");
+
+	const result = await prisma.$transaction(async (transaction) => {
+		const hoSo = await transaction.hoSoDatCoc.findUnique({
+			where: { hoSoDatCocId: hoSoId },
+			include: { khachHang: true },
+		});
+		if (!hoSo) return null;
+		if (hoSo.trangThai !== "Chờ nhập lịch nhận phòng") {
+			throw new ApiValidationError("Hồ sơ chưa được ghi nhận đặt cọc hoặc lịch hẹn đã được lưu.");
+		}
+
+		await transaction.hoSoDatCoc.update({
+			where: { hoSoDatCocId: hoSoId },
+			data: {
+				ngayHenNhanPhong: input.ngayNhanPhong,
+				gioHenNhanPhong: input.gioNhanPhong,
+				ghiChuHenNhanPhong: input.ghiChu?.trim() || null,
+				trangThai: "Đã đặt cọc",
+			},
+		});
+		await transaction.yeuCauThue.update({
+			where: { yeuCauId: hoSo.yeuCauId },
+			data: { trangThai: "Đã đặt cọc" },
+		});
+
+		return { hoSo, ngayNhanPhong: input.ngayNhanPhong, gioNhanPhong: input.gioNhanPhong };
+	});
+	if (!result) return null;
+
+	// Dự án hiện mô phỏng cổng gửi thông báo giống luồng lịch xem phòng.
+	const kenhThongBao = [result.hoSo.khachHang.email ? "Email" : null, result.hoSo.khachHang.soDienThoai ? "SMS" : null].filter(Boolean);
+	return {
+		trangThai: "Đã đặt cọc",
+		maHoSoDatCoc: result.hoSo.maHoSoDatCoc,
+		thongBao: kenhThongBao.length > 0
+			? { success: true, message: `Đã gửi thông báo lịch nhận phòng qua ${kenhThongBao.join(" và ")}.` }
+			: { success: false, message: "Lịch hẹn đã được lưu nhưng không có email hoặc số điện thoại để gửi thông báo." },
+	};
 }
 
 export async function capNhatThongTinHoSoDatCoc(hoSoId: number, input: CapNhatThongTinHoSoDatCocInput) {
