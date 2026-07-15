@@ -4,8 +4,8 @@
 // Chạy: yarn db:seed
 //
 // LƯU Ý: 4 tài khoản NguoiDung tạo dưới đây có `tenDangNhap` khớp CHÍNH XÁC với
-// `demoAccounts` trong src/lib/auth.ts. Cột `matKhauHash` KHÔNG dùng để xác thực (login so
-// khớp thẳng với demoAccounts, không tra DB) — chỉ tồn tại vì là cột NOT NULL trong schema.
+// `demoAccounts` trong src/lib/auth.ts. Mật khẩu demo được băm PBKDF2 và đăng nhập tra cứu
+// trực tiếp bảng NguoiDung giống các tài khoản do Admin tạo.
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";

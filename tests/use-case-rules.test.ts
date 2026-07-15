@@ -5,6 +5,9 @@ import { DoiSoatHoanCoc } from "../src/lib/services/doiSoatHoanCoc.service";
 import { HopDong } from "../src/lib/services/hopDong.service";
 import { getWorkflowAction, workflowGroups } from "../src/lib/workflow-navigation";
 import { parseLichHenNhanPhongInput } from "../src/lib/lichHenNhanPhongInput";
+import { hashPassword, verifyPassword } from "../src/lib/password";
+import { roleFromDatabase } from "../src/lib/user-role";
+import { parseUserManagementInput } from "../src/lib/user-management-input";
 
 test("navigation only exposes the two rental-registration use cases from the report", () => {
 	const group = workflowGroups.find((item) => item.slug === "dang-ky-thue-phong");
@@ -30,6 +33,33 @@ test("check-in appointment input rejects invalid calendar values", () => {
 	assert.equal(parsed.ghiChu, "Mang CCCD");
 	assert.throws(() => parseLichHenNhanPhongInput({ ngayNhanPhong: "2026-02-30", gioNhanPhong: "08:30" }), /không tồn tại/);
 	assert.throws(() => parseLichHenNhanPhongInput({ ngayNhanPhong: "2026-08-15", gioNhanPhong: "25:00" }), /không hợp lệ/);
+});
+
+test("Admin user input follows the report validation branches", () => {
+	const parsed = parseUserManagementInput({
+		hoTen: "Nguyễn Văn A",
+		tenDangNhap: "nguyenvana",
+		email: "vana@homestaydorm.vn",
+		soDienThoai: "0901234567",
+		chiNhan: "Chi nhánh trung tâm",
+		vaiTro: "nhanvien",
+		trangThai: "Hoạt động",
+		matKhau: "temp123",
+	}, "create");
+	assert.equal(parsed.tenDangNhap, "nguyenvana");
+	assert.equal(parsed.vaiTro, "nhanvien");
+	assert.throws(() => parseUserManagementInput({ vaiTro: "nhanvien", trangThai: "Hoạt động" }, "create"), /điền đầy đủ/);
+	assert.throws(() => parseUserManagementInput({ ...parsed, soDienThoai: "123", matKhau: "temp123" }, "create"), /Số điện thoại/);
+	assert.throws(() => parseUserManagementInput({ ...parsed, matKhau: "123" }, "create"), /Mật khẩu/);
+});
+
+test("managed-user passwords are hashed and role values are normalized", async () => {
+	const encoded = await hashPassword("temp123");
+	assert.notEqual(encoded, "temp123");
+	assert.equal(await verifyPassword("temp123", encoded), true);
+	assert.equal(await verifyPassword("wrong", encoded), false);
+	assert.equal(roleFromDatabase("Quản lý"), "quanly");
+	assert.equal(roleFromDatabase("KeToan"), "ketoan");
 });
 
 test("return-room eligibility follows the report", () => {

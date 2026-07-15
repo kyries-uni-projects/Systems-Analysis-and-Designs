@@ -1,16 +1,11 @@
 import type { PrismaClient } from "@prisma/client";
-import { demoAccounts, type Role } from "@/lib/auth";
-
-const databaseRoleByRole: Record<Role, string> = {
-	admin: "Admin",
-	nhanvien: "Sale",
-	quanly: "QuanLy",
-	ketoan: "KeToan",
-};
+import { demoAccounts } from "@/lib/auth";
+import { hashPassword } from "@/lib/password";
+import { databaseRoleByRole } from "@/lib/user-role";
 
 /** Upsert only the four preset demo users. Existing operational data is left untouched. */
 export async function ensureDemoAccounts(prisma: PrismaClient) {
-	const upsert = (username: keyof typeof demoAccounts) => {
+	const upsert = async (username: keyof typeof demoAccounts) => {
 		const account = demoAccounts[username];
 		const data = {
 			hoTen: account.name,
@@ -20,7 +15,7 @@ export async function ensureDemoAccounts(prisma: PrismaClient) {
 		return prisma.nguoiDung.upsert({
 			where: { tenDangNhap: username },
 			update: data,
-			create: { ...data, matKhauHash: "demo-login-verified-by-signed-session" },
+			create: { ...data, matKhauHash: await hashPassword(account.password), trangThai: "Hoạt động" },
 		});
 	};
 

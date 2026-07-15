@@ -41,9 +41,11 @@ model NguoiDung {
   matKhauHash  String   @map("mat_khau_hash")
   email        String?  @map("email")
   soDienThoai  String?  @map("so_dien_thoai")
+  chiNhan      String?  @map("chi_nhan")
   // CHECK IN ('SALE','QUAN_LY','KE_TOAN','ADMIN') — validate ở app
   vaiTro       String   @map("vai_tro")
   trangThai    String   @default("Hoạt động") @map("trang_thai")
+  phienBanXacThuc Int    @default(1) @map("phien_ban_xac_thuc")
   ngayTao      DateTime @default(now()) @map("ngay_tao")
 
   // Relations

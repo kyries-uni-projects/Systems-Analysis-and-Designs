@@ -9,21 +9,23 @@ import { getWorkflowActionByPath, getWorkflowRouteAccessRule } from "../src/lib/
 process.env.AUTH_SECRET = "test-only-auth-secret-with-sufficient-entropy";
 
 test("signed demo sessions preserve the preset identity", async () => {
-	const token = await createSessionToken("nhanvien01");
-	assert.deepEqual(await verifySessionToken(token), {
+	const token = await createSessionToken({ username: "nhanvien01", name: "Phạm Thị Dung", role: "nhanvien", userId: 2, sessionVersion: 1 });
+	assert.deepEqual(await verifySessionToken(token, { validateDatabase: false }), {
 		username: "nhanvien01",
 		name: "Phạm Thị Dung",
 		role: "nhanvien",
+		userId: 2,
+		sessionVersion: 1,
 	});
 });
 
 test("tampered and legacy cookie values are rejected", async () => {
-	const token = await createSessionToken("quanly01");
+	const token = await createSessionToken({ username: "quanly01", name: "Trần Thị Bình", role: "quanly", userId: 3, sessionVersion: 1 });
 	const signatureStart = token.indexOf(".") + 1;
 	const replacement = token[signatureStart] === "a" ? "b" : "a";
 	const tamperedToken = `${token.slice(0, signatureStart)}${replacement}${token.slice(signatureStart + 1)}`;
-	assert.equal(await verifySessionToken(tamperedToken), null);
-	assert.equal(await verifySessionToken("authenticated"), null);
+	assert.equal(await verifySessionToken(tamperedToken, { validateDatabase: false }), null);
+	assert.equal(await verifySessionToken("authenticated", { validateDatabase: false }), null);
 });
 
 test("nested workflow routes resolve to their intended roles", () => {

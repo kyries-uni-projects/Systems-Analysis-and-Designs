@@ -13,6 +13,7 @@ const fixedNavigation = [
 	{ href: "/", label: "Tổng quan", iconPath: "/icons/tong-quan.svg", roles: ["admin", "nhanvien", "quanly", "ketoan"] },
 	{ href: "/khach-hang", label: "Khách hàng", icon: UsersRound, roles: ["nhanvien"] },
 	{ href: "/phong", label: "Phòng / giường", icon: BedDouble, roles: ["admin"] },
+	{ href: "/users", label: "Quản lý người dùng", icon: UsersRound, roles: ["admin"] },
 	{ href: "/help", label: "Trợ giúp", iconPath: "/icons/tro-giup.svg", roles: ["admin", "nhanvien", "quanly", "ketoan"] },
 ];
 
@@ -72,7 +73,7 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 			</div>
 
 			<nav className="flex-1 space-y-1 overflow-y-auto px-3 py-5" aria-label="Điều hướng chính">
-				{fixedNavigation.slice(0, 3).filter((item) => sessionUser && (sessionUser.role === "admin" || item.roles.includes(sessionUser.role))).map(({ href, label, iconPath, icon: Icon }) => (
+				{fixedNavigation.slice(0, 4).filter((item) => sessionUser && (sessionUser.role === "admin" || item.roles.includes(sessionUser.role))).map(({ href, label, iconPath, icon: Icon }) => (
 					<Link
 						key={href}
 						href={href}
@@ -143,7 +144,7 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 						);
 					})}
 
-				{fixedNavigation.slice(3).filter((item) => sessionUser && (sessionUser.role === "admin" || item.roles.includes(sessionUser.role))).map(({ href, label, iconPath, icon: Icon }) => (
+				{fixedNavigation.slice(4).filter((item) => sessionUser && (sessionUser.role === "admin" || item.roles.includes(sessionUser.role))).map(({ href, label, iconPath, icon: Icon }) => (
 					<Link
 						key={href}
 						href={href}

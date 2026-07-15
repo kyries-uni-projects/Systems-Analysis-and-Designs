@@ -1,10 +1,16 @@
-import { demoAccounts, SESSION_COOKIE_NAME, type Role } from "@/lib/auth";
+import { SESSION_COOKIE_NAME, type Role } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { isActiveUserStatus, roleFromDatabase } from "@/lib/user-role";
 
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const DEVELOPMENT_SECRET = "homestay-dorm-signed-demo-session-development-only";
 
 type SessionPayload = {
 	sub: string;
+	uid: number;
+	ver: number;
+	name: string;
+	role: Role;
 	exp: number;
 	nonce: string;
 };
@@ -13,6 +19,8 @@ export type AuthenticatedSession = {
 	username: string;
 	name: string;
 	role: Role;
+	userId: number;
+	sessionVersion: number;
 };
 
 function getSecret() {
@@ -47,11 +55,14 @@ async function getSigningKey() {
 	);
 }
 
-export async function createSessionToken(username: string) {
-	if (!demoAccounts[username]) throw new Error("Unknown demo account.");
+export async function createSessionToken(account: AuthenticatedSession) {
 	const randomBytes = crypto.getRandomValues(new Uint8Array(16));
 	const payload: SessionPayload = {
-		sub: username,
+		sub: account.username,
+		uid: account.userId,
+		ver: account.sessionVersion,
+		name: account.name,
+		role: account.role,
 		exp: Date.now() + SESSION_TTL_MS,
 		nonce: encodeBase64Url(randomBytes),
 	};
@@ -60,7 +71,7 @@ export async function createSessionToken(username: string) {
 	return `${encodedPayload}.${encodeBase64Url(new Uint8Array(signature))}`;
 }
 
-export async function verifySessionToken(token: string | undefined): Promise<AuthenticatedSession | null> {
+export async function verifySessionToken(token: string | undefined, options?: { validateDatabase?: boolean }): Promise<AuthenticatedSession | null> {
 	if (!token) return null;
 	const [encodedPayload, encodedSignature, extra] = token.split(".");
 	if (!encodedPayload || !encodedSignature || extra) return null;
@@ -75,10 +86,26 @@ export async function verifySessionToken(token: string | undefined): Promise<Aut
 		if (!isValid) return null;
 
 		const payload = JSON.parse(new TextDecoder().decode(decodeBase64Url(encodedPayload))) as Partial<SessionPayload>;
-		if (typeof payload.sub !== "string" || typeof payload.exp !== "number" || payload.exp <= Date.now()) return null;
-		const account = demoAccounts[payload.sub];
-		if (!account) return null;
-		return { username: payload.sub, name: account.name, role: account.role };
+		if (
+			typeof payload.sub !== "string" ||
+			typeof payload.uid !== "number" ||
+			typeof payload.ver !== "number" ||
+			typeof payload.name !== "string" ||
+			!(["admin", "nhanvien", "quanly", "ketoan"] as string[]).includes(payload.role ?? "") ||
+			typeof payload.exp !== "number" ||
+			payload.exp <= Date.now()
+		) return null;
+
+		if (options?.validateDatabase === false) {
+			return { username: payload.sub, name: payload.name, role: payload.role!, userId: payload.uid, sessionVersion: payload.ver };
+		}
+		const account = await prisma.nguoiDung.findUnique({
+			where: { nguoiDungId: payload.uid },
+			select: { tenDangNhap: true, hoTen: true, vaiTro: true, trangThai: true, phienBanXacThuc: true },
+		});
+		const role = account ? roleFromDatabase(account.vaiTro) : null;
+		if (!account || !role || account.tenDangNhap !== payload.sub || account.phienBanXacThuc !== payload.ver || !isActiveUserStatus(account.trangThai)) return null;
+		return { username: account.tenDangNhap, name: account.hoTen, role, userId: payload.uid, sessionVersion: payload.ver };
 	} catch {
 		return null;
 	}
