@@ -45,3 +45,4 @@ yarn-error.log*
 *.db-journal
 
 next-env.d.ts
+ERD.svg
