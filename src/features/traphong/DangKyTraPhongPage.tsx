@@ -264,8 +264,8 @@ function NoteCard() {
           </li>
           <li>
             Chỉ các hợp đồng đang ở trạng thái{" "}
-            <strong>"Đang cho thuê"</strong> hoặc{" "}
-            <strong>"Đã hết hạn"</strong> mới được phép trả
+            <strong>&ldquo;Đang cho thuê&rdquo;</strong> hoặc{" "}
+            <strong>&ldquo;Đã hết hạn&rdquo;</strong> mới được phép trả
             phòng.
           </li>
         </ul>
@@ -765,7 +765,7 @@ function RecordTimeScreen({
           />
           <p className="text-sm text-blue-800">
             Sau khi xác nhận, hồ sơ sẽ chuyển sang trạng thái{" "}
-            <strong>"Đã đăng ký, chờ ngày trả phòng"</strong>.
+            <strong>&ldquo;Đã đăng ký, chờ ngày trả phòng&rdquo;</strong>.
             Đến đúng ngày trả phòng, quản lý sẽ mở hồ sơ để kiểm
             tra tình trạng phòng/giường.
           </p>

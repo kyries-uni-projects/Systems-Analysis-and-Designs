@@ -23,12 +23,19 @@ export async function POST(_req: Request, { params }: { params: Promise<{ maHoSo
 		if (hoSo.bienBanTraPhongId == null || hoSo.phongId == null) {
 			return apiError("Hồ sơ chưa có biên bản trả phòng hoặc thiếu thông tin phòng.", 409);
 		}
+		if (hoSo.trangThaiHoSo !== "Đã xác nhận đối soát") {
+			return apiError("Hồ sơ không ở bước hoàn tất thủ tục trả phòng.", 409);
+		}
+		if ((hoSo.soTienHoan ?? 0) > 0 && !hoSo.daHoanCoc) {
+			return apiError("Chưa thể hoàn tất vì khoản hoàn cọc chưa được chi trả.", 409);
+		}
 
 		await BienBanTraPhong.hoanTat({
 			bienBanTraPhongId: hoSo.bienBanTraPhongId,
 			yeuCauTraPhongId: parsed.id,
 			phongId: hoSo.phongId,
 			giuongId: hoSo.giuongId,
+			chiTietHopDongId: hoSo.chiTietHopDongId,
 			daThuHoiChiaKhoa: true,
 		});
 

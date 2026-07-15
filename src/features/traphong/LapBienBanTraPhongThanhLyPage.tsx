@@ -265,7 +265,7 @@ function PaymentScreen({
 }: {
   item: QueueItem;
   onBack: () => void;
-  onContinue: () => void;
+  onContinue: (paymentConfirmed: boolean) => void;
 }) {
   const canThanhToanThem = item.soTienHoan < 0;
   const [daThanhToanDu, setDaThanhToanDu] = useState(!canThanhToanThem);
@@ -341,7 +341,7 @@ function PaymentScreen({
           Quay lại
         </button>
         <button
-          onClick={onContinue}
+          onClick={() => onContinue(daThanhToanDu)}
           disabled={!daThanhToanDu}
           className={`px-6 py-2.5 rounded-lg text-sm text-white ${
             daThanhToanDu ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-300 cursor-not-allowed"
@@ -553,7 +553,7 @@ function RefundCheckpointScreen({
           <div className="flex gap-3 bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4">
             <Info size={16} className="text-gray-400 shrink-0 mt-0.5" />
             <p className="text-xs text-gray-600">
-              Đây là điểm kích hoạt UC <strong>"Thực hiện hoàn cọc"</strong> (extend) — do{" "}
+              Đây là điểm kích hoạt UC <strong>&ldquo;Thực hiện hoàn cọc&rdquo;</strong> (extend) — do{" "}
               <strong>Kế toán</strong> tự thực hiện ở màn riêng của họ (không phải Quản lý làm
               thay). Khi Kế toán hoàn tất, bước này sẽ tự động cập nhật để bạn tiếp tục.
             </p>
@@ -563,7 +563,7 @@ function RefundCheckpointScreen({
             <div className="flex items-center gap-3 border border-green-300 bg-green-50 rounded-lg p-3.5">
               <CheckCircle size={18} className="text-green-600" />
               <span className="text-sm text-green-800 font-medium">
-                Đã hoàn cọc xong (UC "Thực hiện hoàn cọc" đã hoàn tất)
+                Đã hoàn cọc xong (UC &ldquo;Thực hiện hoàn cọc&rdquo; đã hoàn tất)
               </span>
             </div>
           ) : (
@@ -581,7 +581,7 @@ function RefundCheckpointScreen({
             <Info size={18} className="text-gray-400 shrink-0 mt-0.5" />
             <p className="text-sm text-gray-600">
               Khách hàng không cần thực hiện hoàn cọc (kết quả đối soát không có số dư hoàn cọc). Bỏ
-              qua UC "Thực hiện hoàn cọc", tiếp tục các bước còn lại.
+              qua UC &ldquo;Thực hiện hoàn cọc&rdquo;, tiếp tục các bước còn lại.
             </p>
           </div>
         </Card>
@@ -648,9 +648,9 @@ function CollectKeysScreen({
           <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
             <li>Cập nhật thông tin bàn giao tài sản</li>
             <li>
-              Chuyển trạng thái phòng/giường <strong>{item.phongGiuong}</strong> sang "Trống"
+              Chuyển trạng thái phòng/giường <strong>{item.phongGiuong}</strong> sang &ldquo;Trống&rdquo;
             </li>
-            <li>Chuyển trạng thái hồ sơ trả phòng sang "Hoàn tất"</li>
+            <li>Chuyển trạng thái hồ sơ trả phòng sang &ldquo;Hoàn tất&rdquo;</li>
             <li>Gửi xác nhận hoàn tất thủ tục trả phòng cho khách hàng</li>
           </ul>
         </div>
@@ -805,12 +805,14 @@ export function LapBienBanTraPhongThanhLyPage() {
   const [refuseReason, setRefuseReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
 
   const liveHoSo = selectedItem ? hoSoList.find((h) => h.maHoSo === selectedItem.maHoSo) : undefined;
   const daHoanCoc = liveHoSo?.daHoanCoc ?? false;
 
   const openItem = (item: QueueItem) => {
     setSelectedItem(item);
+	setPaymentConfirmed(item.soTienHoan >= 0);
     setRefuseReason("");
     setSubmitError(null);
     const hoSo = hoSoList.find((h) => h.maHoSo === item.maHoSo);
@@ -826,10 +828,12 @@ export function LapBienBanTraPhongThanhLyPage() {
 
   // Tự động mở đúng hồ sơ khi được điều hướng tới (URL có :maHoSo)
   useEffect(() => {
-    if (maHoSoParam && !selectedItem) {
+    if (!maHoSoParam || selectedItem) return;
+    const timer = window.setTimeout(() => {
       const found = queueItems.find((q) => q.maHoSo === maHoSoParam);
       if (found) openItem(found);
-    }
+    }, 0);
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maHoSoParam, loadingList]);
 
@@ -841,6 +845,7 @@ export function LapBienBanTraPhongThanhLyPage() {
       await api.post(`/api/tra-phong/${selectedItem.maHoSo}/thanh-ly`, {
         ngayTraPhongThucTe: data.ngayTra,
         tinhTrangBanGiaoCuoi: data.tinhTrang || undefined,
+		daThanhToanPhatSinh: paymentConfirmed,
       });
       await refresh();
       setView("refund");
@@ -908,7 +913,7 @@ export function LapBienBanTraPhongThanhLyPage() {
 
   if (view === "payment") {
     return (
-      <PaymentScreen item={selectedItem} onBack={() => setView("queue")} onContinue={() => setView("handover")} />
+      <PaymentScreen item={selectedItem} onBack={() => setView("queue")} onContinue={(confirmed) => { setPaymentConfirmed(confirmed); setView("handover"); }} />
     );
   }
 

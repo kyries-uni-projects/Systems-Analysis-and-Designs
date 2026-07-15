@@ -5,6 +5,7 @@ import { HopDong } from "@/lib/services/hopDong.service";
 import { YeuCauTraPhong } from "@/lib/services/yeuCauTraPhong.service";
 import { formatMaHoSo } from "@/lib/maHoSo";
 import { apiSuccess, apiError, withApiErrorHandling } from "@/lib/api-response";
+import { prisma } from "@/lib/prisma";
 
 /** GET /api/tra-phong — màn "Danh sách hồ sơ trả phòng" (hub), mọi vai trò liên quan xem được. */
 export async function GET() {
@@ -39,6 +40,11 @@ export async function POST(req: NextRequest) {
 		if (Number.isNaN(ngayTraPhongDuKien.getTime())) {
 			return apiError("ngayTraPhongDuKien không hợp lệ.", 400);
 		}
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		if (ngayTraPhongDuKien < today) {
+			return apiError("Ngày trả phòng dự kiến không được ở trong quá khứ.", 400);
+		}
 
 		const hopDong = await HopDong.layThongTin(maHopDong);
 		if (!hopDong) {
@@ -46,6 +52,13 @@ export async function POST(req: NextRequest) {
 		}
 		if (hopDong.chiTietHopDongId == null) {
 			return apiError("Hợp đồng chưa có phòng nào được gán, không thể đăng ký trả phòng.", 409);
+		}
+		const activeRequest = await prisma.yeuCauTraPhong.findFirst({
+			where: { chiTietHopDongId: hopDong.chiTietHopDongId, trangThai: { notIn: ["Hoàn tất"] } },
+			select: { yeuCauTraPhongId: true },
+		});
+		if (activeRequest) {
+			return apiError("Phòng/giường này đã có một hồ sơ trả phòng đang được xử lý.", 409);
 		}
 
 		const { hopLe } = HopDong.kiemTraDieuKienTraPhong(hopDong.trangThai);

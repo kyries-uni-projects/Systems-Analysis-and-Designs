@@ -30,7 +30,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PATCH /api/phong/:id
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
 	return withApiErrorHandling(async () => {
-		const auth = await requireApiSession(request, ["quanly"]);
+		const auth = await requireApiSession(request, ["admin"]);
 		if ("error" in auth) return auth.error;
 		const { id: idParam } = await params;
 		const id = parseId(idParam);
@@ -46,7 +46,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/phong/:id
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
 	return withApiErrorHandling(async () => {
-		const auth = await requireApiSession(request, ["quanly"]);
+		const auth = await requireApiSession(request, ["admin"]);
 		if ("error" in auth) return auth.error;
 		const { id: idParam } = await params;
 		const id = parseId(idParam);

@@ -125,6 +125,15 @@ export default function PhongForm({ loaiPhongs, phong }: PhongFormProps) {
 				<input name="tienIch" defaultValue={phong?.tienIch ?? ""} className={inputClass} />
 			</label>
 
+			<label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
+				Trạng thái *
+				<select name="trangThai" required defaultValue={phong?.trangThai ?? "DANG_HOAT_DONG"} className={inputClass}>
+					<option value="DANG_HOAT_DONG">Đang hoạt động</option>
+					<option value="Đang bảo trì">Đang bảo trì</option>
+					<option value="Ngừng hoạt động">Ngừng hoạt động</option>
+				</select>
+			</label>
+
 			<button
 				type="submit"
 				disabled={isSubmitting}

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { ApiNotFoundError, ApiValidationError } from "@/lib/api-response";
 import type { CreateLichHenInput } from "@/types/lich-hen-xem-phong";
 import type { Role } from "@/lib/auth";
+import { timPhongPhuHopTheoTieuChi } from "@/lib/services/yeuCauThueService";
 
 // ============================================================
 // DB Layer — tương ứng YeuCauThueDB, LichXemPhongDB, KhachHangDB
@@ -31,29 +32,21 @@ export async function getYeuCauThueWithDetails(yeuCauId: number) {
 /** YeuCauThue.TimPhongPhuHop — Tìm phòng phù hợp dựa trên tiêu chí yêu cầu thuê */
 export async function timPhongPhuHop(yeuCauId: number) {
 	const yeuCau = await getYeuCauThueWithDetails(yeuCauId);
-
-	const rooms = await prisma.phong.findMany({
-		where: {
-			trangThai: { in: ["Trống", "Còn giường trống"] },
-			...(yeuCau.khuVucMongMuon ? { khu: yeuCau.khuVucMongMuon } : {}),
-			sucChua: { gte: yeuCau.soNguoiDuKien },
-			...(yeuCau.loaiThue === "Thuê giường" ? { giuongs: { some: { trangThai: "Trống" } } } : {}),
-		},
-		include: { loaiPhong: true, giuongs: true },
-		orderBy: { maPhong: "asc" },
+	let storedCriteria: { tienIch?: string[]; mucGiaTu?: number; mucGiaDen?: number } = {};
+	try {
+		storedCriteria = yeuCau.tieuChiUuTien ? JSON.parse(yeuCau.tieuChiUuTien) : {};
+	} catch {
+		storedCriteria = {};
+	}
+	return timPhongPhuHopTheoTieuChi({
+		loaiThue: yeuCau.loaiThue,
+		khuVucMongMuon: yeuCau.khuVucMongMuon,
+		soNguoiDuKien: yeuCau.soNguoiDuKien,
+		mucGiaTu: storedCriteria.mucGiaTu,
+		mucGiaDen: storedCriteria.mucGiaDen ?? yeuCau.mucGiaMongMuon ?? undefined,
+		gioiTinh: yeuCau.khachHang.gioiTinh,
+		tieuChiUuTien: Array.isArray(storedCriteria.tienIch) ? storedCriteria.tienIch : [],
 	});
-
-	return rooms.map((room) => ({
-		phongId: room.phongId,
-		maPhong: room.maPhong,
-		khu: room.khu,
-		tang: room.tang,
-		sucChua: room.sucChua,
-		loaiPhong: room.loaiPhong.tenLoaiPhong,
-		donGia: room.loaiPhong.donGia,
-		tienIch: room.tienIch,
-		soGiuongTrong: room.giuongs.filter((bed) => bed.trangThai === "Trống").length,
-	}));
 }
 
 /** LichXemPhongDB.LayDanhSachLichHenTheoNgay — Lấy lịch hẹn của phòng theo ngày */
@@ -112,11 +105,13 @@ export async function taoLichHen(input: CreateLichHenInput, nhanVienInfo: NhanVi
 
 	// Kiểm tra yêu cầu thuê tồn tại
 	const yeuCau = await getYeuCauThueWithDetails(input.yeuCauId);
+	if (yeuCau.lichHenXemPhongs.some((lichHen) => lichHen.trangThai !== "Đã hủy")) {
+		throw new ApiValidationError("Yêu cầu thuê này đã có lịch xem phòng đang hiệu lực.");
+	}
 
-	// Kiểm tra phòng tồn tại
-	const phong = await prisma.phong.findUnique({ where: { phongId: input.phongId } });
-	if (!phong) {
-		throw new ApiNotFoundError(`Không tìm thấy phòng #${input.phongId}`);
+	const matchingRooms = await timPhongPhuHop(input.yeuCauId);
+	if (!matchingRooms.some((room) => room.phongId === input.phongId)) {
+		throw new ApiValidationError("Phòng đã chọn không còn phù hợp hoặc không còn khả dụng.");
 	}
 
 	// Tạo lịch hẹn trong transaction
@@ -147,6 +142,10 @@ export async function taoLichHen(input: CreateLichHenInput, nhanVienInfo: NhanVi
 				phong: { include: { loaiPhong: true } },
 				yeuCauThue: { include: { khachHang: true } },
 			},
+		});
+		await tx.yeuCauThue.update({
+			where: { yeuCauId: input.yeuCauId },
+			data: { trangThai: "Đã lên lịch xem phòng" },
 		});
 
 		return lichHen;
@@ -206,6 +205,7 @@ export async function layDanhSachYeuCauChuaLapLich() {
 	return prisma.yeuCauThue.findMany({
 		where: {
 			trangThai: "Mới tạo",
+			lichHenXemPhongs: { none: { trangThai: { not: "Đã hủy" } } },
 		},
 		include: {
 			khachHang: true,

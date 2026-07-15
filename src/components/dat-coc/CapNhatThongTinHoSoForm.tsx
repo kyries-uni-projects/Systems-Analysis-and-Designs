@@ -28,17 +28,19 @@ type InitialData = {
 };
 
 type DieuKien = InitialData["dieuKien"][number];
+type PrefillData = Pick<InitialData, "ngayBatDauDuKien" | "ngayKetThucDuKien" | "khachHang" | "yeuCauThue">;
 
 const inputClass =
 	"h-11 w-full min-w-0 border-0 bg-transparent px-0 text-[13px] font-medium text-[#101828] outline-none placeholder:text-[#a0a4a8] focus-visible:ring-0";
 
-export default function CapNhatThongTinHoSoForm({ initialData, dieuKien = [] }: { initialData?: InitialData; dieuKien?: DieuKien[] }) {
+export default function CapNhatThongTinHoSoForm({ initialData, prefillData, sourceYeuCauId, dieuKien = [] }: { initialData?: InitialData; prefillData?: PrefillData; sourceYeuCauId?: number; dieuKien?: DieuKien[] }) {
 	const router = useRouter();
 	const { sessionUser, isLoading } = useAuth();
 	const [error, setError] = useState("");
 	const [success, setSuccess] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const isCreate = !initialData;
+	const formDataSource = initialData ?? prefillData;
 	const today = new Date().toISOString().slice(0, 10);
 	const defaultEndDate = new Date(new Date(`${today}T00:00:00`).setMonth(new Date(`${today}T00:00:00`).getMonth() + 6)).toISOString().slice(0, 10);
 	const displayedConditions = initialData?.dieuKien ?? dieuKien;
@@ -54,6 +56,7 @@ export default function CapNhatThongTinHoSoForm({ initialData, dieuKien = [] }: 
 			method: isCreate ? "POST" : "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
+				yeuCauId: sourceYeuCauId,
 				khachHang: {
 					hoTen: formData.get("hoTen"),
 					cccdPassport: formData.get("cccdPassport"),
@@ -128,13 +131,13 @@ export default function CapNhatThongTinHoSoForm({ initialData, dieuKien = [] }: 
 					<h2 className="mb-4 text-base font-semibold text-[#101828]">{isCreate ? "Thông tin khách hàng" : "Thông tin khách hàng đang cập nhật"}</h2>
 					<div className="divide-y divide-[#edeef0]">
 						<Field label="Họ và tên">
-							<input name="hoTen" required defaultValue={initialData?.khachHang.hoTen ?? ""} className={inputClass} />
+							<input name="hoTen" required defaultValue={formDataSource?.khachHang.hoTen ?? ""} className={inputClass} />
 						</Field>
 						<Field label="Số CCCD">
-							<input name="cccdPassport" required defaultValue={initialData?.khachHang.cccdPassport ?? ""} className={inputClass} />
+							<input name="cccdPassport" required defaultValue={formDataSource?.khachHang.cccdPassport ?? ""} className={inputClass} />
 						</Field>
 						<Field label="Giới tính">
-							<select name="gioiTinh" defaultValue={initialData?.khachHang.gioiTinh ?? ""} className={inputClass}>
+							<select name="gioiTinh" defaultValue={formDataSource?.khachHang.gioiTinh ?? ""} className={inputClass}>
 								<option value="">Chọn giới tính</option>
 								{GENDER_OPTIONS.map((gender) => (
 									<option key={gender} value={gender}>{gender}</option>
@@ -142,28 +145,28 @@ export default function CapNhatThongTinHoSoForm({ initialData, dieuKien = [] }: 
 							</select>
 						</Field>
 						<Field label="Quốc tịch">
-							<input name="quocTich" defaultValue={initialData?.khachHang.quocTich ?? ""} className={inputClass} />
+							<input name="quocTich" defaultValue={formDataSource?.khachHang.quocTich ?? ""} className={inputClass} />
 						</Field>
 						<Field label="Số điện thoại">
-							<input name="soDienThoai" required defaultValue={initialData?.khachHang.soDienThoai ?? ""} className={inputClass} />
+							<input name="soDienThoai" required defaultValue={formDataSource?.khachHang.soDienThoai ?? ""} className={inputClass} />
 						</Field>
 						<Field label="Email">
-							<input name="email" type="email" defaultValue={initialData?.khachHang.email ?? ""} className={inputClass} />
+							<input name="email" type="email" defaultValue={formDataSource?.khachHang.email ?? ""} className={inputClass} />
 						</Field>
 						<Field label="Số người dự kiến">
-							<input name="soNguoiDuKien" required min="1" type="number" defaultValue={initialData?.yeuCauThue.soNguoiDuKien ?? 1} className={inputClass} />
+							<input name="soNguoiDuKien" required min="1" type="number" defaultValue={formDataSource?.yeuCauThue.soNguoiDuKien ?? 1} className={inputClass} />
 						</Field>
 						<Field label="Loại thuê">
-							<input name="loaiThue" required defaultValue={initialData?.yeuCauThue.loaiThue ?? ""} className={inputClass} />
+							<input name="loaiThue" required defaultValue={formDataSource?.yeuCauThue.loaiThue ?? ""} className={inputClass} />
 						</Field>
 						<Field label="Khu vực mong muốn">
-							<input name="khuVucMongMuon" defaultValue={initialData?.yeuCauThue.khuVucMongMuon ?? ""} className={inputClass} />
+							<input name="khuVucMongMuon" defaultValue={formDataSource?.yeuCauThue.khuVucMongMuon ?? ""} className={inputClass} />
 						</Field>
 						<Field label="Ngày bắt đầu dự kiến">
-							<input name="ngayBatDauDuKien" required type="date" defaultValue={initialData?.ngayBatDauDuKien ?? today} className={inputClass} />
+							<input name="ngayBatDauDuKien" required type="date" defaultValue={formDataSource?.ngayBatDauDuKien || today} className={inputClass} />
 						</Field>
 						<Field label="Ngày kết thúc dự kiến">
-							<input name="ngayKetThucDuKien" required type="date" defaultValue={initialData?.ngayKetThucDuKien ?? defaultEndDate} className={inputClass} />
+							<input name="ngayKetThucDuKien" required type="date" defaultValue={formDataSource?.ngayKetThucDuKien || defaultEndDate} className={inputClass} />
 						</Field>
 					</div>
 				</section>

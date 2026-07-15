@@ -10,10 +10,10 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { canAccessWorkflowAction, getWorkflowActionByPath, getWorkflowActionHref, workflowGroups } from "@/lib/workflow-navigation";
 
 const fixedNavigation = [
-	{ href: "/", label: "Tổng quan", iconPath: "/icons/tong-quan.svg" },
-	{ href: "/khach-hang", label: "Khách hàng", icon: UsersRound },
-	{ href: "/phong", label: "Phòng", icon: BedDouble },
-	{ href: "/help", label: "Trợ giúp", iconPath: "/icons/tro-giup.svg" },
+	{ href: "/", label: "Tổng quan", iconPath: "/icons/tong-quan.svg", roles: ["admin", "nhanvien", "quanly", "ketoan"] },
+	{ href: "/khach-hang", label: "Khách hàng", icon: UsersRound, roles: ["nhanvien"] },
+	{ href: "/phong", label: "Phòng / giường", icon: BedDouble, roles: ["admin"] },
+	{ href: "/help", label: "Trợ giúp", iconPath: "/icons/tro-giup.svg", roles: ["admin", "nhanvien", "quanly", "ketoan"] },
 ];
 
 export default function AppShell({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -42,6 +42,7 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 	}
 
 	async function handleLogout() {
+		if (!window.confirm("Bạn có chắc muốn đăng xuất khỏi hệ thống?")) return;
 		await fetch("/api/auth/logout", { method: "POST" });
 		clearSession();
 		router.replace("/login");
@@ -71,7 +72,7 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 			</div>
 
 			<nav className="flex-1 space-y-1 overflow-y-auto px-3 py-5" aria-label="Điều hướng chính">
-				{fixedNavigation.slice(0, 3).map(({ href, label, iconPath, icon: Icon }) => (
+				{fixedNavigation.slice(0, 3).filter((item) => sessionUser && (sessionUser.role === "admin" || item.roles.includes(sessionUser.role))).map(({ href, label, iconPath, icon: Icon }) => (
 					<Link
 						key={href}
 						href={href}
@@ -142,7 +143,7 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 						);
 					})}
 
-				{fixedNavigation.slice(3).map(({ href, label, iconPath, icon: Icon }) => (
+				{fixedNavigation.slice(3).filter((item) => sessionUser && (sessionUser.role === "admin" || item.roles.includes(sessionUser.role))).map(({ href, label, iconPath, icon: Icon }) => (
 					<Link
 						key={href}
 						href={href}

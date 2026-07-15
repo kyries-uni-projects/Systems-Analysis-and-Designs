@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { CheckCircle2, ChevronRight, Search, XCircle } from "lucide-react";
+import Link from "next/link";
 
 type MatchingRoom = {
 	phongId: number;
@@ -315,6 +316,7 @@ export default function YeuCauThueForm() {
 
 			{result && (
 				<section className="mt-8 border border-blue-100 bg-white p-5">
+					<div className="flex flex-wrap items-start justify-between gap-4">
 					<div className="flex items-start gap-3">
 						<CheckCircle2 className="mt-0.5 size-5 shrink-0 text-[#155DFC]" aria-hidden="true" />
 						<div>
@@ -323,6 +325,15 @@ export default function YeuCauThueForm() {
 								Trạng thái: {result.yeuCau.trangThai}. Tìm thấy {result.phongPhuHop.length} phòng phù hợp.
 							</p>
 						</div>
+					</div>
+						{result.phongPhuHop.length > 0 && (
+							<Link
+								href={`/dang-ky-thue-phong/lap-lich-xem-phong?yeuCauId=${result.yeuCau.yeuCauId}`}
+								className="inline-flex h-10 items-center rounded-md bg-[#155DFC] px-4 text-sm font-semibold text-white transition hover:bg-blue-700"
+							>
+								Lập lịch xem phòng
+							</Link>
+						)}
 					</div>
 					{result.phongPhuHop.length > 0 ? (
 						<div className="mt-5 grid gap-3 sm:grid-cols-2">

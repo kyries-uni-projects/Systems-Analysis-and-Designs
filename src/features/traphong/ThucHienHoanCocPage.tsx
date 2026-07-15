@@ -573,8 +573,8 @@ function SuccessScreen({
         </h2>
         <p className="text-center text-gray-500 text-sm mb-8">
           Giao dịch hoàn cọc đã được ghi nhận. Bấm nút bên dưới
-          để quay lại UC "Lập biên bản trả phòng & thanh lý hợp
-          đồng" và tiếp tục thu hồi chìa khóa, cập nhật trạng
+          để quay lại UC &ldquo;Lập biên bản trả phòng &amp; thanh lý hợp
+          đồng&rdquo; và tiếp tục thu hồi chìa khóa, cập nhật trạng
           thái phòng/giường.
         </p>
 
@@ -653,6 +653,7 @@ export function ThucHienHoanCocPage() {
     .filter(
       (h) =>
         h.trangThaiHoSo === "Đã xác nhận đối soát" &&
+		h.bienBanTraPhongId != null &&
         (h.soTienHoan ?? 0) > 0 &&
         !h.daHoanCoc,
     )
@@ -680,12 +681,12 @@ export function ThucHienHoanCocPage() {
 
   // Tự động mở đúng hồ sơ khi được điều hướng tới từ UC4 (URL có :maHoSo)
   useEffect(() => {
-    if (maHoSoParam && !selectedItem) {
-      const found = queueItems.find(
-        (q) => q.maHoSo === maHoSoParam,
-      );
+    if (!maHoSoParam || selectedItem) return;
+    const timer = window.setTimeout(() => {
+      const found = queueItems.find((q) => q.maHoSo === maHoSoParam);
       if (found) openItem(found);
-    }
+    }, 0);
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maHoSoParam, loadingList]);
 

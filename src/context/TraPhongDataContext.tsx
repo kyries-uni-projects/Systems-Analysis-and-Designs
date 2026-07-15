@@ -136,7 +136,8 @@ export function TraPhongProvider({ children }: { children: ReactNode }) {
 	}, []);
 
 	useEffect(() => {
-		refresh();
+		const timer = window.setTimeout(() => void refresh(), 0);
+		return () => window.clearTimeout(timer);
 	}, [refresh]);
 
 	const getHoSo = useCallback((maHoSo: string) => hoSoList.find((h) => h.maHoSo === maHoSo), [hoSoList]);

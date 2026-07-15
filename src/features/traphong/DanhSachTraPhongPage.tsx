@@ -33,10 +33,22 @@ function formatVND(n: number): string {
 
 type PendingAction = { label: string; path: string; role: string };
 
+function hasReachedReturnDate(value: string) {
+  const [day, month, year] = value.split("/").map(Number);
+  if (!day || !month || !year) return false;
+  const returnDate = new Date(year, month - 1, day);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return returnDate <= today;
+}
+
 function pendingActions(hoSo: HoSoTraPhong): PendingAction[] {
   const actions: PendingAction[] = [];
   switch (hoSo.trangThaiHoSo) {
     case "Đã đăng ký, chờ ngày trả phòng":
+      if (!hasReachedReturnDate(hoSo.ngayTraPhong)) break;
+      actions.push({ label: "Kiểm tra phòng/giường", path: `/tra-phong/kiem-tra-tinh-trang/${hoSo.maHoSo}`, role: "quanly" });
+      break;
     case "Đang xử lý trả phòng":
       actions.push({ label: "Kiểm tra phòng/giường", path: `/tra-phong/kiem-tra-tinh-trang/${hoSo.maHoSo}`, role: "quanly" });
       break;
@@ -44,12 +56,12 @@ function pendingActions(hoSo: HoSoTraPhong): PendingAction[] {
       actions.push({ label: "Đối soát hoàn cọc", path: `/tra-phong/doi-soat-hoan-coc/${hoSo.maHoSo}`, role: "ketoan" });
       break;
     case "Đã xác nhận đối soát":
-      actions.push({ label: "Lập biên bản thanh lý", path: `/tra-phong/lap-bien-ban-thanh-ly/${hoSo.maHoSo}`, role: "quanly" });
-      // Song song: nếu hồ sơ có số dư hoàn cọc dương và chưa hoàn, kế toán có thể tự
-      // vào "Thực hiện hoàn cọc" độc lập (không cần Quản lý điều hướng hộ, vì UC5 là
-      // extend của UC4 nhưng do MỘT NGƯỜI KHÁC — kế toán — thực hiện).
-      if ((hoSo.soTienHoan ?? 0) > 0 && !hoSo.daHoanCoc) {
+      if (hoSo.bienBanTraPhongId == null) {
+        actions.push({ label: "Lập biên bản thanh lý", path: `/tra-phong/lap-bien-ban-thanh-ly/${hoSo.maHoSo}`, role: "quanly" });
+      } else if ((hoSo.soTienHoan ?? 0) > 0 && !hoSo.daHoanCoc) {
         actions.push({ label: "Thực hiện hoàn cọc", path: `/tra-phong/thuc-hien-hoan-coc/${hoSo.maHoSo}`, role: "ketoan" });
+      } else {
+        actions.push({ label: "Thu hồi & hoàn tất", path: `/tra-phong/lap-bien-ban-thanh-ly/${hoSo.maHoSo}`, role: "quanly" });
       }
       break;
     default:

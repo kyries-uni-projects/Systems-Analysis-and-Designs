@@ -56,11 +56,15 @@ export const BienBanTraPhong = {
     yeuCauTraPhongId: number;
     phongId: number;
     giuongId: number | null;
+	chiTietHopDongId: number | null;
     daThuHoiChiaKhoa: boolean;
   }) {
     return prisma.$transaction(async (tx) => {
       await BienBanTraPhongDB.capNhatThuHoiChiaKhoa(params.bienBanTraPhongId, params.daThuHoiChiaKhoa, tx);
       await PhongGiuong.capNhatTrangThai({ phongId: params.phongId, giuongId: params.giuongId }, "Trống", tx);
+	  if (params.chiTietHopDongId) {
+		await tx.chiTietHopDong.update({ where: { chiTietHopDongId: params.chiTietHopDongId }, data: { trangThai: "Đã trả" } });
+	  }
       await YeuCauTraPhong.capNhatTrangThai(params.yeuCauTraPhongId, "Hoàn tất", tx);
     });
   },

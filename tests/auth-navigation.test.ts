@@ -32,7 +32,9 @@ test("nested workflow routes resolve to their intended roles", () => {
 	assert.deepEqual(getWorkflowRouteAccessRule("/deposit/xac-nhan-thanh-toan/42")?.roles, ["quanly"]);
 	assert.deepEqual(getWorkflowRouteAccessRule("/tra-phong/kiem-tra-tinh-trang/TP-1")?.roles, ["quanly"]);
 	assert.deepEqual(getWorkflowRouteAccessRule("/khach-hang/42")?.roles, ["nhanvien"]);
-	assert.deepEqual(getWorkflowRouteAccessRule("/phong/new")?.roles, ["quanly"]);
+	assert.deepEqual(getWorkflowRouteAccessRule("/phong")?.roles, ["admin"]);
+	assert.deepEqual(getWorkflowRouteAccessRule("/phong/new")?.roles, ["admin"]);
+	assert.deepEqual(getWorkflowRouteAccessRule("/khach-hang")?.roles, ["nhanvien"]);
 });
 
 test("sidebar route resolution covers deposit aliases and return-room base list", () => {

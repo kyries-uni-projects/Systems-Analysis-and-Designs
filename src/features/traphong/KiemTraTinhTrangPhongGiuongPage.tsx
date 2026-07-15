@@ -104,8 +104,13 @@ function sumVND(items: { soTien: string }[]): string {
   return total.toLocaleString("vi-VN") + " đ";
 }
 
-function sumVNDNumber(items: { soTien: string }[]): number {
-  return items.reduce((acc, it) => acc + (Number(it.soTien.replace(/[^\d]/g, "")) || 0), 0);
+function hasReachedReturnDate(value: string) {
+  const [day, month, year] = value.split("/").map(Number);
+  if (!day || !month || !year) return false;
+  const returnDate = new Date(year, month - 1, day);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return returnDate <= today;
 }
 
 // ─── Stepper ────────────────────────────────────────────────────────────────
@@ -546,7 +551,7 @@ function InspectScreen({
           <div className="flex gap-3 bg-amber-50 border border-amber-300 rounded-lg p-3 mb-4">
             <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
             <p className="text-sm text-amber-800">
-              Phát hiện tài sản không ở tình trạng "Tốt" — vui lòng thêm khoản khấu trừ tương ứng
+              Phát hiện tài sản không ở tình trạng &ldquo;Tốt&rdquo; — vui lòng thêm khoản khấu trừ tương ứng
               (chi phí sửa chữa/bồi thường) bên dưới.
             </p>
           </div>
@@ -898,7 +903,7 @@ export function KiemTraTinhTrangPhongGiuongPage() {
   const { hoSoList, loading: loadingList, refresh } = useTraPhongData();
 
   const queueItems: QueueItem[] = hoSoList
-    .filter((h) => h.trangThaiHoSo === "Đã đăng ký, chờ ngày trả phòng" || h.trangThaiHoSo === "Đang xử lý trả phòng")
+    .filter((h) => (h.trangThaiHoSo === "Đã đăng ký, chờ ngày trả phòng" && hasReachedReturnDate(h.ngayTraPhong)) || h.trangThaiHoSo === "Đang xử lý trả phòng")
     .map((h) => ({
       maHoSo: h.maHoSo,
       soHopDong: h.soHopDong,
@@ -944,10 +949,12 @@ export function KiemTraTinhTrangPhongGiuongPage() {
 
   // Tự động mở đúng hồ sơ khi được điều hướng tới từ màn khác (URL có :maHoSo)
   useEffect(() => {
-    if (maHoSoParam && !selectedItem) {
+    if (!maHoSoParam || selectedItem) return;
+    const timer = window.setTimeout(() => {
       const found = queueItems.find((q) => q.maHoSo === maHoSoParam);
       if (found) openItem(found);
-    }
+    }, 0);
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maHoSoParam, loadingList]);
 

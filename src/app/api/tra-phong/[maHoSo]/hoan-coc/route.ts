@@ -24,11 +24,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ maH
 		if (phuongThucHoan !== "Tiền mặt" && phuongThucHoan !== "Chuyển khoản") {
 			return apiError("phuongThucHoan không hợp lệ.", 400);
 		}
+		if (phuongThucHoan === "Chuyển khoản" && (typeof body.soTaiKhoanNhan !== "string" || !body.soTaiKhoanNhan.trim())) {
+			return apiError("Vui lòng nhập số tài khoản nhận khi hoàn cọc bằng chuyển khoản.", 400);
+		}
 
 		const hoSo = await HoSoTraPhong.layThongTin(parsed.id);
 		if (!hoSo) return apiError("Không tìm thấy hồ sơ.", 404);
 		if (hoSo.doiSoatId == null) {
 			return apiError("Hồ sơ chưa có kết quả đối soát.", 409);
+		}
+		if (hoSo.trangThaiHoSo !== "Đã xác nhận đối soát" || hoSo.bienBanTraPhongId == null) {
+			return apiError("Chỉ được hoàn cọc sau khi biên bản trả phòng và thanh lý đã được ký.", 409);
 		}
 		if (!hoSo.soTienHoan || hoSo.soTienHoan <= 0) {
 			return apiError("Hồ sơ không có số dư cần hoàn cọc.", 409);

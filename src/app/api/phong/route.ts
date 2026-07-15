@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 // POST /api/phong
 export async function POST(request: NextRequest) {
 	return withApiErrorHandling(async () => {
-		const auth = await requireApiSession(request, ["quanly"]);
+		const auth = await requireApiSession(request, ["admin"]);
 		if ("error" in auth) return auth.error;
 		const body = await request.json();
 		const input = parseCreatePhongInput(body);

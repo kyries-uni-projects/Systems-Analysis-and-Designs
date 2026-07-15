@@ -30,8 +30,8 @@ export const workflowGroups: WorkflowGroup[] = [
 		actions: [
 			{
 				slug: "kiem-tra-thong-tin",
-				label: "Kiểm tra thông tin",
-				description: "Kiểm tra thông tin khách hàng và nhu cầu thuê phòng.",
+				label: "Ghi nhận yêu cầu thuê",
+				description: "Ghi nhận thông tin khách hàng, tiêu chí thuê và tìm phòng phù hợp.",
 				roles: ["nhanvien"],
 			},
 			{
@@ -40,8 +40,6 @@ export const workflowGroups: WorkflowGroup[] = [
 				description: "Lập lịch hẹn xem phòng cho khách hàng từ yêu cầu thuê.",
 				roles: ["nhanvien"],
 			},
-			{ slug: "lap-ho-so-thue", label: "Lập hồ sơ thuê", description: "Lập hồ sơ thuê phòng từ yêu cầu đã được kiểm tra.", roles: ["nhanvien"] },
-			{ slug: "phe-duyet-ho-so", label: "Phê duyệt hồ sơ", description: "Đánh giá và phê duyệt hồ sơ thuê phòng.", roles: ["quanly"] },
 		],
 	},
 	{
@@ -108,8 +106,8 @@ export const workflowGroups: WorkflowGroup[] = [
 				description: "Kiểm tra phòng và xác định các chi phí phát sinh.",
 				roles: ["quanly"],
 			},
-			{ slug: "lap-bien-ban-thanh-ly", label: "Lập biên bản thanh lý", description: "Lập biên bản thanh lý hợp đồng thuê phòng.", roles: ["quanly"] },
 			{ slug: "doi-soat-hoan-coc", label: "Đối soát hoàn cọc", description: "Đối soát số tiền cọc có thể hoàn cho khách hàng.", roles: ["ketoan"] },
+			{ slug: "lap-bien-ban-thanh-ly", label: "Lập biên bản thanh lý", description: "Lập biên bản thanh lý hợp đồng thuê phòng.", roles: ["quanly"] },
 			{ slug: "thuc-hien-hoan-coc", label: "Thực hiện hoàn cọc", description: "Thực hiện hoàn tiền cọc sau khi đối soát.", roles: ["ketoan"] },
 		],
 	},
@@ -120,8 +118,9 @@ export const workflowGroups: WorkflowGroup[] = [
  * separate sidebar items. Longest matching prefix wins in `getWorkflowRouteAccessRule`.
  */
 export const workflowRouteAccessRules: WorkflowRouteAccessRule[] = [
-	{ path: "/khach-hang", roles: ["nhanvien"], match: "children" },
-	{ path: "/phong", roles: ["quanly"], match: "children" },
+	{ path: "/khach-hang", roles: ["nhanvien"], match: "prefix" },
+	{ path: "/phong", roles: ["admin"], match: "prefix" },
+	{ path: "/users", roles: ["admin"], match: "prefix" },
 	{ path: "/deposit/lap-phieu-dat-coc", roles: ["nhanvien"], match: "prefix" },
 	{ path: "/deposit/cap-nhat-chung-tu", roles: ["nhanvien"], match: "prefix" },
 	{ path: "/deposit/lap-yeu-cau-thanh-toan", roles: ["ketoan"], match: "prefix" },

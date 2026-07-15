@@ -1191,7 +1191,7 @@ export function TinhToanDoiSoatHoanCocPage() {
   const [selectedItem, setSelectedItem] =
     useState<QueueItem | null>(null);
   const [rate, setRate] = useState(50);
-  const [loadingKhauTru, setLoadingKhauTru] = useState(false);
+  const [, setLoadingKhauTru] = useState(false);
   const [khauTruList, setKhauTruList] = useState<
     KhoanKhauTru[]
   >([]);
@@ -1231,10 +1231,12 @@ export function TinhToanDoiSoatHoanCocPage() {
 
   // Tự động mở đúng hồ sơ khi được điều hướng tới từ UC2 (URL có :maHoSo)
   useEffect(() => {
-    if (maHoSoParam && !selectedItem) {
+    if (!maHoSoParam || selectedItem) return;
+    const timer = window.setTimeout(() => {
       const found = queueItems.find((q) => q.maHoSo === maHoSoParam);
       if (found) openItem(found);
-    }
+    }, 0);
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maHoSoParam, loadingList]);
 

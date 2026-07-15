@@ -45,6 +45,7 @@ function chuanHoaHoSoDatCoc(hoSo: HoSoDatCocWithRelations) {
 }
 
 export type CapNhatThongTinHoSoDatCocInput = {
+	yeuCauId?: number;
 	khachHang: {
 		hoTen: string;
 		cccdPassport: string;
@@ -194,6 +195,53 @@ export async function lapYeuCauThanhToanCoc(hoSoId: number, keToanId: number) {
 	});
 }
 
+async function danhDauYeuCauDatCocDaHuy(hoSoId: number, reason: string) {
+	return prisma.$transaction(async (transaction) => {
+		const hoSo = await transaction.hoSoDatCoc.findUnique({
+			where: { hoSoDatCocId: hoSoId },
+			include: { yeuCauThanhToanCoc: true, chiTietDatCocs: true },
+		});
+		if (!hoSo) return null;
+		if (!['Chờ thanh toán', 'Chờ xác nhận thanh toán'].includes(hoSo.trangThai)) {
+			throw new ApiValidationError("Chỉ có thể hủy yêu cầu đặt cọc đang chờ thanh toán.");
+		}
+		if (hoSo.yeuCauThanhToanCoc) {
+			await transaction.yeuCauThanhToanCoc.update({
+				where: { yeuCauThanhToanId: hoSo.yeuCauThanhToanCoc.yeuCauThanhToanId },
+				data: { trangThai: "Đã hủy" },
+			});
+		}
+		await transaction.chiTietDatCoc.updateMany({ where: { hoSoDatCocId: hoSoId }, data: { trangThai: "Đã hủy" } });
+		for (const detail of hoSo.chiTietDatCocs) {
+			if (detail.giuongId) {
+				await transaction.giuong.updateMany({ where: { giuongId: detail.giuongId, trangThai: "Đang chờ xác nhận" }, data: { trangThai: "Trống" } });
+			} else if (detail.phongId) {
+				await transaction.phong.updateMany({ where: { phongId: detail.phongId, trangThai: "Đang chờ xác nhận" }, data: { trangThai: "DANG_HOAT_DONG" } });
+			}
+		}
+		await transaction.hoSoDatCoc.update({
+			where: { hoSoDatCocId: hoSoId },
+			data: { trangThai: "Đã hủy", lyDoTuChoi: reason },
+		});
+		return { trangThai: "Đã hủy" };
+	});
+}
+
+export async function huyYeuCauDatCoc(hoSoId: number, reason?: string) {
+	return danhDauYeuCauDatCocDaHuy(hoSoId, reason?.trim() || "Khách hàng chủ động hủy yêu cầu đặt cọc.");
+}
+
+async function huyNeuQuaHan(hoSoId: number) {
+	const payment = await prisma.yeuCauThanhToanCoc.findUnique({
+		where: { hoSoDatCocId: hoSoId },
+		select: { hanThanhToan: true },
+	});
+	if (payment && payment.hanThanhToan.getTime() < Date.now()) {
+		await danhDauYeuCauDatCocDaHuy(hoSoId, "Yêu cầu thanh toán đã quá thời hạn 24 giờ.");
+		throw new ApiValidationError("Yêu cầu thanh toán đã quá thời hạn 24 giờ và đã được hủy.");
+	}
+}
+
 /** Sale cập nhật chứng từ sau khi khách hàng đã thanh toán cọc. */
 export async function capNhatChungTuThanhToan(hoSoId: number, input: CapNhatChungTuThanhToanInput) {
 	if (!Number.isFinite(input.soTienThucNhan) || input.soTienThucNhan <= 0) {
@@ -204,6 +252,7 @@ export async function capNhatChungTuThanhToan(hoSoId: number, input: CapNhatChun
 	if (input.thoiDiemNhan.getTime() > Date.now() + 5 * 60 * 1000) {
 		throw new ApiValidationError("Thời điểm nhận thanh toán không được ở tương lai.");
 	}
+	await huyNeuQuaHan(hoSoId);
 
 	return prisma.$transaction(async (transaction) => {
 		const hoSo = await transaction.hoSoDatCoc.findUnique({
@@ -253,6 +302,7 @@ export async function capNhatChungTuThanhToan(hoSoId: number, input: CapNhatChun
 /** Quản lý xác nhận hoặc từ chối chứng từ thanh toán cọc. */
 export async function xacNhanThanhToanCoc(hoSoId: number, quanLyId: number, xacNhan: boolean, lyDoTuChoi?: string) {
 	if (!xacNhan && !lyDoTuChoi?.trim()) throw new ApiValidationError("Vui lòng nhập lý do từ chối chứng từ.");
+	await huyNeuQuaHan(hoSoId);
 
 	return prisma.$transaction(async (transaction) => {
 		const hoSo = await transaction.hoSoDatCoc.findUnique({
@@ -332,12 +382,6 @@ export async function capNhatThongTinHoSoDatCoc(hoSoId: number, input: CapNhatTh
 /** Tạo mới toàn bộ hồ sơ đặt cọc từ màn hình Lập phiếu. */
 export async function taoHoSoDatCoc(input: CapNhatThongTinHoSoDatCocInput, nguoiLap: NguoiLapHoSo) {
 	return prisma.$transaction(async (transaction) => {
-		const khachHang = await transaction.khachHang.upsert({
-			where: { cccdPassport: input.khachHang.cccdPassport },
-			update: input.khachHang,
-			create: input.khachHang,
-		});
-
 		const nhanVien = await transaction.nguoiDung.upsert({
 			where: { tenDangNhap: nguoiLap.username },
 			update: {},
@@ -349,10 +393,20 @@ export async function taoHoSoDatCoc(input: CapNhatThongTinHoSoDatCocInput, nguoi
 			},
 		});
 
-		const yeuCauThue = await transaction.yeuCauThue.create({
+		if (!input.yeuCauId) throw new ApiValidationError("Vui lòng chọn yêu cầu thuê đã được ghi nhận trước khi lập hồ sơ đặt cọc.");
+		const sourceRequest = await transaction.yeuCauThue.findUnique({
+			where: { yeuCauId: input.yeuCauId },
+			include: { khachHang: true, hoSoDatCocs: { select: { hoSoDatCocId: true } }, lichHenXemPhongs: { select: { lichHenId: true } } },
+		});
+		if (!sourceRequest) throw new ApiValidationError("Không tìm thấy yêu cầu thuê đã chọn.");
+		if (sourceRequest.hoSoDatCocs.length > 0) throw new ApiValidationError("Yêu cầu thuê này đã có hồ sơ đặt cọc.");
+		if (sourceRequest.lichHenXemPhongs.length === 0) {
+			throw new ApiValidationError("Yêu cầu thuê chưa có lịch xem phòng, chưa thể chuyển sang đặt cọc.");
+		}
+		await transaction.khachHang.update({ where: { khachHangId: sourceRequest.khachHangId }, data: input.khachHang });
+		const yeuCauThue = await transaction.yeuCauThue.update({
+			where: { yeuCauId: sourceRequest.yeuCauId },
 			data: {
-				khachHangId: khachHang.khachHangId,
-				nhanVienId: nhanVien.nguoiDungId,
 				loaiThue: input.yeuCauThue.loaiThue,
 				khuVucMongMuon: input.yeuCauThue.khuVucMongMuon,
 				soNguoiDuKien: input.yeuCauThue.soNguoiDuKien,
@@ -366,7 +420,7 @@ export async function taoHoSoDatCoc(input: CapNhatThongTinHoSoDatCocInput, nguoi
 			data: {
 				maHoSoDatCoc,
 				yeuCauId: yeuCauThue.yeuCauId,
-				khachHangId: khachHang.khachHangId,
+				khachHangId: sourceRequest.khachHangId,
 				nhanVienId: nhanVien.nguoiDungId,
 				hinhThucThue: input.yeuCauThue.loaiThue,
 				ngayBatDauDuKien: input.ngayBatDauDuKien,
@@ -375,6 +429,21 @@ export async function taoHoSoDatCoc(input: CapNhatThongTinHoSoDatCocInput, nguoi
 				lyDoTuChoi: input.lyDoTuChoi ?? null,
 			},
 		});
+	});
+}
+
+export async function layDanhSachYeuCauChoDatCoc() {
+	return prisma.yeuCauThue.findMany({
+		where: { hoSoDatCocs: { none: {} }, lichHenXemPhongs: { some: {} } },
+		include: { khachHang: true, lichHenXemPhongs: { orderBy: { ngayTao: "desc" }, take: 1 } },
+		orderBy: { ngayTao: "desc" },
+	});
+}
+
+export async function layYeuCauChoDatCoc(yeuCauId: number) {
+	return prisma.yeuCauThue.findFirst({
+		where: { yeuCauId, hoSoDatCocs: { none: {} }, lichHenXemPhongs: { some: {} } },
+		include: { khachHang: true },
 	});
 }
 
@@ -552,15 +621,15 @@ export async function xacNhanTinhTrangQuanLy(hoSoId: number, quanLyId: number, l
 	}
 	const trangThaiMoi = isRejected ? "Từ chối" : "Đã xác nhận điều kiện";
 
-	await prisma.$transaction([
-		prisma.hoSoDatCoc.update({
+	await prisma.$transaction(async (transaction) => {
+		await transaction.hoSoDatCoc.update({
 			where: { hoSoDatCocId: hoSoId },
 			data: {
 				trangThai: trangThaiMoi,
 				lyDoTuChoi: lyDoTuChoi?.trim() || null,
 			},
-		}),
-		prisma.chiTietDatCoc.updateMany({
+		});
+		await transaction.chiTietDatCoc.updateMany({
 			where: { hoSoDatCocId: hoSoId },
 			data: {
 				quanLyXacNhanId: quanLyId,
@@ -568,8 +637,15 @@ export async function xacNhanTinhTrangQuanLy(hoSoId: number, quanLyId: number, l
 				trangThai: trangThaiMoi,
 				lyDoTuChoi: lyDoTuChoi?.trim() || null,
 			},
-		}),
-	]);
+		});
+		if (!isRejected) {
+			if (hoSo.giuongId) {
+				await transaction.giuong.update({ where: { giuongId: hoSo.giuongId }, data: { trangThai: "Đang chờ xác nhận" } });
+			} else {
+				await transaction.phong.update({ where: { phongId: hoSo.phongId! }, data: { trangThai: "Đang chờ xác nhận" } });
+			}
+		}
+	});
 
 	return { success: true };
 }

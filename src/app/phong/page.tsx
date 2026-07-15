@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { listPhong } from "@/lib/services/phongService";
-import DeletePhongButton from "@/components/phong/DeletePhongButton";
 import { cookies } from "next/headers";
 import { getSessionFromCookieStore } from "@/lib/session";
 
@@ -15,7 +14,7 @@ export default async function PhongPage({ searchParams }: PageProps) {
 	const { items, total, pageSize } = await listPhong({ search, page: pageNumber });
 	const totalPages = Math.max(1, Math.ceil(total / pageSize));
 	const session = await getSessionFromCookieStore(await cookies());
-	const canManage = session?.role === "admin" || session?.role === "quanly";
+	const canManage = session?.role === "admin";
 
 	return (
 		<main className="min-h-full bg-[#f4faf8] px-4 py-6 sm:px-8"><div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
@@ -67,7 +66,9 @@ export default async function PhongPage({ searchParams }: PageProps) {
 								<td className="px-4 py-2">{phong.sucChua}</td>
 								<td className="px-4 py-2">{phong.trangThai}</td>
 								<td className="px-4 py-2 text-right">
-									{canManage ? <DeletePhongButton id={phong.phongId} /> : <span className="text-xs text-slate-400">Chỉ xem</span>}
+									{canManage ? (
+										<Link href={`/phong/${phong.phongId}`} className="text-xs font-semibold text-teal-700 hover:underline">Cập nhật</Link>
+									) : <span className="text-xs text-slate-400">Chỉ xem</span>}
 								</td>
 							</tr>
 						))}

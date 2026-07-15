@@ -31,6 +31,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ maH
 
 		const hoSo = await HoSoTraPhong.layThongTin(parsed.id);
 		if (!hoSo) return apiError("Không tìm thấy hồ sơ.", 404);
+		if (hoSo.trangThaiHoSo !== "Đã xác nhận đối soát" || hoSo.bienBanTraPhongId != null) {
+			return apiError("Hồ sơ không ở bước lập biên bản trả phòng và thanh lý.", 409);
+		}
+		if ((hoSo.soTienHoan ?? 0) < 0 && body?.daThanhToanPhatSinh !== true) {
+			return apiError("Khách hàng chưa được xác nhận đã thanh toán đủ khoản phát sinh.", 409);
+		}
 		if (hoSo.doiSoatId == null || hoSo.chiTietHopDongId == null || hoSo.hopDongId == null) {
 			return apiError("Hồ sơ chưa đủ điều kiện lập biên bản thanh lý (thiếu đối soát hoặc chi tiết hợp đồng).", 409);
 		}

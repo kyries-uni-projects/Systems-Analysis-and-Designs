@@ -23,6 +23,16 @@ function toOptionalInt(value: unknown): number | undefined {
 	return Number.isInteger(parsed) ? parsed : undefined;
 }
 
+const PHONG_STATUSES = ["DANG_HOAT_DONG", "Đang bảo trì", "Ngừng hoạt động"] as const;
+
+function toOptionalStatus(value: unknown): string | undefined {
+	const status = toOptionalString(value);
+	if (status && !PHONG_STATUSES.includes(status as (typeof PHONG_STATUSES)[number])) {
+		throw new ApiValidationError("trangThai phòng không hợp lệ");
+	}
+	return status;
+}
+
 /** Parse + validate the body of `POST /api/phong`. Throws `ApiValidationError` on bad input. */
 export function parseCreatePhongInput(body: unknown): CreatePhongInput {
 	if (typeof body !== "object" || body === null) {
@@ -50,7 +60,7 @@ export function parseCreatePhongInput(body: unknown): CreatePhongInput {
 		tang: toOptionalInt(tang),
 		gioiTinhApDung: toOptionalString(gioiTinhApDung),
 		tienIch: toOptionalString(tienIch),
-		trangThai: toOptionalString(trangThai),
+		trangThai: toOptionalStatus(trangThai),
 	};
 }
 
@@ -87,7 +97,7 @@ export function parseUpdatePhongInput(body: unknown): UpdatePhongInput {
 	if (tang !== undefined) input.tang = toOptionalInt(tang);
 	if (gioiTinhApDung !== undefined) input.gioiTinhApDung = toOptionalString(gioiTinhApDung);
 	if (tienIch !== undefined) input.tienIch = toOptionalString(tienIch);
-	if (trangThai !== undefined) input.trangThai = toOptionalString(trangThai);
+	if (trangThai !== undefined) input.trangThai = toOptionalStatus(trangThai);
 
 	return input;
 }

@@ -102,6 +102,27 @@ export default function CapNhatChungTuThanhToanForm({ hoSoId }: { hoSoId: number
 		}
 	}
 
+	async function handleCancelRequest() {
+		if (!window.confirm("Khách hàng xác nhận hủy yêu cầu đặt cọc? Phòng/giường sẽ được giải phóng.")) return;
+		setError("");
+		setIsSubmitting(true);
+		try {
+			const response = await fetch(`/api/ho-so-dat-coc/${hoSoId}/huy`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ lyDo: "Khách hàng chủ động hủy yêu cầu đặt cọc." }),
+			});
+			const payload = await response.json();
+			if (!response.ok || !payload.success) throw new Error(payload.error || "Không thể hủy yêu cầu đặt cọc.");
+			router.push("/deposit");
+			router.refresh();
+		} catch (cancelError) {
+			setError(cancelError instanceof Error ? cancelError.message : "Không thể hủy yêu cầu đặt cọc.");
+		} finally {
+			setIsSubmitting(false);
+		}
+	}
+
 	if (isAuthLoading || isLoading) return <p className="py-12 text-center text-sm text-slate-500">Đang tải thông tin thanh toán...</p>;
 	if (!sessionUser || (sessionUser.role !== "nhanvien" && sessionUser.role !== "admin")) {
 		return <p className="py-12 text-center text-sm text-red-600">Tài khoản hiện tại không có quyền cập nhật chứng từ thanh toán.</p>;
@@ -194,8 +215,11 @@ export default function CapNhatChungTuThanhToanForm({ hoSoId }: { hoSoId: number
 				</section>
 			</div>
 
-			<div className="mt-6 flex items-center justify-between">
-				<button type="button" onClick={() => router.push("/deposit")} className="h-10 rounded-lg border border-slate-400 bg-white px-6 text-sm font-medium text-slate-700">Hủy</button>
+			<div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+				<div className="flex flex-wrap gap-3">
+					<button type="button" onClick={() => router.push("/deposit")} className="h-10 rounded-lg border border-slate-400 bg-white px-6 text-sm font-medium text-slate-700">Quay lại</button>
+					<button type="button" disabled={isSubmitting} onClick={handleCancelRequest} className="h-10 rounded-lg border border-red-300 bg-white px-5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">Khách hàng hủy đặt cọc</button>
+				</div>
 				<button type="submit" disabled={isSubmitting} className="h-11 rounded-lg bg-[#155DFC] px-6 text-sm font-semibold text-white disabled:opacity-50">{isSubmitting ? "Đang cập nhật..." : "Cập nhật chứng từ"}</button>
 			</div>
 		</form>

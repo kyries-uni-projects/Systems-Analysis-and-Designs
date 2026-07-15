@@ -30,7 +30,7 @@ export function parseHoSoDatCocInput(body: unknown): CapNhatThongTinHoSoDatCocIn
 		throw new ApiValidationError("Nội dung hồ sơ không hợp lệ.");
 	}
 
-	const { khachHang, yeuCauThue, ngayBatDauDuKien, ngayKetThucDuKien, lyDoTuChoi } = body as Record<string, unknown>;
+	const { yeuCauId, khachHang, yeuCauThue, ngayBatDauDuKien, ngayKetThucDuKien, lyDoTuChoi } = body as Record<string, unknown>;
 	if (typeof khachHang !== "object" || khachHang === null || typeof yeuCauThue !== "object" || yeuCauThue === null) {
 		throw new ApiValidationError("Thiếu thông tin khách hàng hoặc yêu cầu thuê.");
 	}
@@ -47,8 +47,13 @@ export function parseHoSoDatCocInput(body: unknown): CapNhatThongTinHoSoDatCocIn
 	if (endDate <= startDate) {
 		throw new ApiValidationError("Ngày kết thúc dự kiến phải sau ngày bắt đầu dự kiến.");
 	}
+	const sourceRequestId = yeuCauId === undefined ? undefined : Number(yeuCauId);
+	if (sourceRequestId !== undefined && (!Number.isInteger(sourceRequestId) || sourceRequestId < 1)) {
+		throw new ApiValidationError("Yêu cầu thuê đã chọn không hợp lệ.");
+	}
 
 	return {
+		yeuCauId: sourceRequestId,
 		khachHang: {
 			hoTen: requiredString(customer.hoTen, "Họ và tên"),
 			cccdPassport: requiredString(customer.cccdPassport, "Số CCCD"),

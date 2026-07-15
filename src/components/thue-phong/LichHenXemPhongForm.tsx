@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { AlertTriangle, BedDouble, Bell, CalendarDays, CalendarPlus, Check, CheckCircle2, ChevronRight, Clock, Eye, FileText, Hash, List, MonitorSmartphone, Search, User, UserCog, XCircle } from "lucide-react";
+import { BedDouble, Bell, CalendarDays, CalendarPlus, Check, CheckCircle2, ChevronRight, Clock, Eye, FileText, Hash, List, MonitorSmartphone, Search, User, UserCog, XCircle } from "lucide-react";
 
 // ============================================================
 // Types
@@ -132,7 +132,7 @@ function Stepper({ currentStep }: { currentStep: number }) {
 // Main Component: MHLapLichXemPhong
 // ============================================================
 
-export default function LichHenXemPhongForm() {
+export default function LichHenXemPhongForm({ initialYeuCauId }: { initialYeuCauId?: number }) {
 	// State management
 	const [view, setView] = useState<"list" | "rooms" | "form" | "success">("list");
 	const [yeuCauList, setYeuCauList] = useState<YeuCauListItem[]>([]);
@@ -175,7 +175,8 @@ export default function LichHenXemPhongForm() {
 	}, []);
 
 	useEffect(() => {
-		void fetchYeuCauList();
+		const timer = window.setTimeout(() => void fetchYeuCauList(), 0);
+		return () => window.clearTimeout(timer);
 	}, [fetchYeuCauList]);
 
 	async function selectYeuCau(yeuCauId: number) {
@@ -195,6 +196,13 @@ export default function LichHenXemPhongForm() {
 			setIsLoading(false);
 		}
 	}
+
+	useEffect(() => {
+		if (!initialYeuCauId) return;
+		const timer = window.setTimeout(() => void selectYeuCau(initialYeuCauId), 0);
+		return () => window.clearTimeout(timer);
+		// Chỉ tự mở hồ sơ một lần từ query string; các lần quay lại do người dùng điều khiển.
+	}, [initialYeuCauId]);
 
 	// ============================================================
 	// Form submission (Sequence: xác nhận tạo lịch hẹn → validate → lưu → gửi thông báo)

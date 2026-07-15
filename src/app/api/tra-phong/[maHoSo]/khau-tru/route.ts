@@ -23,14 +23,24 @@ export async function GET(_req: Request, { params }: { params: Promise<{ maHoSo:
 			return apiSuccess([]);
 		}
 
-		const list = await BienBanKiemTraTraPhong.layDsKhauTru(hoSo.bienBanKiemTraId);
+		const inspection = await BienBanKiemTraTraPhong.layThongTin(hoSo.bienBanKiemTraId);
+		const list = inspection?.khoanKhauTrus ?? [];
+		const obligations = inspection?.nghiaVuConLais ?? [];
 		return apiSuccess(
-			list.map((kt: { sttKhauTru: number; loaiKhoanKhauTru: string; moTa: string | null; soTien: number }) => ({
+			[
+			...list.map((kt: { sttKhauTru: number; loaiKhoanKhauTru: string; moTa: string | null; soTien: number }) => ({
 				sttKhauTru: kt.sttKhauTru,
 				loaiKhoanKhauTru: kt.loaiKhoanKhauTru,
 				moTa: kt.moTa,
 				soTien: kt.soTien,
 			})),
+			...obligations.map((item: { sttNghiaVu: number; loaiNghiaVu: string; ghiChu: string | null; soTienConNo: number }) => ({
+				sttKhauTru: `NV-${item.sttNghiaVu}`,
+				loaiKhoanKhauTru: item.loaiNghiaVu,
+				moTa: item.ghiChu,
+				soTien: item.soTienConNo,
+			})),
+			],
 		);
 	});
 }
