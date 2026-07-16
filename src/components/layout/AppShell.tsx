@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BedDouble, Bell, ChevronDown, ChevronUp, LogOut, Menu, Search, UserRound, UsersRound, X } from "lucide-react";
+import { BedDouble, ChevronDown, ChevronUp, LogOut, Menu, Search, UserRound, UsersRound, X } from "lucide-react";
 import { HomeStayLogo } from "@/components/branding/HomeStayLogo";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { canAccessWorkflowAction, getWorkflowActionByPath, getWorkflowActionHref, workflowGroups } from "@/lib/workflow-navigation";
@@ -191,10 +191,6 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 							/>
 						</div>
 						<div className="ml-auto flex items-center gap-2 sm:gap-4">
-							<button type="button" aria-label="Thông báo" className="relative rounded-lg p-2 text-slate-600 transition hover:bg-slate-100">
-								<Bell className="size-5" aria-hidden="true" />
-								<span className="absolute right-2 top-2 size-2 rounded-full bg-red-500 ring-2 ring-white" />
-							</button>
 							<div className="hidden items-center gap-3 sm:flex">
 								<div className="flex size-9 items-center justify-center rounded-full bg-teal-500 text-white">
 									<UserRound className="size-4.5" aria-hidden="true" />
