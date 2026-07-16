@@ -52,6 +52,7 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 		try {
 			const response = await fetch("/api/auth/logout", { method: "POST" });
 			if (!response.ok) throw new Error("Không thể đăng xuất. Vui lòng thử lại.");
+			setIsLogoutOpen(false);
 			clearSession();
 			router.replace("/login");
 			router.refresh();
