@@ -1,6 +1,6 @@
 // prisma/seed.ts
-// Dữ liệu mẫu để test end-to-end 5 UC của Nhóm 4 (Trả phòng & Hoàn cọc), theo đúng schema
-// v7 (HopDong 1:1 HoSoNhanPhong, phòng/giường ở ChiTietHopDong — nhiều dòng/hợp đồng).
+// Dữ liệu mẫu để test end-to-end các cụm Nhận phòng và Trả phòng & Hoàn cọc, theo đúng
+// schema v7 (HopDong 1:1 HoSoNhanPhong, phòng/giường ở ChiTietHopDong — nhiều dòng/hợp đồng).
 // Chạy: yarn db:seed
 //
 // LƯU Ý: 4 tài khoản NguoiDung tạo dưới đây có `tenDangNhap` khớp CHÍNH XÁC với
@@ -10,6 +10,12 @@ import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { ensureDemoAccounts } from "../src/lib/demo-account-seed";
+import {
+	TRANG_THAI_CHO_BAN_GIAO,
+	TRANG_THAI_CHO_DUYET_DIEU_KIEN_LUU_TRU,
+	TRANG_THAI_CHO_KY_HOP_DONG,
+	TRANG_THAI_CHO_THANH_TOAN_DAU_KY,
+} from "../src/lib/nhan-phong-rules";
 
 const adapter = new PrismaBetterSqlite3({ url: process.env.DATABASE_URL ?? "file:./dev.db" });
 const prisma = new PrismaClient({ adapter });
@@ -65,6 +71,14 @@ async function main() {
 			dieuKhoanViPham: "Vi phạm nội quy 3 lần trở lên bị trừ tối đa 20% tiền cọc.",
 		},
 	});
+	const [phiDien, phiNuoc] = await Promise.all([
+		prisma.khoanPhiDichVu.create({
+			data: { tenLoaiPhi: "Phí điện", donViTinh: "tháng", donGia: 150_000, trangThai: "Đang áp dụng" },
+		}),
+		prisma.khoanPhiDichVu.create({
+			data: { tenLoaiPhi: "Phí nước", donViTinh: "người/tháng", donGia: 100_000, trangThai: "Đang áp dụng" },
+		}),
+	]);
 
 	const [tsGiuong, tsTu, tsBan, tsGhe] = await Promise.all(
 		["Giường tầng", "Tủ quần áo", "Bàn học", "Ghế"].map((tenTaiSan) =>
@@ -387,6 +401,615 @@ async function main() {
 		},
 	});
 
+<<<<<<< Updated upstream
+=======
+	// ----------------------------------------------------------------
+	// PHẦN MỞ RỘNG — Kịch bản hồ sơ đặt cọc theo từng trạng thái
+	// ----------------------------------------------------------------
+
+	console.log("Tạo thêm khách hàng cho kịch bản hồ sơ đặt cọc trạng thái đa dạng...");
+	const khExtraNames: [string, string][] = [
+		["Bùi Văn Nam",     "079099007890"],
+		["Đặng Thị Thu",    "079099008901"],
+		["Hoàng Văn Minh",  "079099009012"],
+		["Trịnh Thị Bích",  "079099010123"],
+		["Phan Văn Khánh",  "079099011234"],
+	];
+	const [khNam, khThu, khMinh, khBich, khKhanh] = await Promise.all(
+		khExtraNames.map(([hoTen, cccd]) =>
+			prisma.khachHang.create({ data: { hoTen, cccdPassport: cccd, soDienThoai: "09" + cccd.slice(-8) } }),
+		),
+	);
+
+	console.log("Tạo thêm phòng & giường cho kịch bản mới...");
+	const phongF601 = await prisma.phong.create({
+		data: { maPhong: "F-601", khu: "F", tang: 6, idLoaiPhong: loaiPhongTapThe.idLoaiPhong, sucChua: 4, trangThai: "DANG_HOAT_DONG" },
+	});
+	const giuongF601G1 = await prisma.giuong.create({ data: { phongId: phongF601.phongId, maGiuongLocal: "G1", trangThai: "Trống" } });
+
+	const phongF602 = await prisma.phong.create({
+		data: { maPhong: "F-602", khu: "F", tang: 6, idLoaiPhong: loaiPhongDon.idLoaiPhong, sucChua: 1, trangThai: "DANG_HOAT_DONG" },
+	});
+
+	const phongG701 = await prisma.phong.create({
+		data: { maPhong: "G-701", khu: "G", tang: 7, idLoaiPhong: loaiPhongTapThe.idLoaiPhong, sucChua: 4, trangThai: "DANG_HOAT_DONG" },
+	});
+	const giuongG701G1 = await prisma.giuong.create({ data: { phongId: phongG701.phongId, maGiuongLocal: "G1", trangThai: "Trống" } });
+
+	const phongG702 = await prisma.phong.create({
+		data: { maPhong: "G-702", khu: "G", tang: 7, idLoaiPhong: loaiPhongDon.idLoaiPhong, sucChua: 1, trangThai: "DANG_HOAT_DONG" },
+	});
+
+	const phongH801 = await prisma.phong.create({
+		data: { maPhong: "H-801", khu: "H", tang: 8, idLoaiPhong: loaiPhongTapThe.idLoaiPhong, sucChua: 4, trangThai: "DANG_HOAT_DONG" },
+	});
+	const giuongH801G1 = await prisma.giuong.create({ data: { phongId: phongH801.phongId, maGiuongLocal: "G1", trangThai: "Trống" } });
+
+	// Hàm phụ: tạo nhanh YeuCauThue + HoSoDatCoc với trạng thái tuỳ chọn
+	async function taoHoSoCoTrangThai(params: {
+		khachHangId: number;
+		hinhThucThue: string;
+		ngayBatDau: Date;
+		ngayKetThuc: Date;
+		trangThaiHoSo: string;
+	}) {
+		const yc = await prisma.yeuCauThue.create({
+			data: {
+				khachHangId: params.khachHangId,
+				nhanVienId: nhanVien.nguoiDungId,
+				loaiThue: params.hinhThucThue,
+				soNguoiDuKien: 1,
+				trangThai: "Đã xử lý",
+			},
+		});
+		const hoSo = await prisma.hoSoDatCoc.create({
+			data: {
+				maHoSoDatCoc: maTiepTheo("DC"),
+				yeuCauId: yc.yeuCauId,
+				khachHangId: params.khachHangId,
+				nhanVienId: nhanVien.nguoiDungId,
+				hinhThucThue: params.hinhThucThue,
+				ngayBatDauDuKien: params.ngayBatDau,
+				ngayKetThucDuKien: params.ngayKetThuc,
+				trangThai: params.trangThaiHoSo,
+			},
+		});
+		return { yc, hoSo };
+	}
+
+	// ---- Kịch bản SD7: Chờ xác nhận quản lý ----
+	// Nhân viên đã lập hồ sơ, quản lý chưa xác nhận điều kiện & chọn phòng/giường
+	console.log("Kịch bản SD7 — Hồ sơ mới, CHỜ QUẢN LÝ XÁC NHẬN điều kiện đặt cọc...");
+	const sd7 = await taoHoSoCoTrangThai({
+		khachHangId: khNam.khachHangId,
+		hinhThucThue: "Theo giường",
+		ngayBatDau: new Date(Date.UTC(2025, 7, 1)),
+		ngayKetThuc: new Date(Date.UTC(2026, 1, 1)),
+		trangThaiHoSo: "Chờ xác nhận quản lý",
+	});
+	await prisma.chiTietDatCoc.create({
+		data: {
+			hoSoDatCocId: sd7.hoSo.hoSoDatCocId,
+			phongId: phongF601.phongId,
+			giuongId: giuongF601G1.giuongId,
+			giaThueThoaThuan: 1_500_000,
+			tienCocPhanBo: 3_000_000,
+			trangThai: "CHO_XAC_NHAN",
+		},
+	});
+
+	// ---- Kịch bản SD8: Đã xác nhận điều kiện ----
+	// Quản lý đã xác nhận phòng, kế toán chưa lập phiếu thanh toán cọc
+	console.log("Kịch bản SD8 — Quản lý ĐÃ XÁC NHẬN ĐIỀU KIỆN, chờ kế toán lập phiếu thanh toán...");
+	const sd8 = await taoHoSoCoTrangThai({
+		khachHangId: khThu.khachHangId,
+		hinhThucThue: "Nguyên phòng",
+		ngayBatDau: new Date(Date.UTC(2025, 7, 1)),
+		ngayKetThuc: new Date(Date.UTC(2026, 1, 1)),
+		trangThaiHoSo: "Đã xác nhận điều kiện",
+	});
+	await prisma.chiTietDatCoc.create({
+		data: {
+			hoSoDatCocId: sd8.hoSo.hoSoDatCocId,
+			phongId: phongF602.phongId,
+			giaThueThoaThuan: 3_000_000,
+			tienCocPhanBo: 6_000_000,
+			quanLyXacNhanId: quanLy.nguoiDungId,
+			thoiDiemXacNhan: new Date(Date.now() - 2 * 60 * 60 * 1000),
+			trangThai: "DA_XAC_NHAN",
+		},
+	});
+
+	// ---- Kịch bản SD9: Chờ thanh toán ----
+	// Kế toán đã lập phiếu yêu cầu thanh toán cọc, khách chưa nộp tiền
+	console.log("Kịch bản SD9 — Kế toán đã lập phiếu, CHỜ KHÁCH THANH TOÁN cọc...");
+	const sd9 = await taoHoSoCoTrangThai({
+		khachHangId: khMinh.khachHangId,
+		hinhThucThue: "Theo giường",
+		ngayBatDau: new Date(Date.UTC(2025, 8, 1)),
+		ngayKetThuc: new Date(Date.UTC(2026, 2, 1)),
+		trangThaiHoSo: "Chờ thanh toán",
+	});
+	await prisma.chiTietDatCoc.create({
+		data: {
+			hoSoDatCocId: sd9.hoSo.hoSoDatCocId,
+			phongId: phongG701.phongId,
+			giuongId: giuongG701G1.giuongId,
+			giaThueThoaThuan: 1_500_000,
+			tienCocPhanBo: 3_000_000,
+			quanLyXacNhanId: quanLy.nguoiDungId,
+			thoiDiemXacNhan: new Date(Date.now() - 3 * 60 * 60 * 1000),
+			trangThai: "DA_XAC_NHAN",
+		},
+	});
+	const hanTT9 = new Date();
+	hanTT9.setHours(hanTT9.getHours() + 20);
+	await prisma.yeuCauThanhToanCoc.create({
+		data: {
+			hoSoDatCocId: sd9.hoSo.hoSoDatCocId,
+			soTienCoc: 3_000_000,
+			keToanId: keToan.nguoiDungId,
+			hanThanhToan: hanTT9,
+			soTaiKhoanNhan: "9876543210",
+			trangThai: "Chờ thanh toán",
+		},
+	});
+
+	// ---- Kịch bản SD10: Chờ xác nhận thanh toán ----
+	// Nhân viên đã upload chứng từ, quản lý chưa xác nhận
+	console.log("Kịch bản SD10 — Nhân viên đã nộp chứng từ, CHỜ QUẢN LÝ XÁC NHẬN THANH TOÁN...");
+	const sd10 = await taoHoSoCoTrangThai({
+		khachHangId: khBich.khachHangId,
+		hinhThucThue: "Nguyên phòng",
+		ngayBatDau: new Date(Date.UTC(2025, 8, 1)),
+		ngayKetThuc: new Date(Date.UTC(2026, 2, 1)),
+		trangThaiHoSo: "Chờ xác nhận thanh toán",
+	});
+	await prisma.chiTietDatCoc.create({
+		data: {
+			hoSoDatCocId: sd10.hoSo.hoSoDatCocId,
+			phongId: phongG702.phongId,
+			giaThueThoaThuan: 3_000_000,
+			tienCocPhanBo: 6_000_000,
+			quanLyXacNhanId: quanLy.nguoiDungId,
+			thoiDiemXacNhan: new Date(Date.now() - 5 * 60 * 60 * 1000),
+			trangThai: "DA_XAC_NHAN",
+		},
+	});
+	const hanTT10 = new Date();
+	hanTT10.setHours(hanTT10.getHours() + 18);
+	const yctt10 = await prisma.yeuCauThanhToanCoc.create({
+		data: {
+			hoSoDatCocId: sd10.hoSo.hoSoDatCocId,
+			soTienCoc: 6_000_000,
+			keToanId: keToan.nguoiDungId,
+			hanThanhToan: hanTT10,
+			soTaiKhoanNhan: "9876543210",
+			trangThai: "Chờ xác nhận",
+		},
+	});
+	await prisma.chungTuThanhToan.create({
+		data: {
+			yeuCauThanhToanId: yctt10.yeuCauThanhToanId,
+			duongDanFile: "/uploads/chung-tu/demo-sd10.jpg",
+			soTienThucNhan: 6_000_000,
+			kenhThanhToan: "Chuyển khoản ngân hàng",
+			thoiDiemNhan: new Date(Date.now() - 30 * 60 * 1000),
+			trangThaiXacNhan: "Chờ xác nhận",
+		},
+	});
+
+	// ---- Kịch bản SD11: Đã xác nhận thanh toán ----
+	// Quản lý đã xác nhận thanh toán, có lịch hẹn nhận phòng — sẵn sàng lập hồ sơ nhận phòng
+	console.log("Kịch bản SD11 — ĐÃ XÁC NHẬN THANH TOÁN, có lịch hẹn nhận phòng, chờ lập hồ sơ nhận...");
+	const sd11 = await taoHoSoCoTrangThai({
+		khachHangId: khKhanh.khachHangId,
+		hinhThucThue: "Theo giường",
+		ngayBatDau: new Date(Date.UTC(2025, 9, 1)),
+		ngayKetThuc: new Date(Date.UTC(2026, 3, 1)),
+		trangThaiHoSo: "Đã xác nhận thanh toán",
+	});
+	await prisma.hoSoDatCoc.update({
+		where: { hoSoDatCocId: sd11.hoSo.hoSoDatCocId },
+		data: {
+			ngayHenNhanPhong: new Date(Date.UTC(2025, 9, 5)),
+			gioHenNhanPhong: "09:00",
+			ghiChuHenNhanPhong: "Khách đã xác nhận lịch hẹn nhận phòng",
+		},
+	});
+	await prisma.chiTietDatCoc.create({
+		data: {
+			hoSoDatCocId: sd11.hoSo.hoSoDatCocId,
+			phongId: phongH801.phongId,
+			giuongId: giuongH801G1.giuongId,
+			giaThueThoaThuan: 1_500_000,
+			tienCocPhanBo: 3_000_000,
+			quanLyXacNhanId: quanLy.nguoiDungId,
+			thoiDiemXacNhan: new Date(Date.now() - 4 * 60 * 60 * 1000),
+			trangThai: "DA_XAC_NHAN",
+		},
+	});
+	const yctt11 = await prisma.yeuCauThanhToanCoc.create({
+		data: {
+			hoSoDatCocId: sd11.hoSo.hoSoDatCocId,
+			soTienCoc: 3_000_000,
+			keToanId: keToan.nguoiDungId,
+			hanThanhToan: new Date(Date.now() - 1 * 60 * 60 * 1000),
+			soTaiKhoanNhan: "9876543210",
+			trangThai: "Đã xác nhận",
+		},
+	});
+	await prisma.chungTuThanhToan.create({
+		data: {
+			yeuCauThanhToanId: yctt11.yeuCauThanhToanId,
+			duongDanFile: "/uploads/chung-tu/demo-sd11.jpg",
+			soTienThucNhan: 3_000_000,
+			kenhThanhToan: "Chuyển khoản ngân hàng",
+			thoiDiemNhan: new Date(Date.now() - 5 * 60 * 60 * 1000),
+			quanLyXacNhanId: quanLy.nguoiDungId,
+			trangThaiXacNhan: "Đã xác nhận",
+		},
+	});
+
+	// ---- Kịch bản SD12: CHO_XAC_NHAN (Chờ xác nhận) ----
+	// Hồ sơ vừa được sale tạo sau khi khách đồng ý thuê. Trạng thái mặc định ban đầu:
+	// chưa có ai xác nhận, chưa chọn phòng/giường cụ thể — bước đầu tiên của quy trình đặt cọc.
+	console.log("Kịch bản SD12 — Hồ sơ CHO_XAC_NHAN, sale vừa tạo, chưa có ai xác nhận...");
+	const khTuan = await prisma.khachHang.create({
+		data: { hoTen: "Lý Minh Tuấn", cccdPassport: "079099012345", soDienThoai: "0912345678" },
+	});
+	const ycSD12 = await prisma.yeuCauThue.create({
+		data: {
+			khachHangId: khTuan.khachHangId,
+			nhanVienId: nhanVien.nguoiDungId,
+			loaiThue: "Theo giường",
+			soNguoiDuKien: 1,
+			trangThai: "Đang xử lý",
+		},
+	});
+	await prisma.hoSoDatCoc.create({
+		data: {
+			maHoSoDatCoc: maTiepTheo("DC"),
+			yeuCauId: ycSD12.yeuCauId,
+			khachHangId: khTuan.khachHangId,
+			nhanVienId: nhanVien.nguoiDungId,
+			hinhThucThue: "Theo giường",
+			ngayBatDauDuKien: new Date(Date.UTC(2025, 9, 15)),
+			ngayKetThucDuKien: new Date(Date.UTC(2026, 3, 15)),
+			trangThai: "CHO_XAC_NHAN",
+		},
+	});
+
+	// ---- Kịch bản SD13: Chờ xác nhận điều kiện ----
+	// Sale đã rà soát thông tin khách, đang kiểm tra điều kiện lưu trú và liên hệ quản lý
+	// (khác SD7 "Chờ xác nhận quản lý": đây là bước sale đang xem xét, chưa chốt phòng)
+	console.log("Kịch bản SD13 — CHỜ XÁC NHẬN ĐIỀU KIỆN, sale đang rà soát thông tin khách...");
+	const khLinh = await prisma.khachHang.create({
+		data: { hoTen: "Nguyễn Thị Linh", cccdPassport: "079099013456", soDienThoai: "0913456789" },
+	});
+	const phongI901 = await prisma.phong.create({
+		data: { maPhong: "I-901", khu: "I", tang: 9, idLoaiPhong: loaiPhongTapThe.idLoaiPhong, sucChua: 4, trangThai: "DANG_HOAT_DONG" },
+	});
+	const giuongI901G1 = await prisma.giuong.create({ data: { phongId: phongI901.phongId, maGiuongLocal: "G1", trangThai: "Trống" } });
+	const ycSD13 = await prisma.yeuCauThue.create({
+		data: {
+			khachHangId: khLinh.khachHangId,
+			nhanVienId: nhanVien.nguoiDungId,
+			loaiThue: "Theo giường",
+			soNguoiDuKien: 1,
+			trangThai: "Đã xử lý",
+		},
+	});
+	const hoSoSD13 = await prisma.hoSoDatCoc.create({
+		data: {
+			maHoSoDatCoc: maTiepTheo("DC"),
+			yeuCauId: ycSD13.yeuCauId,
+			khachHangId: khLinh.khachHangId,
+			nhanVienId: nhanVien.nguoiDungId,
+			hinhThucThue: "Theo giường",
+			ngayBatDauDuKien: new Date(Date.UTC(2025, 10, 1)),
+			ngayKetThucDuKien: new Date(Date.UTC(2026, 4, 1)),
+			trangThai: "Chờ xác nhận điều kiện",
+		},
+	});
+	await prisma.chiTietDatCoc.create({
+		data: {
+			hoSoDatCocId: hoSoSD13.hoSoDatCocId,
+			phongId: phongI901.phongId,
+			giuongId: giuongI901G1.giuongId,
+			giaThueThoaThuan: 1_500_000,
+			tienCocPhanBo: 3_000_000,
+			trangThai: "CHO_XAC_NHAN",
+		},
+	});
+
+	// ----------------------------------------------------------------
+	// CỤM NHẬN PHÒNG — mỗi bước có một hồ sơ độc lập để test trực tiếp
+	// ----------------------------------------------------------------
+	console.log("Tạo 5 kịch bản độc lập cho toàn bộ cụm chức năng Nhận phòng...");
+
+	const ngaySau = (soNgay: number) => {
+		const value = new Date();
+		value.setHours(0, 0, 0, 0);
+		value.setDate(value.getDate() + soNgay);
+		return value;
+	};
+
+	async function taoNenKichBanNhanPhong(params: {
+		stt: number;
+		hoTen: string;
+		cccd: string;
+		soDienThoai: string;
+		maHoSoDatCoc: string;
+		maPhong: string;
+	}) {
+		const khachHang = await prisma.khachHang.create({
+			data: {
+				hoTen: params.hoTen,
+				cccdPassport: params.cccd,
+				gioiTinh: "Nữ",
+				quocTich: "Việt Nam",
+				soDienThoai: params.soDienThoai,
+				email: `nhanphong${params.stt}@example.com`,
+			},
+		});
+		const phong = await prisma.phong.create({
+			data: {
+				maPhong: params.maPhong,
+				khu: "NP",
+				tang: params.stt,
+				idLoaiPhong: loaiPhongTapThe.idLoaiPhong,
+				sucChua: 4,
+				gioiTinhApDung: "Nữ",
+				trangThai: "Trống",
+			},
+		});
+		const giuong = await prisma.giuong.create({
+			data: { phongId: phong.phongId, maGiuongLocal: "G1", trangThai: "Đã cọc" },
+		});
+		const ngayBatDau = ngaySau(params.stt + 1);
+		const ngayKetThuc = new Date(ngayBatDau);
+		ngayKetThuc.setMonth(ngayKetThuc.getMonth() + 6);
+		const yeuCauThue = await prisma.yeuCauThue.create({
+			data: {
+				khachHangId: khachHang.khachHangId,
+				nhanVienId: nhanVien.nguoiDungId,
+				loaiThue: "Thuê giường",
+				idLoaiPhongMongMuon: loaiPhongTapThe.idLoaiPhong,
+				soNguoiDuKien: 1,
+				soLuongGiuongDuKien: 1,
+				thoiGianDuKienVaoO: ngayBatDau,
+				thoiHanThueThang: 6,
+				trangThai: "Đã đặt cọc",
+			},
+		});
+		const hoSoDatCoc = await prisma.hoSoDatCoc.create({
+			data: {
+				maHoSoDatCoc: params.maHoSoDatCoc,
+				yeuCauId: yeuCauThue.yeuCauId,
+				khachHangId: khachHang.khachHangId,
+				nhanVienId: nhanVien.nguoiDungId,
+				hinhThucThue: "Thuê giường",
+				ngayBatDauDuKien: ngayBatDau,
+				ngayKetThucDuKien: ngayKetThuc,
+				trangThai: "Đã đặt cọc",
+				ngayHenNhanPhong: ngayBatDau,
+				gioHenNhanPhong: `0${7 + params.stt}:30`.slice(-5),
+				ghiChuHenNhanPhong: `Dữ liệu test bước ${params.stt} của cụm Nhận phòng`,
+			},
+		});
+		const chiTietDatCoc = await prisma.chiTietDatCoc.create({
+			data: {
+				hoSoDatCocId: hoSoDatCoc.hoSoDatCocId,
+				phongId: phong.phongId,
+				giuongId: giuong.giuongId,
+				giaThueThoaThuan: 1_500_000,
+				soGiuongQuyDoi: 1,
+				tienCocPhanBo: 3_000_000,
+				quanLyXacNhanId: quanLy.nguoiDungId,
+				thoiDiemXacNhan: new Date(),
+				trangThai: "Đã cọc",
+			},
+		});
+
+		return { khachHang, phong, giuong, hoSoDatCoc, chiTietDatCoc, ngayBatDau, ngayKetThuc };
+	}
+
+	async function taoHoSoNhanPhongTheoBuoc(
+		nen: Awaited<ReturnType<typeof taoNenKichBanNhanPhong>>,
+		maHoSoNhanPhong: string,
+		trangThai: string,
+		thanhVienDaDat: boolean,
+	) {
+		const hoSoNhanPhong = await prisma.hoSoNhanPhong.create({
+			data: {
+				maHoSoNhanPhong,
+				hoSoDatCocId: nen.hoSoDatCoc.hoSoDatCocId,
+				nhanVienId: nhanVien.nguoiDungId,
+				ketQuaDoiChieuTongQuat: "Thông tin và giấy tờ đã được đối chiếu",
+				ghiChu: "Hồ sơ mẫu phục vụ kiểm thử cụm Nhận phòng",
+				trangThai,
+			},
+		});
+		await prisma.thanhVienLuuTru.create({
+			data: {
+				hoSoNhanPhongId: hoSoNhanPhong.hoSoNhanPhongId,
+				chiTietDatCocId: nen.chiTietDatCoc.chiTietDatCocId,
+				sttThanhVien: 1,
+				hoTen: nen.khachHang.hoTen,
+				gioiTinh: nen.khachHang.gioiTinh,
+				loaiGiayTo: "CCCD",
+				soGiayTo: nen.khachHang.cccdPassport,
+				soDienThoai: nen.khachHang.soDienThoai,
+				laNguoiDaiDien: true,
+				daXacMinhGiayTo: true,
+				nguoiXacMinhId: nhanVien.nguoiDungId,
+				thoiDiemXacMinh: new Date(),
+				ketQuaDieuKien: thanhVienDaDat ? "Dat" : "Chờ duyệt",
+				trangThaiThamGia: "THAM_GIA",
+			},
+		});
+		return hoSoNhanPhong;
+	}
+
+	async function taoPheDuyetThanhCong(hoSoNhanPhongId: number) {
+		return prisma.pheDuyetLuuTru.create({
+			data: {
+				hoSoNhanPhongId,
+				quanLyId: quanLy.nguoiDungId,
+				ketQua: "Duoc duyet",
+				phuongAnXuLyNhom: "continue",
+				thoiDiemPheDuyet: new Date(),
+			},
+		});
+	}
+
+	async function taoHopDongNhanPhongDaKy(
+		nen: Awaited<ReturnType<typeof taoNenKichBanNhanPhong>>,
+		hoSoNhanPhongId: number,
+		maHopDong: string,
+	) {
+		const hopDong = await prisma.hopDong.create({
+			data: {
+				maHopDong,
+				hoSoNhanPhongId,
+				khachHangId: nen.khachHang.khachHangId,
+				nhanVienId: nhanVien.nguoiDungId,
+				idMauNoiQuy: mauNoiQuy.idMauNoiQuy,
+				kyThanhToan: "Hang thang, truoc ngay 05",
+				tienCocGoc: 3_000_000,
+				trangThai: "Da ky",
+				ngayKy: new Date(),
+			},
+		});
+		await prisma.chiTietHopDong.create({
+			data: {
+				hopDongId: hopDong.hopDongId,
+				chiTietDatCocId: nen.chiTietDatCoc.chiTietDatCocId,
+				phongId: nen.phong.phongId,
+				giuongId: nen.giuong.giuongId,
+				hinhThucThue: "Thuê giường",
+				giaThueThoaThuan: 1_500_000,
+				tienCocPhanBo: 3_000_000,
+				ngayBatDau: nen.ngayBatDau,
+				ngayKetThuc: nen.ngayKetThuc,
+				trangThai: "Dang hieu luc",
+			},
+		});
+		const [phiDienHopDong, phiNuocHopDong] = await Promise.all([
+			prisma.khoanPhiHopDong.create({
+				data: {
+					hopDongId: hopDong.hopDongId,
+					idKhoanPhi: phiDien.idKhoanPhi,
+					donGiaApDung: phiDien.donGia,
+					soLuong: 1,
+					thanhTien: phiDien.donGia,
+					ghiChu: phiDien.donViTinh,
+				},
+			}),
+			prisma.khoanPhiHopDong.create({
+				data: {
+					hopDongId: hopDong.hopDongId,
+					idKhoanPhi: phiNuoc.idKhoanPhi,
+					donGiaApDung: phiNuoc.donGia,
+					soLuong: 1,
+					thanhTien: phiNuoc.donGia,
+					ghiChu: phiNuoc.donViTinh,
+				},
+			}),
+		]);
+		return { hopDong, phiDienHopDong, phiNuocHopDong };
+	}
+
+	const nenKiemTra = await taoNenKichBanNhanPhong({
+		stt: 1,
+		hoTen: "Nguyễn Ngọc Anh",
+		cccd: "079088000001",
+		soDienThoai: "0908000001",
+		maHoSoDatCoc: "DC-NP-01",
+		maPhong: "NP-101",
+	});
+
+	const nenPheDuyet = await taoNenKichBanNhanPhong({
+		stt: 2,
+		hoTen: "Trần Thu Hà",
+		cccd: "079088000002",
+		soDienThoai: "0908000002",
+		maHoSoDatCoc: "DC-NP-02",
+		maPhong: "NP-201",
+	});
+	await taoHoSoNhanPhongTheoBuoc(nenPheDuyet, "NP-TEST-02", TRANG_THAI_CHO_DUYET_DIEU_KIEN_LUU_TRU, false);
+
+	const nenHopDong = await taoNenKichBanNhanPhong({
+		stt: 3,
+		hoTen: "Lê Thanh Hương",
+		cccd: "079088000003",
+		soDienThoai: "0908000003",
+		maHoSoDatCoc: "DC-NP-03",
+		maPhong: "NP-301",
+	});
+	const hoSoChoHopDong = await taoHoSoNhanPhongTheoBuoc(nenHopDong, "NP-TEST-03", TRANG_THAI_CHO_KY_HOP_DONG, true);
+	await taoPheDuyetThanhCong(hoSoChoHopDong.hoSoNhanPhongId);
+
+	const nenThanhToan = await taoNenKichBanNhanPhong({
+		stt: 4,
+		hoTen: "Phạm Minh Châu",
+		cccd: "079088000004",
+		soDienThoai: "0908000004",
+		maHoSoDatCoc: "DC-NP-04",
+		maPhong: "NP-401",
+	});
+	const hoSoChoThanhToan = await taoHoSoNhanPhongTheoBuoc(nenThanhToan, "NP-TEST-04", TRANG_THAI_CHO_THANH_TOAN_DAU_KY, true);
+	await taoPheDuyetThanhCong(hoSoChoThanhToan.hoSoNhanPhongId);
+	await taoHopDongNhanPhongDaKy(nenThanhToan, hoSoChoThanhToan.hoSoNhanPhongId, "HD-NP-04");
+
+	const nenBanGiao = await taoNenKichBanNhanPhong({
+		stt: 5,
+		hoTen: "Võ Khánh Linh",
+		cccd: "079088000005",
+		soDienThoai: "0908000005",
+		maHoSoDatCoc: "DC-NP-05",
+		maPhong: "NP-501",
+	});
+	const hoSoChoBanGiao = await taoHoSoNhanPhongTheoBuoc(nenBanGiao, "NP-TEST-05", TRANG_THAI_CHO_BAN_GIAO, true);
+	await taoPheDuyetThanhCong(hoSoChoBanGiao.hoSoNhanPhongId);
+	const hopDongBanGiao = await taoHopDongNhanPhongDaKy(nenBanGiao, hoSoChoBanGiao.hoSoNhanPhongId, "HD-NP-05");
+	await prisma.khoanThuDauKy.createMany({
+		data: [
+			{
+				hopDongId: hopDongBanGiao.hopDong.hopDongId,
+				tenKhoan: "Tiền thuê kỳ đầu",
+				soTien: 1_500_000,
+				trangThai: "Da thu",
+				keToanId: keToan.nguoiDungId,
+				thoiDiemThu: new Date(),
+				phuongThucThu: "Chuyen khoan",
+			},
+			{
+				hopDongId: hopDongBanGiao.hopDong.hopDongId,
+				idKhoanPhiHopDong: hopDongBanGiao.phiDienHopDong.idKhoanPhiHopDong,
+				tenKhoan: phiDien.tenLoaiPhi,
+				soTien: phiDien.donGia,
+				trangThai: "Da thu",
+				keToanId: keToan.nguoiDungId,
+				thoiDiemThu: new Date(),
+				phuongThucThu: "Chuyen khoan",
+			},
+			{
+				hopDongId: hopDongBanGiao.hopDong.hopDongId,
+				idKhoanPhiHopDong: hopDongBanGiao.phiNuocHopDong.idKhoanPhiHopDong,
+				tenKhoan: phiNuoc.tenLoaiPhi,
+				soTien: phiNuoc.donGia,
+				trangThai: "Da thu",
+				keToanId: keToan.nguoiDungId,
+				thoiDiemThu: new Date(),
+				phuongThucThu: "Chuyen khoan",
+			},
+		],
+	});
+	void nenKiemTra;
+
+>>>>>>> Stashed changes
 	console.log("");
 	console.log("Xong. Đăng nhập bằng 4 tài khoản demo có sẵn ở trang /login:");
 	console.log("  admin / admin123      — Quản trị hệ thống");
@@ -401,6 +1024,25 @@ async function main() {
 	console.log("  HD-2025-000150 (Vũ Thị Mai, C-303)     — đã kiểm tra xong, sẵn sàng UC3");
 	console.log("  HD-2025-000201 (Ngô Văn Tâm, B-202)    — đã đối soát (cần thu thêm), sẵn sàng UC4");
 	console.log("  HD-2025-000188 (Lê Thị Hồng, E-505)    — đã đối soát (hoàn cọc dương), sẵn sàng UC4->UC5");
+<<<<<<< Updated upstream
+=======
+	console.log("");
+	console.log("7 kịch bản hồ sơ đặt cọc (theo trạng thái — đúng luồng nghiệp vụ):");
+	console.log("  SD12 (Lý Minh Tuấn,    chưa có phòng) — CHO_XAC_NHAN  (sale vừa tạo hồ sơ)");
+	console.log("  SD13 (Nguyễn Thị Linh, I-901/G1)      — Chờ xác nhận điều kiện  (sale đang rà soát)");
+	console.log("  SD7  (Bùi Văn Nam,     F-601/G1)      — Chờ xác nhận quản lý   (quản lý đang kiểm tra phòng)");
+	console.log("  SD8  (Đặng Thị Thu,    F-602)          — Đã xác nhận điều kiện  (chờ kế toán lập phiếu)");
+	console.log("  SD9  (Hoàng Văn Minh,  G-701/G1)      — Chờ thanh toán          (kế toán đã lập phiếu)");
+	console.log("  SD10 (Trịnh Thị Bích,  G-702)          — Chờ xác nhận thanh toán (sale đã upload chứng từ)");
+	console.log("  SD11 (Phan Văn Khánh,  H-801/G1)      — Đã xác nhận thanh toán  (sẵn sàng nhận phòng)");
+	console.log("");
+	console.log("5 kịch bản độc lập của cụm Nhận phòng:");
+	console.log("  DC-NP-01   — nhanvien01 — Kiểm tra thông tin và tạo hồ sơ nhận phòng");
+	console.log("  NP-TEST-02 — quanly01   — Phê duyệt hồ sơ lưu trú");
+	console.log("  NP-TEST-03 — nhanvien01 — Lập và xác nhận ký hợp đồng");
+	console.log("  NP-TEST-04 — ketoan01   — Thu tiền đầu kỳ");
+	console.log("  NP-TEST-05 — quanly01   — Lập biên bản bàn giao phòng/giường");
+>>>>>>> Stashed changes
 }
 
 main()

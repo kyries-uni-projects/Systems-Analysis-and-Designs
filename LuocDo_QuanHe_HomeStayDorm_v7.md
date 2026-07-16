@@ -164,7 +164,6 @@ NGUOI_DUNG(
 - Khóa chính: `nguoi_dung_id`.
 - Khóa duy nhất: `ten_dang_nhap`.
 - `vai_tro`: `SALE`, `QUAN_LY`, `KE_TOAN`, `ADMIN`
-- Không có `chi_nhanh_id` vì hệ thống chỉ có một cơ sở.
 
 ---
 

@@ -84,6 +84,20 @@ The login screen includes preset buttons for all four accounts.
 
 The credentials are intentionally part of the demo. Authentication still uses signed, expiring HTTP-only session cookies, and all API mutations enforce their server-side role rules.
 
+### Check-in demo scenarios
+
+Running `yarn db:seed` creates one independent record for every screen in the check-in workflow. Search by these codes after logging in with the indicated account:
+
+| Screen | Account | Search code |
+| --- | --- | --- |
+| Verify check-in information | `nhanvien01` | `DC-NP-01` |
+| Approve residence application | `quanly01` | `NP-TEST-02` |
+| Create and sign contract | `nhanvien01` | `NP-TEST-03` |
+| Collect initial payment | `ketoan01` | `NP-TEST-04` |
+| Hand over room/bed | `quanly01` | `NP-TEST-05` |
+
+The appointment and rental dates are generated relative to the seed date, so these records remain usable when the seed is rerun later.
+
 ## Common commands
 
 | Command | Purpose |
