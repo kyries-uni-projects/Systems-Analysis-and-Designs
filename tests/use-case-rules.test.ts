@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { parseLocalCalendarDate } from "../src/lib/calendar-date";
 import { parseHoSoDatCocInput } from "../src/lib/hoSoDatCocInput";
 import { DoiSoatHoanCoc } from "../src/lib/services/doiSoatHoanCoc.service";
 import { HopDong } from "../src/lib/services/hopDong.service";
@@ -33,6 +34,15 @@ test("check-in appointment input rejects invalid calendar values", () => {
 	assert.equal(parsed.ghiChu, "Mang CCCD");
 	assert.throws(() => parseLichHenNhanPhongInput({ ngayNhanPhong: "2026-02-30", gioNhanPhong: "08:30" }), /không tồn tại/);
 	assert.throws(() => parseLichHenNhanPhongInput({ ngayNhanPhong: "2026-08-15", gioNhanPhong: "25:00" }), /không hợp lệ/);
+});
+
+test("check-in residence date rejects JavaScript calendar normalization", () => {
+	assert.equal(Number.isNaN(parseLocalCalendarDate("2026-02-30").getTime()), true);
+	assert.equal(Number.isNaN(parseLocalCalendarDate("30/02/2026").getTime()), true);
+	assert.equal(Number.isNaN(parseLocalCalendarDate("2026-04-31").getTime()), true);
+	assert.equal(Number.isNaN(parseLocalCalendarDate("2026-13-01").getTime()), true);
+	assert.equal(Number.isNaN(parseLocalCalendarDate("2024-02-29").getTime()), false);
+	assert.equal(Number.isNaN(parseLocalCalendarDate("29/02/2024").getTime()), false);
 });
 
 test("Admin user input follows the report validation branches", () => {

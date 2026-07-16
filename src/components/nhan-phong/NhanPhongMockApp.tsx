@@ -1,6 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { api, ApiError } from "@/lib/apiClient";
+import type {
+  BanGiaoPhongDetail,
+  BanGiaoPhongListItem,
+  KiemTraThongTinDetail,
+  KiemTraThongTinListItem,
+  LapHopDongDetail,
+  LapHopDongListItem,
+  LuuBienBanBanGiaoResult,
+  LuuKiemTraThongTinResult,
+  LuuHopDongResult,
+  LuuThanhToanDauKyResult,
+  LuuPheDuyetHoSoResult,
+  PheDuyetHoSoDetail,
+  PheDuyetHoSoListItem,
+  ThanhToanDauKyDetail,
+  ThanhToanDauKyListItem,
+  ThanhToanKhoanThu,
+} from "@/types/nhan-phong";
 import {
   LayoutDashboard,
   FileText,
@@ -72,55 +91,7 @@ interface Profile {
 
 // ─── Sample data ─────────────────────────────────────────────────────────────
 
-interface BookingRecord {
-  id: string;
-  code: string;
-  customer: string;
-  room: string;
-  appointmentTime: string;
-  appointmentDate: string;
-  status: string;
-  cccd: string;
-  gender: string;
-  phone: string;
-}
-
-const BOOKING_RECORDS: BookingRecord[] = [
-  { id: "b1", code: "DC2026-0604-001", customer: "Trần Thị Bình", room: "A105 – Giường 2", appointmentTime: "09:00", appointmentDate: "05/06/2026", status: "Đã xác nhận thanh toán", cccd: "079201012345", gender: "Nữ", phone: "0985763421" },
-  { id: "b2", code: "DC2026-0604-002", customer: "Phạm Văn Minh", room: "B203 – Giường 1", appointmentTime: "10:30", appointmentDate: "05/06/2026", status: "Đã xác nhận thanh toán", cccd: "034201056781", gender: "Nam", phone: "0934567890" },
-  { id: "b3", code: "DC2026-0605-003", customer: "Hoàng Thị Mai", room: "C301 – Giường 4", appointmentTime: "14:00", appointmentDate: "06/06/2026", status: "Đã xác nhận thanh toán", cccd: "027201088812", gender: "Nữ", phone: "0965432100" },
-  { id: "b4", code: "DC2026-0606-004", customer: "Nguyễn Văn Hùng", room: "A202 – Giường 3", appointmentTime: "08:00", appointmentDate: "07/06/2026", status: "Đã xác nhận thanh toán", cccd: "001201099988", gender: "Nam", phone: "0901122334" },
-];
-
-interface HandoverProfile {
-  id: string;
-  code: string;
-  customer: string;
-  room: string;
-  floor: string;
-  date: string;
-}
-
-const DEFAULT_ASSETS = [
-  { id: "a1", name: "Giường đơn", quantity: 1, unit: "cái" },
-  { id: "a2", name: "Nệm", quantity: 1, unit: "cái" },
-  { id: "a3", name: "Gối", quantity: 1, unit: "cái" },
-  { id: "a4", name: "Tủ đầu giường", quantity: 1, unit: "cái" },
-  { id: "a5", name: "Đèn ngủ", quantity: 1, unit: "cái" },
-  { id: "a6", name: "Tủ quần áo (dùng chung)", quantity: 1, unit: "cái" },
-  { id: "a7", name: "Bàn học", quantity: 1, unit: "cái" },
-  { id: "a8", name: "Ghế ngồi", quantity: 1, unit: "cái" },
-  { id: "a9", name: "Ổ cắm điện", quantity: 2, unit: "cái" },
-  { id: "a10", name: "Móc treo đồ", quantity: 1, unit: "bộ" },
-  { id: "a11", name: "Điều hòa (dùng chung)", quantity: 1, unit: "cái" },
-  { id: "a12", name: "Quạt trần", quantity: 1, unit: "cái" },
-];
-
-const HANDOVER_PROFILES: HandoverProfile[] = [
-  { id: "h1", code: "HS2026-0001", customer: "Trần Thị Bình", room: "A105 – Giường 2", floor: "Tầng 1 – Dãy A", date: "05/06/2026" },
-  { id: "h2", code: "HS2026-0002", customer: "Phạm Văn Minh", room: "B203 – Giường 1", floor: "Tầng 2 – Dãy B", date: "05/06/2026" },
-  { id: "h3", code: "HS2026-0004", customer: "Nguyễn Văn Hùng", room: "A202 – Giường 3", floor: "Tầng 2 – Dãy A", date: "07/06/2026" },
-];
+type BookingRecord = KiemTraThongTinListItem;
 
 const SAMPLE_PROFILES: Profile[] = [
   {
@@ -382,12 +353,35 @@ function CheckInScreen() {
   const [step, setStep] = useState<"list" | "detail">("list");
   const [selected, setSelected] = useState<BookingRecord | null>(null);
   const [search, setSearch] = useState("");
+  const [records, setRecords] = useState<BookingRecord[]>([]);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const filtered = BOOKING_RECORDS.filter(
-    (r) =>
-      r.code.toLowerCase().includes(search.toLowerCase()) ||
-      r.customer.toLowerCase().includes(search.toLowerCase())
-  );
+  const loadRecords = useCallback(async (keyword = "", options?: { showLoading?: boolean }) => {
+    if (options?.showLoading !== false) setIsLoading(true);
+    setErrorMessage("");
+    try {
+      const params = new URLSearchParams();
+      if (keyword.trim()) params.set("q", keyword.trim());
+      const data = await api.get<{ total: number; items: BookingRecord[] }>(
+        `/api/nhan-phong/kiem-tra-thong-tin${params.size ? `?${params.toString()}` : ""}`,
+      );
+      setRecords(data.items);
+      setTotalRecords(data.total);
+    } catch (error) {
+      setErrorMessage(error instanceof ApiError ? error.message : "Không thể tải danh sách hồ sơ chờ nhận phòng.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadRecords("", { showLoading: false });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadRecords]);
 
   if (step === "list") {
     return (
@@ -400,7 +394,7 @@ function CheckInScreen() {
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-semibold text-gray-800">Kiểm tra thông tin nhận phòng</h1>
           <span className="text-xs bg-blue-100 text-blue-700 border border-blue-200 px-2.5 py-1 rounded-full font-medium">
-            {BOOKING_RECORDS.length} hồ sơ chờ nhận phòng
+            {totalRecords} hồ sơ chờ nhận phòng
           </span>
         </div>
 
@@ -417,10 +411,15 @@ function CheckInScreen() {
                 className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-orange-400"
               />
             </div>
-            <button className="px-5 py-2 bg-[#155DFC] text-white text-sm font-medium rounded-md hover:bg-[#1250d4] transition-colors">
+            <button
+              onClick={() => void loadRecords(search)}
+              disabled={isLoading}
+              className="px-5 py-2 bg-[#155DFC] text-white text-sm font-medium rounded-md hover:bg-[#1250d4] disabled:opacity-60 transition-colors"
+            >
               Tìm kiếm
             </button>
           </div>
+          {errorMessage && <p className="mt-2 text-xs text-red-500 flex items-center gap-1"><AlertTriangle size={12} />{errorMessage}</p>}
         </div>
 
         {/* Table */}
@@ -428,31 +427,29 @@ function CheckInScreen() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {["Mã đặt cọc", "Khách hàng", "Phòng/Giường", "Lịch hẹn nhận phòng", "Trạng thái", "Thao tác"].map((h) => (
+                {["Mã đặt cọc", "Khách hàng", "Lịch hẹn nhận phòng", "Thao tác"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.length === 0 ? (
+              {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-400">Không tìm thấy hồ sơ phù hợp</td>
+                  <td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">Đang tải danh sách hồ sơ...</td>
+                </tr>
+              ) : records.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">Không tìm thấy hồ sơ phù hợp</td>
                 </tr>
               ) : (
-                filtered.map((r) => (
+                records.map((r) => (
                   <tr key={r.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 font-medium text-blue-600">{r.code}</td>
                     <td className="px-4 py-3 text-gray-800">{r.customer}</td>
-                    <td className="px-4 py-3 text-gray-600">{r.room}</td>
                     <td className="px-4 py-3 text-gray-600">
                       <span className="text-blue-600 font-medium">{r.appointmentTime}</span>
                       <span className="text-gray-400 mx-1">–</span>
                       <span>{r.appointmentDate}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-block text-xs bg-green-100 text-green-700 border border-green-200 px-2 py-0.5 rounded-full font-medium">
-                        {r.status}
-                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <button
@@ -478,14 +475,56 @@ function CheckInScreen() {
 
 function CheckInDetail({ record, onBack }: { record: BookingRecord; onBack: () => void }) {
   const [showModal, setShowModal] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [detail, setDetail] = useState<KiemTraThongTinDetail | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [members, setMembers] = useState<{ id: number; name: string; cccd: string; gender: string; phone: string }[]>([]);
   const [form, setForm] = useState({ name: "", cccd: "", gender: "", phone: "" });
   const [errors, setErrors] = useState<{ name?: string; cccd?: string; gender?: string; phone?: string }>({});
+  const [residenceForm, setResidenceForm] = useState({
+    ngayBatDauCuTru: record.appointmentDate,
+    thoiHanThueThang: 12,
+    ghiChu: "",
+    daXacMinhGiayTo: true,
+  });
+
+  useEffect(() => {
+    let alive = true;
+    const loadDetail = async () => {
+      setIsLoading(true);
+      setErrorMessage("");
+      try {
+        const data = await api.get<KiemTraThongTinDetail>(`/api/nhan-phong/kiem-tra-thong-tin/${encodeURIComponent(record.code)}`);
+        if (!alive) return;
+        setDetail(data);
+        setMembers(data.members.map((member, index) => ({ id: index + 1, ...member })));
+        setResidenceForm({
+          ngayBatDauCuTru: data.ngayBatDauCuTru || data.appointmentDate,
+          thoiHanThueThang: data.thoiHanThueThang || 12,
+          ghiChu: data.ghiChu,
+          daXacMinhGiayTo: data.daXacMinhGiayTo,
+        });
+      } catch (error) {
+        if (alive) setErrorMessage(error instanceof ApiError ? error.message : "Không thể tải chi tiết hồ sơ nhận phòng.");
+      } finally {
+        if (alive) setIsLoading(false);
+      }
+    };
+
+    void loadDetail();
+    return () => {
+      alive = false;
+    };
+  }, [record.code]);
 
   const validate = () => {
     const e: typeof errors = {};
     if (!form.name.trim()) e.name = "Vui lòng nhập họ và tên";
     if (!form.cccd.trim()) e.cccd = "Vui lòng nhập số CCCD";
+    else if (!/^\d{12}$/.test(form.cccd.trim())) e.cccd = "Số CCCD phải gồm 12 chữ số";
+    else if (record.cccd === form.cccd.trim() || members.some((member) => member.cccd === form.cccd.trim())) e.cccd = "Số CCCD đã tồn tại trong hồ sơ";
     if (!form.gender) e.gender = "Vui lòng chọn giới tính";
     if (!form.phone.trim()) e.phone = "Vui lòng nhập số điện thoại";
     setErrors(e);
@@ -506,6 +545,36 @@ function CheckInDetail({ record, onBack }: { record: BookingRecord; onBack: () =
     setErrors({});
   };
 
+  const handleConfirmCancel = () => {
+    setMembers([]);
+    setForm({ name: "", cccd: "", gender: "", phone: "" });
+    setErrors({});
+    setShowModal(false);
+    setShowCancelConfirm(false);
+    onBack();
+  };
+
+  const handleSave = async () => {
+    setErrorMessage("");
+    setIsSaving(true);
+    try {
+      await api.post<LuuKiemTraThongTinResult>(
+        `/api/nhan-phong/kiem-tra-thong-tin/${encodeURIComponent(record.code)}`,
+        {
+          ...residenceForm,
+          members: members.map(({ name, cccd, gender, phone }) => ({ name, cccd, gender, phone })),
+        },
+      );
+      onBack();
+    } catch (error) {
+      setErrorMessage(error instanceof ApiError ? error.message : "Không thể lưu thông tin nhận phòng.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const display = detail ?? record;
+
   return (
     <>
       <main className="flex-1 overflow-y-auto p-6">
@@ -517,17 +586,19 @@ function CheckInDetail({ record, onBack }: { record: BookingRecord; onBack: () =
           <span className="text-gray-700">{record.code}</span>
         </div>
         <h1 className="text-xl font-semibold text-gray-800 mb-4">Kiểm tra thông tin nhận phòng</h1>
+        {errorMessage && <p className="mb-3 text-xs text-red-500 flex items-center gap-1"><AlertTriangle size={12} />{errorMessage}</p>}
+        {isLoading && <div className="bg-white rounded-lg border border-gray-200 p-6 text-sm text-gray-400">Đang tải chi tiết hồ sơ...</div>}
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        {!isLoading && <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <h3 className="text-sm font-semibold text-gray-700 mb-3">Thông tin đặt cọc</h3>
             <div className="space-y-2 text-sm">
               {([
-                ["Mã đặt cọc", record.code, false, false],
-                ["Khách hàng", record.customer, false, false],
-                ["Phòng/Giường", record.room, false, false],
-                ["Lịch hẹn nhận phòng", `${record.appointmentTime} – ${record.appointmentDate}`, true, false],
-                ["Trạng thái", record.status, false, true],
+                ["Mã đặt cọc", display.code, false, false],
+                ["Khách hàng", display.customer, false, false],
+                ["Phòng/Giường", display.room, false, false],
+                ["Lịch hẹn nhận phòng", `${display.appointmentTime} – ${display.appointmentDate}`, true, false],
+                ["Trạng thái", display.status, false, true],
               ] as [string, string, boolean, boolean][]).map(([label, value, isBlue, isGreen]) => (
                 <div key={label} className="flex justify-between">
                   <span className="text-gray-500">{label}</span>
@@ -540,10 +611,10 @@ function CheckInDetail({ record, onBack }: { record: BookingRecord; onBack: () =
             <h3 className="text-sm font-semibold text-gray-700 mb-3">Đối chiếu giấy tờ tùy thân</h3>
             <div className="space-y-2 text-sm">
               {([
-                ["Họ và tên", record.customer],
-                ["Số CCCD", record.cccd],
-                ["Giới tính", record.gender],
-                ["Số điện thoại", record.phone],
+                ["Họ và tên", display.customer],
+                ["Số CCCD", display.cccd],
+                ["Giới tính", display.gender],
+                ["Số điện thoại", display.phone],
               ] as [string, string][]).map(([label, value]) => (
                 <div key={label} className="flex justify-between">
                   <span className="text-gray-500">{label}</span>
@@ -552,38 +623,57 @@ function CheckInDetail({ record, onBack }: { record: BookingRecord; onBack: () =
               ))}
             </div>
             <div className="mt-3 flex items-center gap-2">
-              <div className="w-10 h-10 bg-gray-200 rounded" />
               <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input type="checkbox" defaultChecked className="w-4 h-4 accent-[#155DFC] cursor-pointer" />
+                <input
+                  type="checkbox"
+                  checked={residenceForm.daXacMinhGiayTo}
+                  onChange={(event) => setResidenceForm((prev) => ({ ...prev, daXacMinhGiayTo: event.target.checked }))}
+                  className="w-4 h-4 accent-[#155DFC] cursor-pointer"
+                />
                 <span className="text-xs text-gray-600">Đã xác minh giấy tờ</span>
               </label>
             </div>
           </div>
-        </div>
+        </div>}
 
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
+        {!isLoading && <div className="bg-white rounded-lg border border-gray-200 p-4">
           <h3 className="text-sm font-semibold text-gray-700 mb-4">Cập nhật thông tin cư trú</h3>
           <div className="grid grid-cols-3 gap-4 mb-4">
             <div>
               <label className="block text-xs text-gray-500 mb-1">Ngày bắt đầu cư trú <span className="text-red-500">*</span></label>
               <div className="relative">
-                <input type="text" defaultValue={record.appointmentDate} className="w-full pr-8 pl-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-400" />
+                <input
+                  type="text"
+                  value={residenceForm.ngayBatDauCuTru}
+                  onChange={(event) => setResidenceForm((prev) => ({ ...prev, ngayBatDauCuTru: event.target.value }))}
+                  className="w-full pr-8 pl-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-400"
+                />
                 <Calendar size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
               </div>
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Thời hạn thuê <span className="text-red-500">*</span></label>
-              <select className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-400 bg-white">
-                <option>12 tháng</option><option>6 tháng</option><option>3 tháng</option>
+              <select
+                value={residenceForm.thoiHanThueThang}
+                onChange={(event) => setResidenceForm((prev) => ({ ...prev, thoiHanThueThang: Number(event.target.value) }))}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-400 bg-white"
+              >
+                <option value={12}>12 tháng</option><option value={6}>6 tháng</option><option value={3}>3 tháng</option>
               </select>
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Ghi chú</label>
-              <input type="text" placeholder="Nhập ghi chú..." className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-400" />
+              <input
+                type="text"
+                value={residenceForm.ghiChu}
+                onChange={(event) => setResidenceForm((prev) => ({ ...prev, ghiChu: event.target.value }))}
+                placeholder="Nhập ghi chú..."
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-400"
+              />
             </div>
           </div>
           <div className="flex items-center gap-8 mb-4 text-sm">
-            <div><span className="text-gray-500">Hình thức thuê</span><span className="ml-2 font-medium text-gray-800">Thuê phòng</span></div>
+            <div><span className="text-gray-500">Hình thức thuê</span><span className="ml-2 font-medium text-gray-800">{detail?.hinhThucThue ?? "Thuê phòng"}</span></div>
             <div><span className="text-gray-500">Số người ở</span><span className="ml-2 font-medium text-gray-800">{members.length + 1} người</span></div>
           </div>
           {members.length > 0 && (
@@ -604,12 +694,18 @@ function CheckInDetail({ record, onBack }: { record: BookingRecord; onBack: () =
           <button onClick={() => setShowModal(true)} className="flex items-center gap-1.5 px-4 py-2 border border-[#155DFC] text-[#155DFC] bg-white text-sm font-medium rounded-md hover:bg-blue-50 transition-colors">
             <span className="text-base leading-none">+</span>Thêm thành viên
           </button>
-        </div>
+        </div>}
       </main>
 
       <footer className="h-16 bg-white border-t border-gray-200 flex items-center justify-between px-6 flex-shrink-0">
-        <button onClick={onBack} className="px-6 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors">Quay lại</button>
-        <button className="px-6 py-2 bg-[#155DFC] text-white text-sm font-medium rounded-md hover:bg-[#1250d4] transition-colors">Lưu &amp; chuyển sang kiểm tra điều kiện</button>
+        <button onClick={() => setShowCancelConfirm(true)} className="px-6 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors">Hủy</button>
+        <button
+          onClick={handleSave}
+          disabled={isLoading || isSaving}
+          className="px-6 py-2 bg-[#155DFC] text-white text-sm font-medium rounded-md hover:bg-[#1250d4] disabled:opacity-60 transition-colors"
+        >
+          {isSaving ? "Đang lưu..." : "Lưu & chuyển sang kiểm tra điều kiện"}
+        </button>
       </footer>
 
       {showModal && (
@@ -656,6 +752,19 @@ function CheckInDetail({ record, onBack }: { record: BookingRecord; onBack: () =
           </div>
         </div>
       )}
+
+      {showCancelConfirm && (
+        <ConfirmDialog
+          icon={<AlertTriangle size={22} className="text-yellow-500" />}
+          iconBg="bg-yellow-100"
+          title="Hủy thao tác"
+          message="Bạn có chắc muốn hủy thao tác? Các thông tin vừa nhập sẽ không được lưu."
+          confirmLabel="Đồng ý"
+          confirmClass="bg-gray-700 hover:bg-gray-800 text-white"
+          onConfirm={handleConfirmCancel}
+          onCancel={() => setShowCancelConfirm(false)}
+        />
+      )}
     </>
   );
 }
@@ -663,25 +772,62 @@ function CheckInDetail({ record, onBack }: { record: BookingRecord; onBack: () =
 // ─── Approve screen ───────────────────────────────────────────────────────────
 
 function ApproveScreen() {
-  const [profiles, setProfiles] = useState<Profile[]>(SAMPLE_PROFILES);
+  const [profiles, setProfiles] = useState<PheDuyetHoSoListItem[]>([]);
+  const [totalProfiles, setTotalProfiles] = useState(0);
   const [search, setSearch] = useState("");
-  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<PheDuyetHoSoDetail | null>(null);
   const [memberStatuses, setMemberStatuses] = useState<Record<string, MemberStatus>>({});
   const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
   const [dialog, setDialog] = useState<DialogType>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const filtered = profiles.filter(
-    (p) =>
-      p.code.toLowerCase().includes(search.toLowerCase()) ||
-      p.customer.toLowerCase().includes(search.toLowerCase())
-  );
+  const loadProfiles = useCallback(async (keyword = "") => {
+    setIsLoading(true);
+    setErrorMessage("");
+    try {
+      const params = new URLSearchParams();
+      if (keyword.trim()) params.set("q", keyword.trim());
+      const data = await api.get<{ total: number; items: PheDuyetHoSoListItem[] }>(
+        `/api/nhan-phong/phe-duyet-ho-so${params.size ? `?${params.toString()}` : ""}`,
+      );
+      setProfiles(data.items);
+      setTotalProfiles(data.total);
+    } catch (error) {
+      setErrorMessage(error instanceof ApiError ? error.message : "Khong the tai danh sach ho so cho duyet.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-  const openProfile = (p: Profile) => {
-    setSelectedProfile(p);
-    const init: Record<string, MemberStatus> = {};
-    p.members.forEach((m) => (init[m.id] = "pending"));
-    setMemberStatuses(init);
-    setRejectReasons({});
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadProfiles("");
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadProfiles]);
+
+  const openProfile = async (p: PheDuyetHoSoListItem) => {
+    setIsDetailLoading(true);
+    setErrorMessage("");
+    try {
+      const detail = await api.get<PheDuyetHoSoDetail>(`/api/nhan-phong/phe-duyet-ho-so/${encodeURIComponent(p.code)}`);
+      setSelectedProfile(detail);
+      const init: Record<string, MemberStatus> = {};
+      const reasons: Record<string, string> = {};
+      detail.members.forEach((m) => {
+        init[m.id] = m.status;
+        if (m.rejectReason) reasons[m.id] = m.rejectReason;
+      });
+      setMemberStatuses(init);
+      setRejectReasons(reasons);
+    } catch (error) {
+      setErrorMessage(error instanceof ApiError ? error.message : "Khong the tai chi tiet ho so phe duyet.");
+    } finally {
+      setIsDetailLoading(false);
+    }
   };
 
   const closeProfile = () => {
@@ -707,49 +853,63 @@ function ApproveScreen() {
   const hasRejected = rejectedMembers.length > 0;
   const hasApproved = approvedMembers.length > 0;
 
+  const buildPayload = (groupOption?: "continue" | "stop") => ({
+    groupOption,
+    members: selectedProfile!.members.map((m) => ({
+      thanhVienLuuTruId: m.thanhVienLuuTruId,
+      status: memberStatuses[m.id] as "approved" | "rejected",
+      rejectReason: rejectReasons[m.id],
+    })),
+  });
+
+  const saveResult = async (groupOption?: "continue" | "stop") => {
+    if (!selectedProfile) return;
+    setIsSaving(true);
+    setErrorMessage("");
+    try {
+      await api.post<LuuPheDuyetHoSoResult>(
+        `/api/nhan-phong/phe-duyet-ho-so/${encodeURIComponent(selectedProfile.code)}`,
+        buildPayload(groupOption),
+      );
+      setProfiles((prev) => prev.filter((p) => p.id !== selectedProfile.id));
+      setTotalProfiles((prev) => Math.max(0, prev - 1));
+      setDialog(groupOption === "stop" || !hasApproved ? "success-reject" : "success-approve");
+    } catch (error) {
+      setErrorMessage(error instanceof ApiError ? error.message : "Khong the luu ket qua phe duyet. Vui long thu lai.");
+      setDialog("error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSave = () => {
     if (!allDecided) return;
-    if (hasRejected && !hasApproved) {
-      // All rejected
-      setDialog("confirm-approve");
-    } else if (hasRejected && hasApproved) {
-      // Mixed
-      setDialog("confirm-approve");
-    } else {
-      // All approved
-      setDialog("confirm-approve");
+    const missingReason = selectedProfile?.members.some((m) => memberStatuses[m.id] === "rejected" && !rejectReasons[m.id]?.trim());
+    if (missingReason) {
+      setErrorMessage("Vui long nhap ly do tu choi cho thanh vien khong dat.");
+      return;
     }
+    setDialog("confirm-approve");
   };
 
   const handleConfirmApprove = () => {
-    if (!selectedProfile) return;
     if (hasRejected && hasApproved) {
       setDialog("mixed-result");
-    } else if (!hasRejected) {
-      // success full approve
-      setProfiles((prev) => prev.filter((p) => p.id !== selectedProfile.id));
-      setDialog("success-approve");
-    } else {
-      // all rejected
-      setProfiles((prev) => prev.filter((p) => p.id !== selectedProfile.id));
-      setDialog("success-reject");
+      return;
     }
+    void saveResult();
   };
 
   const handleMixedChoice = (choice: "continue" | "stop") => {
-    if (!selectedProfile) return;
     if (choice === "continue") {
-      setProfiles((prev) => prev.filter((p) => p.id !== selectedProfile.id));
-      setDialog("success-approve");
+      void saveResult("continue");
     } else {
       setDialog("confirm-stop-all");
     }
   };
 
   const handleConfirmStopAll = () => {
-    if (!selectedProfile) return;
-    setProfiles((prev) => prev.filter((p) => p.id !== selectedProfile.id));
-    setDialog("success-reject");
+    void saveResult("stop");
   };
 
   const handleSuccessClose = () => {
@@ -774,7 +934,7 @@ function ApproveScreen() {
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-semibold text-gray-800">Phê duyệt hồ sơ lưu trú</h1>
           <span className="text-xs bg-yellow-100 text-yellow-700 border border-yellow-200 px-2.5 py-1 rounded-full font-medium">
-            {profiles.length} hồ sơ chờ duyệt
+            {totalProfiles} hồ sơ chờ duyệt
           </span>
         </div>
 
@@ -790,47 +950,51 @@ function ApproveScreen() {
               className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-orange-400"
             />
           </div>
-          <button className="px-5 py-2 bg-[#155DFC] text-white text-sm font-medium rounded-md hover:bg-[#1250d4] transition-colors">
+          <button
+            onClick={() => void loadProfiles(search)}
+            disabled={isLoading}
+            className="px-5 py-2 bg-[#155DFC] text-white text-sm font-medium rounded-md hover:bg-[#1250d4] disabled:opacity-60 transition-colors"
+          >
             Tìm kiếm
           </button>
         </div>
+        {errorMessage && dialog !== "error" && <p className="mb-3 text-xs text-red-500 flex items-center gap-1"><AlertTriangle size={12} />{errorMessage}</p>}
 
         {/* Table */}
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {["Mã hồ sơ", "Khách hàng", "Phòng/Giường", "Ngày nộp", "Số thành viên", "Trạng thái", "Thao tác"].map((h) => (
+                {["Mã hồ sơ", "Khách hàng", "Ngày nộp", "Số thành viên", "Thao tác"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.length === 0 ? (
+              {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-sm text-gray-400">Không có hồ sơ nào chờ duyệt</td>
+                  <td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">Đang tải danh sách hồ sơ...</td>
+                </tr>
+              ) : profiles.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">Không có hồ sơ nào chờ duyệt</td>
                 </tr>
               ) : (
-                filtered.map((p) => (
+                profiles.map((p) => (
                   <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 font-medium text-blue-600">{p.code}</td>
                     <td className="px-4 py-3 text-gray-800">{p.customer}</td>
-                    <td className="px-4 py-3 text-gray-600">{p.room}</td>
                     <td className="px-4 py-3 text-gray-500">{p.submittedAt}</td>
                     <td className="px-4 py-3 text-center">
                       <span className="inline-flex items-center gap-1 text-gray-600">
-                        <Users size={13} />{p.members.length}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-block text-xs bg-yellow-100 text-yellow-700 border border-yellow-200 px-2 py-0.5 rounded-full font-medium">
-                        Chờ duyệt điều kiện
+                        <Users size={13} />{p.memberCount}
                       </span>
                     </td>
                     <td className="px-4 py-3">
                       <button
-                        onClick={() => openProfile(p)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#155DFC] text-white text-xs font-medium rounded-md hover:bg-[#1250d4] transition-colors"
+                        onClick={() => void openProfile(p)}
+                        disabled={isDetailLoading}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#155DFC] text-white text-xs font-medium rounded-md hover:bg-[#1250d4] disabled:opacity-60 transition-colors"
                       >
                         <ClipboardCheck size={13} />Xem &amp; Duyệt
                       </button>
@@ -855,19 +1019,9 @@ function ApproveScreen() {
                   <ClipboardCheck size={16} className="text-blue-600" />
                   <h2 className="text-base font-semibold text-gray-800">Phê duyệt hồ sơ – {selectedProfile.code}</h2>
                 </div>
-                <p className="text-xs text-gray-500">Khách hàng: {selectedProfile.customer} · Phòng: {selectedProfile.room}</p>
+                <p className="text-xs text-gray-500">Khách hàng: {selectedProfile.customer}</p>
               </div>
               <button onClick={handleCancelAttempt} className="text-gray-400 hover:text-gray-600 transition-colors"><X size={18} /></button>
-            </div>
-
-            {/* Progress */}
-            <div className="px-5 py-3 bg-gray-50 border-b border-gray-200 flex-shrink-0">
-              <div className="flex items-center gap-4 text-xs">
-                <span className="text-gray-500">Tiến độ xét duyệt:</span>
-                <span className="flex items-center gap-1 text-green-600 font-medium"><CheckCircle2 size={12} />{approvedMembers.length} Phê duyệt</span>
-                <span className="flex items-center gap-1 text-red-500 font-medium"><XCircle size={12} />{rejectedMembers.length} Từ chối</span>
-                <span className="text-gray-400">{selectedProfile.members.filter(m => memberStatuses[m.id] === "pending").length} chờ xét</span>
-              </div>
             </div>
 
             {/* Member list */}
@@ -889,7 +1043,7 @@ function ApproveScreen() {
                         }`}>{idx + 1}</div>
                         <div>
                           <p className="text-sm font-semibold text-gray-800">{m.name}</p>
-                          <p className="text-xs text-gray-500">CCCD: {m.cccd} · {m.gender} · SN: {m.dob}</p>
+                          <p className="text-xs text-gray-500">CCCD: {m.cccd} · {m.gender}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -897,16 +1051,6 @@ function ApproveScreen() {
                         {status === "rejected" && <span className="flex items-center gap-1 text-xs text-red-500 font-medium bg-red-100 px-2 py-0.5 rounded-full"><XCircle size={11} />Đã từ chối</span>}
                         {status === "pending" && <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Chờ xét</span>}
                       </div>
-                    </div>
-
-                    {/* Conditions */}
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {m.conditions.map((c) => (
-                        <span key={c.label} className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border ${c.met ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-600"}`}>
-                          {c.met ? <CheckCircle2 size={10} /> : <XCircle size={10} />}
-                          {c.label}
-                        </span>
-                      ))}
                     </div>
 
                     {/* Action buttons */}
@@ -958,14 +1102,14 @@ function ApproveScreen() {
               </button>
               <button
                 onClick={handleSave}
-                disabled={!allDecided}
+                disabled={!allDecided || isSaving}
                 className={`flex-1 py-2.5 text-sm font-medium rounded-md transition-colors ${
-                  allDecided
+                  allDecided && !isSaving
                     ? "bg-[#155DFC] text-white hover:bg-[#1250d4]"
                     : "bg-gray-200 text-gray-400 cursor-not-allowed"
                 }`}
               >
-                {allDecided ? "Lưu kết quả" : `Còn ${selectedProfile.members.filter(m => memberStatuses[m.id] === "pending").length} thành viên chưa xét`}
+                {isSaving ? "Đang lưu..." : allDecided ? "Lưu kết quả" : `Còn ${selectedProfile.members.filter(m => memberStatuses[m.id] === "pending").length} thành viên chưa xét`}
               </button>
             </div>
           </div>
@@ -1005,7 +1149,7 @@ function ApproveScreen() {
                 {rejectedMembers.map((m) => <p key={m.id} className="text-xs text-red-500 pl-4">• {m.name}</p>)}
               </div>
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                <p className="text-xs text-gray-500">Số giường/phòng đã đặt: <span className="font-medium text-gray-700">{selectedProfile.room}</span></p>
+                <p className="text-xs text-gray-500">Số thành viên đăng ký: <span className="font-medium text-gray-700">{selectedProfile.memberCount}</span></p>
               </div>
               <p className="text-sm text-gray-700 font-medium">Bạn muốn xử lý như thế nào?</p>
               <div className="flex gap-3">
@@ -1052,6 +1196,17 @@ function ApproveScreen() {
           confirmClass="bg-gray-700 hover:bg-gray-800 text-white"
           onConfirm={handleConfirmCancel}
           onCancel={() => setDialog(null)}
+        />
+      )}
+
+      {/* ── Error dialog ── */}
+      {dialog === "error" && (
+        <ResultDialog
+          icon={<AlertTriangle size={28} className="text-red-500" />}
+          iconBg="bg-red-100"
+          title="Không thể lưu kết quả"
+          message={errorMessage || "Không thể lưu kết quả phê duyệt. Vui lòng thử lại."}
+          onClose={() => setDialog(null)}
         />
       )}
 
@@ -1139,56 +1294,133 @@ function ResultDialog({ icon, iconBg, title, message, onClose }: {
 // ─── Handover screen ─────────────────────────────────────────────────────────
 
 type HandoverStep = "list" | "checklist" | "document";
-type HandoverDialog = null | "confirm-cancel" | "cancel-success" | "save-error" | "save-success" | "unsigned-warning";
+type HandoverDialog = null | "confirm-cancel" | "save-error" | "save-success" | "unsigned-warning";
+
+type HandoverAssetState = { checked: boolean; quantity: number; note: string };
 
 function HandoverScreen() {
   const [step, setStep] = useState<HandoverStep>("list");
-  const [selected, setSelected] = useState<HandoverProfile | null>(null);
+  const [selected, setSelected] = useState<BanGiaoPhongDetail | null>(null);
   const [search, setSearch] = useState("");
   const [notFound, setNotFound] = useState(false);
+  const [notEligible, setNotEligible] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [savedResult, setSavedResult] = useState<LuuBienBanBanGiaoResult | null>(null);
+  const [totalProfiles, setTotalProfiles] = useState(0);
 
-  // checklist state: { assetId -> { checked, note } }
-  const [assetStates, setAssetStates] = useState<Record<string, { checked: boolean; note: string }>>({});
+  const [assetStates, setAssetStates] = useState<Record<string, HandoverAssetState>>({});
   const [dialog, setDialog] = useState<HandoverDialog>(null);
   const [customerSigned, setCustomerSigned] = useState(false);
-  const [profiles, setProfiles] = useState<HandoverProfile[]>(HANDOVER_PROFILES);
+  const [profiles, setProfiles] = useState<BanGiaoPhongListItem[]>([]);
 
-  const filtered = profiles.filter(
-    (r) =>
-      r.code.toLowerCase().includes(search.toLowerCase()) ||
-      r.customer.toLowerCase().includes(search.toLowerCase())
-  );
+  const loadProfiles = useCallback(async (keyword = "") => {
+    setLoading(true);
+    setNotFound(false);
+    setNotEligible(false);
+    setErrorMessage("");
+    try {
+      const query = keyword.trim() ? `?q=${encodeURIComponent(keyword.trim())}` : "";
+      const data = await api.get<{ total: number; items: BanGiaoPhongListItem[] }>(`/api/nhan-phong/ban-giao-phong${query}`);
+      setProfiles(data.items);
+      setTotalProfiles(data.total);
+      setNotFound(Boolean(keyword.trim()) && data.items.length === 0);
+    } catch (error) {
+      setErrorMessage(error instanceof ApiError ? error.message : "Đã xảy ra lỗi khi tải danh sách hồ sơ.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const initAssets = () => {
-    const init: Record<string, { checked: boolean; note: string }> = {};
-    DEFAULT_ASSETS.forEach((a) => (init[a.id] = { checked: false, note: "" }));
+  useEffect(() => {
+    let active = true;
+    void api.get<{ total: number; items: BanGiaoPhongListItem[] }>("/api/nhan-phong/ban-giao-phong")
+      .then((data) => {
+        if (!active) return;
+        setProfiles(data.items);
+        setTotalProfiles(data.total);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setErrorMessage(error instanceof ApiError ? error.message : "Đã xảy ra lỗi khi tải danh sách hồ sơ.");
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  const initAssets = (detail: BanGiaoPhongDetail) => {
+    const init: Record<string, HandoverAssetState> = {};
+    detail.assets.forEach((asset) => {
+      init[String(asset.id)] = { checked: false, quantity: asset.defaultQuantity, note: "" };
+    });
     setAssetStates(init);
   };
 
-  const selectProfile = (p: HandoverProfile) => {
-    setSelected(p);
-    initAssets();
+  const selectProfile = async (profile: Pick<BanGiaoPhongListItem, "code">) => {
+    setLoading(true);
     setNotFound(false);
-    setCustomerSigned(false);
-    setStep("checklist");
+    setNotEligible(false);
+    setErrorMessage("");
+    try {
+      const detail = await api.get<BanGiaoPhongDetail>(`/api/nhan-phong/ban-giao-phong/${encodeURIComponent(profile.code)}`);
+      setSelected(detail);
+      initAssets(detail);
+      setCustomerSigned(false);
+      setDialog(null);
+      setStep("checklist");
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "Đã xảy ra lỗi khi tải hồ sơ.";
+      const normalized = message.toLowerCase();
+      setNotFound(normalized.includes("không tồn tại") || normalized.includes("khong ton tai"));
+      setNotEligible(normalized.includes("điều kiện") || normalized.includes("dieu kien"));
+      setErrorMessage(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const checkedCount = Object.values(assetStates).filter((v) => v.checked).length;
 
   const handleCreateDocument = () => setStep("document");
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!selected || saving) return;
     if (!customerSigned) { setDialog("unsigned-warning"); return; }
-    // simulate success
-    setProfiles((prev) => prev.filter((p) => p.id !== selected!.id));
-    setDialog("save-success");
+    setSaving(true);
+    try {
+      const result = await api.post<LuuBienBanBanGiaoResult>(
+        `/api/nhan-phong/ban-giao-phong/${encodeURIComponent(selected.code)}`,
+        {
+          customerSigned,
+          assets: selected.assets
+            .filter((asset) => assetStates[String(asset.id)]?.checked)
+            .map((asset) => ({
+              assetId: asset.id,
+              quantity: assetStates[String(asset.id)].quantity,
+              note: assetStates[String(asset.id)].note.trim() || undefined,
+            })),
+        }
+      );
+      setSavedResult(result);
+      setDialog("save-success");
+    } catch (error) {
+      setErrorMessage(error instanceof ApiError ? error.message : "Đã xảy ra lỗi trong quá trình lưu. Vui lòng thử lại sau.");
+      setDialog("save-error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancelAttempt = () => setDialog("confirm-cancel");
 
   const handleConfirmCancel = () => {
-    setProfiles((prev) => prev.filter((p) => p.id !== selected!.id));
-    setDialog("cancel-success");
+    setStep("list");
+    setSelected(null);
+    setAssetStates({});
+    setCustomerSigned(false);
+    setDialog(null);
+    void loadProfiles();
   };
 
   const resetAll = () => {
@@ -1197,7 +1429,8 @@ function HandoverScreen() {
     setAssetStates({});
     setCustomerSigned(false);
     setDialog(null);
-    setSearch("");
+    setSavedResult(null);
+    void loadProfiles();
   };
 
   // ── List step ──
@@ -1210,7 +1443,7 @@ function HandoverScreen() {
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-semibold text-gray-800">Bàn giao phòng</h1>
           <span className="text-xs bg-purple-100 text-purple-700 border border-purple-200 px-2.5 py-1 rounded-full font-medium">
-            {profiles.length} hồ sơ chờ bàn giao
+            {totalProfiles} hồ sơ chờ bàn giao
           </span>
         </div>
 
@@ -1222,18 +1455,20 @@ function HandoverScreen() {
               <input
                 type="text"
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setNotFound(false); }}
+                onChange={(e) => { setSearch(e.target.value); setNotFound(false); setNotEligible(false); setErrorMessage(""); }}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  if (search.trim()) void selectProfile({ code: search.trim() });
+                  else void loadProfiles();
+                }}
                 placeholder="Nhập mã hồ sơ để tìm kiếm (VD: HS2026-0001)"
                 className={`w-full pl-9 pr-4 py-2.5 text-sm border rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-orange-400 ${notFound ? "border-red-400" : "border-gray-300"}`}
               />
             </div>
             <button
-              onClick={() => {
-                const found = profiles.find((p) => p.code.toLowerCase() === search.trim().toLowerCase());
-                if (found) { selectProfile(found); }
-                else if (search.trim()) { setNotFound(true); }
-              }}
-              className="px-5 py-2 bg-[#155DFC] text-white text-sm font-medium rounded-md hover:bg-[#1250d4] transition-colors"
+              onClick={() => search.trim() ? void selectProfile({ code: search.trim() }) : void loadProfiles()}
+              disabled={loading}
+              className="px-5 py-2 bg-[#155DFC] text-white text-sm font-medium rounded-md hover:bg-[#1250d4] disabled:opacity-60 transition-colors"
             >
               Tìm kiếm
             </button>
@@ -1243,6 +1478,14 @@ function HandoverScreen() {
               <AlertTriangle size={12} />Hồ sơ không tồn tại. Vui lòng nhập lại mã hồ sơ.
             </p>
           )}
+          {notEligible && (
+            <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+              <AlertTriangle size={12} />Hồ sơ chưa đủ điều kiện để lập biên bản bàn giao. Vui lòng nhập lại mã hồ sơ.
+            </p>
+          )}
+          {errorMessage && !notFound && !notEligible && (
+            <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1"><AlertTriangle size={12} />{errorMessage}</p>
+          )}
         </div>
 
         {/* Table */}
@@ -1250,29 +1493,29 @@ function HandoverScreen() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {["Mã hồ sơ", "Khách hàng", "Phòng/Giường", "Vị trí", "Ngày bàn giao", "Trạng thái", "Thao tác"].map((h) => (
+                {["Mã hồ sơ", "Khách hàng", "Số thành viên", "Thao tác"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-gray-400">Không có hồ sơ nào chờ bàn giao</td></tr>
+              {loading ? (
+                <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">Đang tải danh sách...</td></tr>
+              ) : profiles.length === 0 ? (
+                <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">Không có hồ sơ nào chờ bàn giao</td></tr>
               ) : (
-                filtered.map((p) => (
+                profiles.map((p) => (
                   <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 font-medium text-blue-600">{p.code}</td>
                     <td className="px-4 py-3 text-gray-800">{p.customer}</td>
-                    <td className="px-4 py-3 text-gray-600">{p.room}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{p.floor}</td>
-                    <td className="px-4 py-3 text-gray-600">{p.date}</td>
                     <td className="px-4 py-3">
-                      <span className="inline-block text-xs bg-purple-100 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full font-medium">Chờ bàn giao</span>
+                      <span className="flex items-center gap-1 text-gray-600"><Users size={13} />{p.memberCount}</span>
                     </td>
                     <td className="px-4 py-3">
                       <button
-                        onClick={() => selectProfile(p)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#155DFC] text-white text-xs font-medium rounded-md hover:bg-[#1250d4] transition-colors"
+                        onClick={() => void selectProfile(p)}
+                        disabled={loading}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#155DFC] text-white text-xs font-medium rounded-md hover:bg-[#1250d4] disabled:opacity-60 transition-colors"
                       >
                         <ClipboardList size={13} />Lập biên bản
                       </button>
@@ -1298,7 +1541,7 @@ function HandoverScreen() {
             <ChevronRight size={12} /><span className="text-gray-700">{selected!.code}</span>
           </div>
           <h1 className="text-xl font-semibold text-gray-800 mb-1">Lập biên bản bàn giao</h1>
-          <p className="text-sm text-gray-500 mb-5">{selected!.customer} · {selected!.room} · {selected!.floor}</p>
+          <p className="text-sm text-gray-500 mb-5">{selected!.customer}</p>
 
           {/* Asset checklist */}
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-4">
@@ -1307,7 +1550,7 @@ function HandoverScreen() {
                 <ClipboardList size={15} className="text-blue-600" />
                 <h3 className="text-sm font-semibold text-gray-700">Danh sách tài sản bàn giao</h3>
               </div>
-              <span className="text-xs text-gray-500">{checkedCount}/{DEFAULT_ASSETS.length} tài sản đã xác nhận</span>
+              <span className="text-xs text-gray-500">{checkedCount}/{selected!.assets.length} tài sản đã xác nhận</span>
             </div>
             <table className="w-full text-sm">
               <thead className="border-b border-gray-100">
@@ -1320,28 +1563,40 @@ function HandoverScreen() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {DEFAULT_ASSETS.map((asset) => {
-                  const state = assetStates[asset.id] ?? { checked: false, note: "" };
+                {selected!.assets.map((asset) => {
+                  const assetKey = String(asset.id);
+                  const state = assetStates[assetKey] ?? { checked: false, quantity: asset.defaultQuantity, note: "" };
                   return (
                     <tr key={asset.id} className={`transition-colors ${state.checked ? "bg-green-50/60" : "hover:bg-gray-50"}`}>
                       <td className="px-4 py-3">
                         <input
                           type="checkbox"
                           checked={state.checked}
-                          onChange={(e) => setAssetStates((prev) => ({ ...prev, [asset.id]: { ...prev[asset.id], checked: e.target.checked } }))}
+                          onChange={(e) => setAssetStates((prev) => ({ ...prev, [assetKey]: { ...prev[assetKey], checked: e.target.checked } }))}
                           className="w-4 h-4 accent-[#155DFC] cursor-pointer"
                         />
                       </td>
                       <td className="px-4 py-3">
                         <span className={`font-medium ${state.checked ? "text-gray-800" : "text-gray-600"}`}>{asset.name}</span>
                       </td>
-                      <td className="px-4 py-3 text-gray-600">{asset.quantity}</td>
+                      <td className="px-4 py-3 text-gray-600">
+                        <input
+                          type="number"
+                          min={1}
+                          value={state.quantity}
+                          onChange={(e) => setAssetStates((prev) => ({
+                            ...prev,
+                            [assetKey]: { ...prev[assetKey], quantity: Math.max(1, Number.parseInt(e.target.value, 10) || 1) },
+                          }))}
+                          className="w-16 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-orange-400"
+                        />
+                      </td>
                       <td className="px-4 py-3 text-gray-500">{asset.unit}</td>
                       <td className="px-4 py-3">
                         <input
                           type="text"
                           value={state.note}
-                          onChange={(e) => setAssetStates((prev) => ({ ...prev, [asset.id]: { ...prev[asset.id], note: e.target.value } }))}
+                          onChange={(e) => setAssetStates((prev) => ({ ...prev, [assetKey]: { ...prev[assetKey], note: e.target.value } }))}
                           placeholder="Nhập ghi chú nếu tài sản bị lỗi..."
                           className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-orange-400 bg-white"
                         />
@@ -1354,12 +1609,12 @@ function HandoverScreen() {
             {/* Quick-select bar */}
             <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex items-center gap-3">
               <button
-                onClick={() => setAssetStates((prev) => { const n = { ...prev }; DEFAULT_ASSETS.forEach((a) => { n[a.id] = { ...n[a.id], checked: true }; }); return n; })}
+                onClick={() => setAssetStates((prev) => { const n = { ...prev }; selected!.assets.forEach((asset) => { const key = String(asset.id); n[key] = { ...n[key], checked: true }; }); return n; })}
                 className="text-xs text-blue-600 hover:underline"
               >Chọn tất cả</button>
               <span className="text-gray-300">|</span>
               <button
-                onClick={() => setAssetStates((prev) => { const n = { ...prev }; DEFAULT_ASSETS.forEach((a) => { n[a.id] = { ...n[a.id], checked: false }; }); return n; })}
+                onClick={() => setAssetStates((prev) => { const n = { ...prev }; selected!.assets.forEach((asset) => { const key = String(asset.id); n[key] = { ...n[key], checked: false }; }); return n; })}
                 className="text-xs text-gray-500 hover:underline"
               >Bỏ chọn tất cả</button>
             </div>
@@ -1381,24 +1636,21 @@ function HandoverScreen() {
           <ConfirmDialog
             icon={<AlertTriangle size={22} className="text-yellow-500" />}
             iconBg="bg-yellow-100"
-            title="Hủy biên bản bàn giao"
-            message="Bạn có chắc muốn hủy biên bản bàn giao? Hồ sơ sẽ chuyển sang trạng thái Đã hủy."
+            title="Hủy thao tác"
+            message="Bạn có chắc muốn hủy thao tác? Các thay đổi chưa lưu sẽ bị xóa."
             confirmLabel="Đồng ý"
-            confirmClass="bg-red-500 hover:bg-red-600 text-white"
+            confirmClass="bg-gray-700 hover:bg-gray-800 text-white"
             onConfirm={handleConfirmCancel}
             onCancel={() => setDialog(null)}
           />
-        )}
-        {dialog === "cancel-success" && (
-          <ResultDialog icon={<XCircle size={28} className="text-red-500" />} iconBg="bg-red-100" title="Đã hủy bàn giao" message="Hồ sơ đã chuyển sang trạng thái Đã hủy. Phòng/giường được giải phóng." onClose={resetAll} />
         )}
       </>
     );
   }
 
   // ── Document step ──
-  const handedAssets = DEFAULT_ASSETS.filter((a) => assetStates[a.id]?.checked);
-  const notedAssets = handedAssets.filter((a) => assetStates[a.id]?.note.trim());
+  const handedAssets = selected!.assets.filter((asset) => assetStates[String(asset.id)]?.checked);
+  const notedAssets = handedAssets.filter((asset) => assetStates[String(asset.id)]?.note.trim());
 
   return (
     <>
@@ -1416,7 +1668,7 @@ function HandoverScreen() {
           <div className="text-center border-b border-gray-200 pb-4 mb-5">
             <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">HomeSay Dorm</p>
             <h2 className="text-lg font-bold text-gray-800">BIÊN BẢN BÀN GIAO TÀI SẢN</h2>
-            <p className="text-xs text-gray-500 mt-1">Ngày: {selected!.date}</p>
+            <p className="text-xs text-gray-500 mt-1">Ngày: {selected!.handoverDate}</p>
           </div>
 
           {/* Info */}
@@ -1425,7 +1677,7 @@ function HandoverScreen() {
               ["Mã hồ sơ", selected!.code],
               ["Khách hàng", selected!.customer],
               ["Phòng/Giường", selected!.room],
-              ["Vị trí", selected!.floor],
+              ["Vị trí", selected!.location],
             ].map(([label, value]) => (
               <div key={label} className="flex gap-2">
                 <span className="text-gray-500 w-28 flex-shrink-0">{label}:</span>
@@ -1448,14 +1700,14 @@ function HandoverScreen() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {handedAssets.map((asset, i) => (
-                  <tr key={asset.id} className={assetStates[asset.id]?.note ? "bg-yellow-50" : ""}>
+                  <tr key={asset.id} className={assetStates[String(asset.id)]?.note ? "bg-yellow-50" : ""}>
                     <td className="px-3 py-2.5 text-gray-500 text-center">{i + 1}</td>
                     <td className="px-3 py-2.5 text-gray-800 font-medium">{asset.name}</td>
-                    <td className="px-3 py-2.5 text-gray-600">{asset.quantity}</td>
+                    <td className="px-3 py-2.5 text-gray-600">{assetStates[String(asset.id)]?.quantity}</td>
                     <td className="px-3 py-2.5 text-gray-500">{asset.unit}</td>
                     <td className="px-3 py-2.5">
-                      {assetStates[asset.id]?.note ? (
-                        <span className="text-yellow-700 text-xs">⚠ {assetStates[asset.id].note}</span>
+                      {assetStates[String(asset.id)]?.note ? (
+                        <span className="text-yellow-700 text-xs">⚠ {assetStates[String(asset.id)].note}</span>
                       ) : (
                         <span className="text-green-600 text-xs flex items-center gap-1"><CheckCircle2 size={11} />Tốt</span>
                       )}
@@ -1469,7 +1721,7 @@ function HandoverScreen() {
           {notedAssets.length > 0 && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-5 text-xs text-yellow-800">
               <p className="font-semibold mb-1 flex items-center gap-1"><AlertTriangle size={12} />Lưu ý tài sản có vấn đề:</p>
-              {notedAssets.map((a) => <p key={a.id} className="pl-4">• {a.name}: {assetStates[a.id].note}</p>)}
+              {notedAssets.map((asset) => <p key={asset.id} className="pl-4">• {asset.name}: {assetStates[String(asset.id)].note}</p>)}
             </div>
           )}
 
@@ -1501,10 +1753,11 @@ function HandoverScreen() {
           <button onClick={handleCancelAttempt} className="px-4 py-2 border border-red-200 text-red-500 text-sm font-medium rounded-md hover:bg-red-50 transition-colors">Hủy</button>
         </div>
         <button
-          onClick={handleSave}
-          className="flex items-center gap-2 px-6 py-2 bg-[#155DFC] text-white text-sm font-medium rounded-md hover:bg-[#1250d4] transition-colors"
+          onClick={() => void handleSave()}
+          disabled={saving}
+          className="flex items-center gap-2 px-6 py-2 bg-[#155DFC] text-white text-sm font-medium rounded-md hover:bg-[#1250d4] disabled:opacity-60 transition-colors"
         >
-          <CheckCircle2 size={15} />Lưu biên bản bàn giao
+          <CheckCircle2 size={15} />{saving ? "Đang lưu..." : "Lưu biên bản bàn giao"}
         </button>
       </footer>
 
@@ -1532,24 +1785,33 @@ function HandoverScreen() {
         <ConfirmDialog
           icon={<AlertTriangle size={22} className="text-yellow-500" />}
           iconBg="bg-yellow-100"
-          title="Hủy biên bản bàn giao"
-          message="Bạn có chắc muốn hủy biên bản bàn giao? Hồ sơ sẽ chuyển sang trạng thái Đã hủy và phòng/giường sẽ được giải phóng."
+          title="Hủy thao tác"
+          message="Bạn có chắc muốn hủy thao tác? Các thay đổi chưa lưu sẽ bị xóa."
           confirmLabel="Đồng ý"
-          confirmClass="bg-red-500 hover:bg-red-600 text-white"
+          confirmClass="bg-gray-700 hover:bg-gray-800 text-white"
           onConfirm={handleConfirmCancel}
           onCancel={() => setDialog(null)}
         />
-      )}
-      {dialog === "cancel-success" && (
-        <ResultDialog icon={<XCircle size={28} className="text-red-500" />} iconBg="bg-red-100" title="Đã hủy bàn giao" message="Hồ sơ đã chuyển sang trạng thái Đã hủy. Phòng/giường được giải phóng." onClose={resetAll} />
       )}
       {dialog === "save-success" && (
         <ResultDialog
           icon={<CheckCircle2 size={28} className="text-green-500" />}
           iconBg="bg-green-100"
           title="Bàn giao thành công!"
-          message="Biên bản bàn giao đã được lưu. Trạng thái phòng chuyển sang <strong>Đang sử dụng</strong>, hồ sơ chuyển sang <strong>Hoàn tất</strong>."
+          message={`Biên bản bàn giao <strong>#${savedResult?.bienBanBanGiaoId ?? ""}</strong> đã được lưu với <strong>${savedResult?.soTaiSan ?? handedAssets.length}</strong> tài sản. Phòng/giường chuyển sang <strong>Đang sử dụng</strong>, hồ sơ <strong>${savedResult?.maHoSoNhanPhong ?? selected!.code}</strong> chuyển sang <strong>Hoàn tất</strong>.`}
           onClose={resetAll}
+        />
+      )}
+      {dialog === "save-error" && (
+        <ConfirmDialog
+          icon={<AlertTriangle size={22} className="text-red-500" />}
+          iconBg="bg-red-100"
+          title="Không thể lưu biên bản"
+          message={errorMessage || "Đã xảy ra lỗi trong quá trình lưu. Vui lòng thử lại sau."}
+          confirmLabel="Thử lại"
+          confirmClass="bg-[#155DFC] hover:bg-[#1250d4] text-white"
+          onConfirm={() => void handleSave()}
+          onCancel={() => setDialog(null)}
         />
       )}
     </>
@@ -1626,41 +1888,95 @@ function fmt(n: number) {
 
 function ContractScreen() {
   const [step, setStep] = useState<ContractStep>("list");
-  const [profiles, setProfiles] = useState<ContractProfile[]>(CONTRACT_PROFILES);
-  const [selected, setSelected] = useState<ContractProfile | null>(null);
+  const [profiles, setProfiles] = useState<LapHopDongListItem[]>([]);
+  const [totalProfiles, setTotalProfiles] = useState(0);
+  const [selected, setSelected] = useState<LapHopDongDetail | null>(null);
   const [search, setSearch] = useState("");
   const [notFound, setNotFound] = useState(false);
   const [notEligible, setNotEligible] = useState(false);
   const [customerSigned, setCustomerSigned] = useState(false);
   const [dialog, setDialog] = useState<ContractDialog>(null);
   const [saveAttempted, setSaveAttempted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [savedContractCode, setSavedContractCode] = useState("");
 
-  const filtered = profiles.filter(
-    (r) =>
-      r.code.toLowerCase().includes(search.toLowerCase()) ||
-      r.customer.toLowerCase().includes(search.toLowerCase())
-  );
+  const loadProfiles = useCallback(async (keyword = "", options?: { showLoading?: boolean }) => {
+    if (options?.showLoading !== false) setIsLoading(true);
+    setErrorMessage("");
+    setNotFound(false);
+    setNotEligible(false);
+    try {
+      const params = new URLSearchParams();
+      if (keyword.trim()) params.set("q", keyword.trim());
+      const data = await api.get<{ total: number; items: LapHopDongListItem[] }>(
+        `/api/nhan-phong/lap-hop-dong${params.size ? `?${params.toString()}` : ""}`,
+      );
+      setProfiles(data.items);
+      setTotalProfiles(data.total);
+      if (keyword.trim() && data.items.length === 0) setNotFound(true);
+    } catch (error) {
+      setErrorMessage(error instanceof ApiError ? error.message : "Không thể tải danh sách hồ sơ chờ ký hợp đồng.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-  const selectProfile = (p: ContractProfile) => {
-    setSelected(p);
-    setCustomerSigned(false);
-    setSaveAttempted(false);
-    setStep("info");
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadProfiles("", { showLoading: false });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadProfiles]);
+
+  const selectProfile = async (p: LapHopDongListItem) => {
+    setIsDetailLoading(true);
+    setErrorMessage("");
+    setNotFound(false);
+    setNotEligible(false);
+    try {
+      const detail = await api.get<LapHopDongDetail>(`/api/nhan-phong/lap-hop-dong/${encodeURIComponent(p.code)}`);
+      setSelected(detail);
+      setCustomerSigned(false);
+      setSaveAttempted(false);
+      setStep("info");
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "Không thể tải thông tin hồ sơ lập hợp đồng.";
+      if (message.includes("chua du dieu kien")) setNotEligible(true);
+      else if (message.includes("khong ton tai")) setNotFound(true);
+      setErrorMessage(message);
+    } finally {
+      setIsDetailLoading(false);
+    }
   };
 
   const handleSearch = () => {
-    const q = search.trim().toLowerCase();
-    if (!q) return;
-    const found = profiles.find((p) => p.code.toLowerCase() === q);
-    if (found) { selectProfile(found); setNotFound(false); setNotEligible(false); }
-    else { setNotFound(true); setNotEligible(false); }
+    void loadProfiles(search);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaveAttempted(true);
     if (!customerSigned) { setDialog("unsigned-warning"); return; }
-    setProfiles((prev) => prev.filter((p) => p.id !== selected!.id));
-    setDialog("save-success");
+    if (!selected) return;
+    setIsSaving(true);
+    setErrorMessage("");
+    try {
+      const result = await api.post<LuuHopDongResult>(
+        `/api/nhan-phong/lap-hop-dong/${encodeURIComponent(selected.code)}`,
+        { daXacNhanKhachDaKy: customerSigned },
+      );
+      setSavedContractCode(result.maHopDong);
+      setProfiles((prev) => prev.filter((p) => p.id !== selected.id));
+      setTotalProfiles((prev) => Math.max(0, prev - 1));
+      setDialog("save-success");
+    } catch (error) {
+      setErrorMessage(error instanceof ApiError ? error.message : "Đã xảy ra lỗi trong quá trình lưu. Vui lòng thử lại sau.");
+      setDialog("save-error");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleConfirmCancel = () => {
@@ -1669,6 +1985,7 @@ function ContractScreen() {
     setCustomerSigned(false);
     setDialog(null);
     setSaveAttempted(false);
+    setErrorMessage("");
   };
 
   // ── List step ──
@@ -1681,7 +1998,7 @@ function ContractScreen() {
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-semibold text-gray-800">Lập hợp đồng cho thuê</h1>
           <span className="text-xs bg-indigo-100 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-full font-medium">
-            {profiles.length} hồ sơ chờ ký hợp đồng
+            {totalProfiles} hồ sơ chờ ký hợp đồng
           </span>
         </div>
 
@@ -1698,36 +2015,47 @@ function ContractScreen() {
                 className={`w-full pl-9 pr-4 py-2.5 text-sm border rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-orange-400 ${notFound || notEligible ? "border-red-400" : "border-gray-300"}`}
               />
             </div>
-            <button onClick={handleSearch} className="px-5 py-2 bg-[#155DFC] text-white text-sm font-medium rounded-md hover:bg-[#1250d4] transition-colors">Tìm kiếm</button>
+            <button
+              onClick={handleSearch}
+              disabled={isLoading}
+              className="px-5 py-2 bg-[#155DFC] text-white text-sm font-medium rounded-md hover:bg-[#1250d4] disabled:opacity-60 transition-colors"
+            >
+              Tìm kiếm
+            </button>
           </div>
           {notFound && <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1"><AlertTriangle size={12} />Hồ sơ không tồn tại. Vui lòng nhập lại mã hồ sơ.</p>}
           {notEligible && <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1"><AlertTriangle size={12} />Hồ sơ chưa đủ điều kiện để lập hợp đồng.</p>}
+          {errorMessage && !notFound && !notEligible && dialog !== "save-error" && (
+            <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1"><AlertTriangle size={12} />{errorMessage}</p>
+          )}
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {["Mã hồ sơ", "Khách hàng", "Phòng/Giường", "Hình thức thuê", "Thời hạn", "Trạng thái", "Thao tác"].map((h) => (
+                {["Mã hồ sơ", "Khách hàng", "Hình thức thuê", "Thời hạn", "Thao tác"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-gray-400">Không có hồ sơ nào chờ ký hợp đồng</td></tr>
-              ) : filtered.map((p) => (
+              {isLoading ? (
+                <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">Đang tải danh sách hồ sơ...</td></tr>
+              ) : profiles.length === 0 ? (
+                <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">Không có hồ sơ nào chờ ký hợp đồng</td></tr>
+              ) : profiles.map((p) => (
                 <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 font-medium text-blue-600">{p.code}</td>
                   <td className="px-4 py-3 text-gray-800">{p.customer}</td>
-                  <td className="px-4 py-3 text-gray-600">{p.room}</td>
                   <td className="px-4 py-3 text-gray-600 capitalize">Thuê {p.rentType}</td>
                   <td className="px-4 py-3 text-gray-600">{p.duration}</td>
                   <td className="px-4 py-3">
-                    <span className="inline-block text-xs bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-full font-medium">Chờ ký hợp đồng</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <button onClick={() => selectProfile(p)} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#155DFC] text-white text-xs font-medium rounded-md hover:bg-[#1250d4] transition-colors">
+                    <button
+                      onClick={() => void selectProfile(p)}
+                      disabled={isDetailLoading}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-[#155DFC] text-white text-xs font-medium rounded-md hover:bg-[#1250d4] disabled:opacity-60 transition-colors"
+                    >
                       <ScrollText size={13} />Lập hợp đồng
                     </button>
                   </td>
@@ -1742,7 +2070,7 @@ function ContractScreen() {
 
   // ── Info step ──
   if (step === "info" && selected) {
-    const totalRent = selected.bedCount * selected.pricePerBed;
+    const totalRent = selected.totalRent;
     return (
       <>
         <main className="flex-1 overflow-y-auto p-6">
@@ -1758,7 +2086,7 @@ function ContractScreen() {
             <div className="bg-white rounded-lg border border-gray-200 p-4">
               <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><User size={14} className="text-indigo-500" />Thông tin khách hàng</h3>
               <div className="space-y-2 text-sm">
-                {[["Họ và tên", selected.customer], ["Số CCCD", selected.cccd], ["Ngày sinh", selected.dob], ["Số điện thoại", selected.phone], ["Địa chỉ", selected.address]].map(([l, v]) => (
+                {[["Họ và tên", selected.customer], ["Số CCCD", selected.cccd], ["Ngày sinh", selected.dob], ["Số điện thoại", selected.phone]].map(([l, v]) => (
                   <div key={l} className="flex justify-between gap-4">
                     <span className="text-gray-500 flex-shrink-0">{l}</span>
                     <span className="font-medium text-gray-800 text-right">{v}</span>
@@ -1805,7 +2133,7 @@ function ContractScreen() {
         </main>
 
         <footer className="h-16 bg-white border-t border-gray-200 flex items-center justify-between px-6 flex-shrink-0">
-          <button onClick={() => setStep("list")} className="px-5 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors">Quay lại</button>
+          <button onClick={() => setStep("list")} className="px-5 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors">Hủy</button>
           <button onClick={() => setStep("document")} className="flex items-center gap-2 px-6 py-2 bg-[#155DFC] text-white text-sm font-medium rounded-md hover:bg-[#1250d4] transition-colors">
             <ScrollText size={15} />Tạo hợp đồng
           </button>
@@ -1816,7 +2144,7 @@ function ContractScreen() {
 
   // ── Document step ──
   if (step === "document" && selected) {
-    const totalRent = selected.bedCount * selected.pricePerBed;
+    const totalRent = selected.totalRent;
     const allMembers = [{ name: selected.customer, cccd: selected.cccd }, ...selected.members];
 
     return (
@@ -1837,7 +2165,7 @@ function ContractScreen() {
             <div className="text-center mb-6 pb-5 border-b-2 border-indigo-100">
               <p className="text-xs tracking-widest text-gray-400 uppercase mb-1">HomeSay Dorm – Hệ thống quản lý ký túc xá</p>
               <h2 className="text-xl font-bold text-gray-900 uppercase tracking-wide">Hợp đồng cho thuê phòng</h2>
-              <p className="text-xs text-gray-500 mt-1">Mã hợp đồng: HĐ-{selected.code} · Ngày lập: {selected.startDate}</p>
+              <p className="text-xs text-gray-500 mt-1">Mã hợp đồng: {selected.contractCode} · Ngày lập: {selected.startDate}</p>
             </div>
 
             {/* Parties */}
@@ -1885,7 +2213,7 @@ function ContractScreen() {
                       ["Thời hạn", selected.duration],
                       ["Từ ngày", selected.startDate],
                       ["Đến ngày", selected.endDate],
-                      ["Kỳ thanh toán", "Hàng tháng, trước ngày 05"],
+                      ["Kỳ thanh toán", selected.paymentCycle],
                     ].map(([l, v]) => (
                       <tr key={l}>
                         <td className="px-3 py-2 bg-gray-50 text-gray-500 w-44">{l}</td>
@@ -1903,14 +2231,13 @@ function ContractScreen() {
                 <span className="w-1 h-4 bg-indigo-500 rounded-full inline-block" />Các khoản phí dịch vụ
               </h3>
               <div className="grid grid-cols-2 gap-3">
-                {[
-                  { icon: <Zap size={13} className="text-yellow-500" />, label: "Điện", value: "3.500 đ/kWh (theo chỉ số thực tế)" },
-                  { icon: <Droplets size={13} className="text-blue-500" />, label: "Nước", value: "150.000 đ/người/tháng" },
-                  { icon: <Wifi size={13} className="text-indigo-500" />, label: "Internet/WiFi", value: "100.000 đ/người/tháng" },
-                  { icon: <Car size={13} className="text-gray-500" />, label: "Gửi xe", value: "100.000 đ/xe/tháng (nếu có)" },
-                ].map(({ icon, label, value }) => (
-                  <div key={label} className="flex items-start gap-2 bg-gray-50 rounded-lg p-3 text-xs">
-                    <span className="mt-0.5">{icon}</span>
+                {selected.serviceFees.length === 0 ? (
+                  <div className="col-span-2 bg-gray-50 rounded-lg p-3 text-xs text-gray-500">
+                    Chưa có khoản phí dịch vụ đang áp dụng.
+                  </div>
+                ) : selected.serviceFees.map(({ idKhoanPhi, label, value }, index) => (
+                  <div key={idKhoanPhi} className="flex items-start gap-2 bg-gray-50 rounded-lg p-3 text-xs">
+                    <span className="mt-0.5">{index === 0 ? <Zap size={13} className="text-yellow-500" /> : index === 1 ? <Droplets size={13} className="text-blue-500" /> : index === 2 ? <Wifi size={13} className="text-indigo-500" /> : <Car size={13} className="text-gray-500" />}</span>
                     <div>
                       <p className="font-semibold text-gray-700">{label}</p>
                       <p className="text-gray-500">{value}</p>
@@ -1926,9 +2253,13 @@ function ContractScreen() {
                 <span className="w-1 h-4 bg-indigo-500 rounded-full inline-block" />Tiền cọc & hoàn trả
               </h3>
               <div className="bg-gray-50 rounded-lg p-3 text-xs space-y-1.5 text-gray-700">
-                <p>• Tiền đặt cọc: <span className="font-bold text-gray-900">{fmt(selected.deposit)}</span> (tương đương {selected.bedCount} tháng tiền thuê)</p>
-                <p>• Tiền cọc sẽ được hoàn trả trong vòng <span className="font-medium">15 ngày</span> sau khi kết thúc hợp đồng, sau khi kiểm tra tài sản.</p>
-                <p>• Tiền cọc bị khấu trừ nếu có hư hỏng tài sản hoặc tiền thuê còn nợ.</p>
+                {selected.depositRules.length === 0 ? (
+                  <>
+                    <p>• Tiền đặt cọc: <span className="font-bold text-gray-900">{fmt(selected.deposit)}</span>.</p>
+                    <p>• Tiền cọc sẽ được hoàn trả sau khi kết thúc hợp đồng, sau khi kiểm tra tài sản.</p>
+                    <p>• Tiền cọc bị khấu trừ nếu có hư hỏng tài sản hoặc tiền thuê còn nợ.</p>
+                  </>
+                ) : selected.depositRules.map((rule) => <p key={rule}>• {rule}</p>)}
               </div>
             </section>
 
@@ -1938,13 +2269,13 @@ function ContractScreen() {
                 <span className="w-1 h-4 bg-indigo-500 rounded-full inline-block" />Nội quy ký túc xá
               </h3>
               <div className="text-xs text-gray-600 space-y-1.5 bg-gray-50 rounded-lg p-3">
-                {[
+                {(selected.dormRules.length > 0 ? selected.dormRules : [
                   "Giờ giới nghiêm: 23:00 – 05:00. Khách ra vào cần đăng ký với bảo vệ.",
                   "Không được hút thuốc, sử dụng ma túy hoặc rượu bia trong khuôn viên.",
                   "Không được tự ý sửa chữa, thay đổi cơ sở vật chất phòng.",
                   "Bên thuê chịu trách nhiệm bồi thường thiệt hại tài sản do mình gây ra.",
                   "Giữ vệ sinh chung, không gây ồn ào ảnh hưởng đến người khác.",
-                ].map((rule, i) => <p key={i}>• {rule}</p>)}
+                ]).map((rule) => <p key={rule}>• {rule}</p>)}
               </div>
             </section>
 
@@ -1954,12 +2285,12 @@ function ContractScreen() {
                 <span className="w-1 h-4 bg-red-400 rounded-full inline-block" />Điều khoản xử lý vi phạm
               </h3>
               <div className="text-xs text-gray-600 space-y-1.5 bg-red-50 rounded-lg p-3 border border-red-100">
-                {[
+                {(selected.violationRules.length > 0 ? selected.violationRules : [
                   "Vi phạm lần 1: Nhắc nhở bằng văn bản.",
                   "Vi phạm lần 2: Phạt hành chính 500.000 đ và ghi vào hồ sơ.",
                   "Vi phạm lần 3 hoặc nghiêm trọng: Chấm dứt hợp đồng, không hoàn cọc.",
                   "Chấm dứt hợp đồng trước hạn cần báo trước ít nhất 30 ngày.",
-                ].map((v, i) => <p key={i}>• {v}</p>)}
+                ]).map((rule) => <p key={rule}>• {rule}</p>)}
               </div>
             </section>
 
@@ -1990,13 +2321,14 @@ function ContractScreen() {
 
         <footer className="h-16 bg-white border-t border-gray-200 flex items-center justify-between px-6 flex-shrink-0">
           <div className="flex gap-3">
-            <button onClick={() => setStep("info")} className="flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors">
-              <RotateCcw size={14} />Xem lại thông tin
-            </button>
             <button onClick={() => setDialog("confirm-cancel")} className="px-4 py-2 border border-red-200 text-red-500 text-sm font-medium rounded-md hover:bg-red-50 transition-colors">Hủy</button>
           </div>
-          <button onClick={handleSave} className="flex items-center gap-2 px-6 py-2 bg-[#155DFC] text-white text-sm font-medium rounded-md hover:bg-[#1250d4] transition-colors">
-            <Banknote size={15} />Lưu hợp đồng
+          <button
+            onClick={() => void handleSave()}
+            disabled={isSaving}
+            className="flex items-center gap-2 px-6 py-2 bg-[#155DFC] text-white text-sm font-medium rounded-md hover:bg-[#1250d4] disabled:opacity-60 transition-colors"
+          >
+            <Banknote size={15} />{isSaving ? "Đang lưu..." : "Lưu hợp đồng"}
           </button>
         </footer>
 
@@ -2031,12 +2363,25 @@ function ContractScreen() {
           />
         )}
 
+        {dialog === "save-error" && (
+          <ConfirmDialog
+            icon={<AlertTriangle size={22} className="text-red-500" />}
+            iconBg="bg-red-100"
+            title="Không thể lưu hợp đồng"
+            message={errorMessage || "Đã xảy ra lỗi trong quá trình lưu. Vui lòng thử lại sau."}
+            confirmLabel="Thử lại"
+            confirmClass="bg-[#155DFC] hover:bg-[#1250d4] text-white"
+            onConfirm={() => void handleSave()}
+            onCancel={handleConfirmCancel}
+          />
+        )}
+
         {dialog === "save-success" && (
           <ResultDialog
             icon={<CheckCircle2 size={28} className="text-green-500" />}
             iconBg="bg-green-100"
             title="Lưu hợp đồng thành công!"
-            message={`Hợp đồng <strong>${selected.code}</strong> đã được lưu. Trạng thái hợp đồng chuyển sang <strong>Đã ký</strong>. Hồ sơ chuyển sang <strong>Chờ thanh toán đầu kỳ</strong>.`}
+            message={`Hợp đồng <strong>${savedContractCode || selected.contractCode}</strong> đã được lưu. Trạng thái hợp đồng chuyển sang <strong>Đã ký</strong>. Hồ sơ chuyển sang <strong>Chờ thanh toán đầu kỳ</strong>.`}
             onClose={() => { setDialog(null); setStep("list"); setSelected(null); }}
           />
         )}
@@ -2049,26 +2394,6 @@ function ContractScreen() {
 
 // ─── Payment screen ───────────────────────────────────────────────────────────
 
-interface PaymentProfile {
-  id: string;
-  code: string;
-  contractCode: string;
-  customer: string;
-  room: string;
-  rentType: string;
-  pricePerBed: number;
-  bedCount: number;
-  duration: string;
-  startDate: string;
-  deposit: number;
-}
-
-const PAYMENT_PROFILES: PaymentProfile[] = [
-  { id: "pp1", code: "HS2026-0001", contractCode: "HĐ-HS2026-0001", customer: "Trần Thị Bình",   room: "A105 – Giường 2", rentType: "Thuê giường", pricePerBed: 1800000, bedCount: 1, duration: "12 tháng", startDate: "05/06/2026", deposit: 1800000 },
-  { id: "pp2", code: "HS2026-0002", contractCode: "HĐ-HS2026-0002", customer: "Phạm Văn Minh",   room: "B203 – Giường 1", rentType: "Thuê giường", pricePerBed: 1600000, bedCount: 1, duration: "6 tháng",  startDate: "06/06/2026", deposit: 1600000 },
-  { id: "pp3", code: "HS2026-0005", contractCode: "HĐ-HS2026-0005", customer: "Lý Minh Tuấn",    room: "C401 – Nguyên phòng", rentType: "Thuê phòng", pricePerBed: 1500000, bedCount: 4, duration: "12 tháng", startDate: "07/06/2026", deposit: 6000000 },
-];
-
 type PaymentStep = "list" | "fees" | "receipt";
 type PaymentDialog = null | "confirm-cancel" | "save-success" | "save-error";
 
@@ -2076,39 +2401,77 @@ interface ExtraFee { id: number; label: string; amount: string }
 
 function PaymentScreen() {
   const [step, setStep] = useState<PaymentStep>("list");
-  const [profiles, setProfiles] = useState<PaymentProfile[]>(PAYMENT_PROFILES);
-  const [selected, setSelected] = useState<PaymentProfile | null>(null);
+  const [profiles, setProfiles] = useState<ThanhToanDauKyListItem[]>([]);
+  const [totalProfiles, setTotalProfiles] = useState(0);
+  const [selected, setSelected] = useState<ThanhToanDauKyDetail | null>(null);
   const [search, setSearch] = useState("");
   const [notFound, setNotFound] = useState(false);
   const [notEligible, setNotEligible] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [savedResult, setSavedResult] = useState<LuuThanhToanDauKyResult | null>(null);
   const [extraFees, setExtraFees] = useState<ExtraFee[]>([]);
   const [newFeeLabel, setNewFeeLabel] = useState("");
   const [newFeeAmount, setNewFeeAmount] = useState("");
   const [dialog, setDialog] = useState<PaymentDialog>(null);
-  const [paymentTime] = useState(() => new Date().toLocaleString("vi-VN"));
+  const loadProfiles = useCallback(async (keyword = "") => {
+    setLoading(true);
+    setNotFound(false);
+    setNotEligible(false);
+    try {
+      const query = keyword.trim() ? `?q=${encodeURIComponent(keyword.trim())}` : "";
+      const data = await api.get<{ total: number; items: ThanhToanDauKyListItem[] }>(`/api/nhan-phong/thanh-toan-dau-ky${query}`);
+      setProfiles(data.items);
+      setTotalProfiles(data.total);
+      setNotFound(Boolean(keyword.trim()) && data.items.length === 0);
+    } catch (error) {
+      setErrorMessage(error instanceof ApiError ? error.message : "Đã xảy ra lỗi khi tải danh sách hồ sơ.");
+      setDialog("save-error");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const filtered = profiles.filter(
-    (r) =>
-      r.code.toLowerCase().includes(search.toLowerCase()) ||
-      r.customer.toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    let active = true;
+    void api.get<{ total: number; items: ThanhToanDauKyListItem[] }>("/api/nhan-phong/thanh-toan-dau-ky")
+      .then((data) => {
+        if (!active) return;
+        setProfiles(data.items);
+        setTotalProfiles(data.total);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setErrorMessage(error instanceof ApiError ? error.message : "Đã xảy ra lỗi khi tải danh sách hồ sơ.");
+        setDialog("save-error");
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
 
-  const selectProfile = (p: PaymentProfile) => {
-    setSelected(p);
-    setExtraFees([]);
-    setNewFeeLabel("");
-    setNewFeeAmount("");
-    setDialog(null);
-    setStep("fees");
+  const selectProfile = async (profile: ThanhToanDauKyListItem) => {
+    setLoading(true);
+    setNotEligible(false);
+    try {
+      const detail = await api.get<ThanhToanDauKyDetail>(`/api/nhan-phong/thanh-toan-dau-ky/${encodeURIComponent(profile.code)}`);
+      setSelected(detail);
+      setExtraFees([]);
+      setNewFeeLabel("");
+      setNewFeeAmount("");
+      setDialog(null);
+      setStep("fees");
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "Đã xảy ra lỗi khi tải hồ sơ.";
+      setNotEligible(message.toLowerCase().includes("điều kiện") || message.toLowerCase().includes("dieu kien"));
+      setErrorMessage(message);
+      if (!message.toLowerCase().includes("điều kiện") && !message.toLowerCase().includes("dieu kien")) setDialog("save-error");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSearch = () => {
-    const q = search.trim().toLowerCase();
-    if (!q) return;
-    const found = profiles.find((p) => p.code.toLowerCase() === q);
-    if (found) { selectProfile(found); setNotFound(false); setNotEligible(false); }
-    else { setNotFound(true); setNotEligible(false); }
-  };
+  const handleSearch = () => { void loadProfiles(search); };
 
   const handleAddExtraFee = () => {
     const amt = parseInt(newFeeAmount.replace(/\D/g, ""), 10);
@@ -2125,11 +2488,32 @@ function PaymentScreen() {
     setSelected(null);
     setExtraFees([]);
     setDialog(null);
+    void loadProfiles(search);
   };
 
-  const handleComplete = () => {
-    setProfiles((prev) => prev.filter((p) => p.id !== selected!.id));
-    setDialog("save-success");
+  const handleComplete = async () => {
+    if (!selected || saving) return;
+    const extraCharges: ThanhToanKhoanThu[] = extraFees.map((fee) => ({
+      id: `extra-${fee.id}`,
+      source: "extra",
+      label: fee.label,
+      description: "Khoản phí bổ sung",
+      amount: parseInt(fee.amount.replace(/\D/g, ""), 10),
+    }));
+    setSaving(true);
+    try {
+      const result = await api.post<LuuThanhToanDauKyResult>(
+        `/api/nhan-phong/thanh-toan-dau-ky/${encodeURIComponent(selected.code)}`,
+        { charges: [...selected.charges, ...extraCharges], phuongThucThu: "Tien mat" }
+      );
+      setSavedResult(result);
+      setDialog("save-success");
+    } catch (error) {
+      setErrorMessage(error instanceof ApiError ? error.message : "Đã xảy ra lỗi trong quá trình lưu. Vui lòng thử lại sau.");
+      setDialog("save-error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!selected) {
@@ -2142,7 +2526,7 @@ function PaymentScreen() {
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-semibold text-gray-800">Thanh toán đầu kỳ</h1>
           <span className="text-xs bg-emerald-100 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full font-medium">
-            {profiles.length} hồ sơ chờ thanh toán
+            {totalProfiles} hồ sơ chờ thanh toán
           </span>
         </div>
 
@@ -2163,32 +2547,33 @@ function PaymentScreen() {
           </div>
           {notFound   && <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1"><AlertTriangle size={12} />Hồ sơ không tồn tại. Vui lòng nhập lại mã hồ sơ.</p>}
           {notEligible && <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1"><AlertTriangle size={12} />Hồ sơ chưa đủ điều kiện để thanh toán.</p>}
+          {errorMessage && dialog === "save-error" && !notEligible && (
+            <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1"><AlertTriangle size={12} />{errorMessage}</p>
+          )}
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {["Mã hồ sơ", "Khách hàng", "Phòng/Giường", "Hình thức thuê", "Ngày bắt đầu", "Trạng thái", "Thao tác"].map((h) => (
+                {["Mã hồ sơ", "Khách hàng", "Hình thức thuê", "Ngày bắt đầu", "Thao tác"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-gray-400">Không có hồ sơ nào chờ thanh toán đầu kỳ</td></tr>
-              ) : filtered.map((p) => (
+              {loading ? (
+                <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">Đang tải danh sách...</td></tr>
+              ) : profiles.length === 0 ? (
+                <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">Không có hồ sơ nào chờ thanh toán đầu kỳ</td></tr>
+              ) : profiles.map((p) => (
                 <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 font-medium text-blue-600">{p.code}</td>
                   <td className="px-4 py-3 text-gray-800">{p.customer}</td>
-                  <td className="px-4 py-3 text-gray-600">{p.room}</td>
                   <td className="px-4 py-3 text-gray-600">{p.rentType}</td>
                   <td className="px-4 py-3 text-gray-600">{p.startDate}</td>
                   <td className="px-4 py-3">
-                    <span className="inline-block text-xs bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-medium">Chờ thanh toán đầu kỳ</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <button onClick={() => selectProfile(p)} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#155DFC] text-white text-xs font-medium rounded-md hover:bg-[#1250d4] transition-colors">
+                    <button onClick={() => void selectProfile(p)} disabled={loading} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#155DFC] text-white text-xs font-medium rounded-md hover:bg-[#1250d4] disabled:opacity-60 transition-colors">
                       <Banknote size={13} />Thanh toán
                     </button>
                   </td>
@@ -2202,17 +2587,12 @@ function PaymentScreen() {
   }
 
   // ── Fees calculation step ──
-  const rentFirst = selected.pricePerBed * selected.bedCount;
-  const waterFee = 150000 * selected.bedCount;
-  const wifiFee = 100000 * selected.bedCount;
   const extraTotal = extraFees.reduce((sum, f) => sum + parseInt(f.amount.replace(/\D/g, ""), 10) || 0, 0);
-  const grandTotal = rentFirst + waterFee + wifiFee + extraTotal;
-
-  const feeRows = [
-    { label: "Tiền thuê kỳ đầu", desc: `${fmt(selected.pricePerBed)}/giường × ${selected.bedCount} giường`, amount: rentFirst },
-    { label: "Phí nước", desc: `150.000 đ/người × ${selected.bedCount} người`, amount: waterFee },
-    { label: "Phí internet/WiFi", desc: `100.000 đ/người × ${selected.bedCount} người`, amount: wifiFee },
-  ];
+  const grandTotal = selected.total + extraTotal;
+  const feeRows = selected.charges.map((charge) => ({
+    ...charge,
+    desc: charge.description,
+  }));
 
   if (step === "fees") {
     return (
@@ -2351,7 +2731,7 @@ function PaymentScreen() {
             <div>
               <p className="text-xs tracking-widest text-gray-400 uppercase mb-1">HomeSay Dorm</p>
               <h2 className="text-xl font-bold text-gray-900">PHIẾU THU ĐẦU KỲ</h2>
-              <p className="text-xs text-gray-500 mt-1">Ngày lập: {paymentTime}</p>
+              <p className="text-xs text-gray-500 mt-1">Ngày lập: {selected.paymentTime}</p>
             </div>
             <div className="text-right">
               <div className="inline-block bg-emerald-100 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full border border-emerald-200">
@@ -2420,7 +2800,7 @@ function PaymentScreen() {
             <div className="flex items-center justify-between text-xs">
               <div className="space-y-1 text-gray-600">
                 <p>Nhân viên: <span className="font-medium text-gray-800">Nguyễn Văn An</span></p>
-                <p>Thời điểm: <span className="font-medium text-gray-800">{paymentTime}</span></p>
+                <p>Thời điểm: <span className="font-medium text-gray-800">{selected.paymentTime}</span></p>
                 <p>Phương thức: <span className="font-medium text-gray-800">Tiền mặt</span></p>
               </div>
               <div className="text-center">
@@ -2439,8 +2819,8 @@ function PaymentScreen() {
           </button>
           <button onClick={() => setDialog("confirm-cancel")} className="px-4 py-2 border border-red-200 text-red-500 text-sm font-medium rounded-md hover:bg-red-50 transition-colors">Hủy</button>
         </div>
-        <button onClick={handleComplete} className="flex items-center gap-2 px-6 py-2 bg-[#155DFC] text-white text-sm font-medium rounded-md hover:bg-[#1250d4] transition-colors">
-          <CheckCircle2 size={15} />Hoàn tất thanh toán
+        <button onClick={() => void handleComplete()} disabled={saving} className="flex items-center gap-2 px-6 py-2 bg-[#155DFC] text-white text-sm font-medium rounded-md hover:bg-[#1250d4] disabled:opacity-60 transition-colors">
+          <CheckCircle2 size={15} />{saving ? "Đang lưu..." : "Hoàn tất thanh toán"}
         </button>
       </footer>
 
@@ -2462,8 +2842,21 @@ function PaymentScreen() {
           icon={<CheckCircle2 size={28} className="text-green-500" />}
           iconBg="bg-green-100"
           title="Thanh toán thành công!"
-          message={`Phiếu thu đã được lưu. Hồ sơ <strong>${selected.code}</strong> chuyển sang trạng thái <strong>Đang thuê</strong>.`}
-          onClose={() => { setDialog(null); setStep("list"); setSelected(null); }}
+          message={`Phiếu thu <strong>${savedResult?.maHopDong ?? selected.contractCode}</strong> đã được lưu với tổng tiền <strong>${fmt(savedResult?.soTien ?? grandTotal)}</strong>. Hồ sơ <strong>${savedResult?.maHoSoNhanPhong ?? selected.code}</strong> chuyển sang trạng thái <strong>Đang thuê</strong>.`}
+          onClose={() => { setDialog(null); setStep("list"); setSelected(null); setSavedResult(null); void loadProfiles(search); }}
+        />
+      )}
+
+      {dialog === "save-error" && (
+        <ConfirmDialog
+          icon={<AlertTriangle size={22} className="text-red-500" />}
+          iconBg="bg-red-100"
+          title="Không thể hoàn tất thanh toán"
+          message={errorMessage || "Đã xảy ra lỗi trong quá trình lưu. Vui lòng thử lại sau."}
+          confirmLabel="Thử lại"
+          confirmClass="bg-[#155DFC] hover:bg-[#1250d4] text-white"
+          onConfirm={() => void handleComplete()}
+          onCancel={() => setDialog(null)}
         />
       )}
     </>
