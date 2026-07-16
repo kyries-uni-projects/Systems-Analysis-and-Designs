@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { BedDouble, ChevronDown, ChevronUp, LogOut, Menu, Search, UserRound, UsersRound, X } from "lucide-react";
 import { HomeStayLogo } from "@/components/branding/HomeStayLogo";
 import { useAuth } from "@/components/providers/AuthProvider";
+import ActionModal from "@/components/ui/ActionModal";
 import { canAccessWorkflowAction, getWorkflowActionByPath, getWorkflowActionHref, workflowGroups } from "@/lib/workflow-navigation";
 
 const fixedNavigation = [
@@ -23,6 +24,9 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 	const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 	const { sessionUser, clearSession } = useAuth();
 	const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+	const [isLogoutOpen, setIsLogoutOpen] = useState(false);
+	const [isLoggingOut, setIsLoggingOut] = useState(false);
+	const [logoutError, setLogoutError] = useState("");
 	const activeWorkflow = getWorkflowActionByPath(pathname);
 
 	useEffect(() => {
@@ -43,11 +47,19 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 	}
 
 	async function handleLogout() {
-		if (!window.confirm("Bạn có chắc muốn đăng xuất khỏi hệ thống?")) return;
-		await fetch("/api/auth/logout", { method: "POST" });
-		clearSession();
-		router.replace("/login");
-		router.refresh();
+		setLogoutError("");
+		setIsLoggingOut(true);
+		try {
+			const response = await fetch("/api/auth/logout", { method: "POST" });
+			if (!response.ok) throw new Error("Không thể đăng xuất. Vui lòng thử lại.");
+			clearSession();
+			router.replace("/login");
+			router.refresh();
+		} catch (error) {
+			setLogoutError(error instanceof Error ? error.message : "Không thể đăng xuất. Vui lòng thử lại.");
+		} finally {
+			setIsLoggingOut(false);
+		}
 	}
 
 	function isActive(href: string) {
@@ -202,7 +214,7 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 							</div>
 							<button
 								type="button"
-								onClick={handleLogout}
+								onClick={() => { setLogoutError(""); setIsLogoutOpen(true); }}
 								title="Đăng xuất"
 								className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-2 text-sm text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-500 sm:px-3"
 							>
@@ -215,6 +227,17 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 					<div className="min-w-0 flex-1">{children}</div>
 				</div>
 			</div>
+			<ActionModal
+				open={isLogoutOpen}
+				title="Xác nhận đăng xuất"
+				description="Phiên làm việc hiện tại sẽ kết thúc. Bạn cần đăng nhập lại để tiếp tục sử dụng hệ thống."
+				confirmLabel="Đăng xuất"
+				tone="danger"
+				isLoading={isLoggingOut}
+				error={logoutError}
+				onClose={() => { setIsLogoutOpen(false); setLogoutError(""); }}
+				onConfirm={() => void handleLogout()}
+			/>
 		</div>
 	);
 }

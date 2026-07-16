@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { CheckCircle2, ChevronRight, FileText, UploadCloud } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
+import ActionModal from "@/components/ui/ActionModal";
 
 type PaymentCertificate = {
 	chungTuId: number;
@@ -57,6 +58,8 @@ export default function CapNhatChungTuThanhToanForm({ hoSoId }: { hoSoId: number
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [submitted, setSubmitted] = useState(false);
 	const [error, setError] = useState("");
+	const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+	const [cancelError, setCancelError] = useState("");
 
 	useEffect(() => {
 		async function loadDetail() {
@@ -103,8 +106,7 @@ export default function CapNhatChungTuThanhToanForm({ hoSoId }: { hoSoId: number
 	}
 
 	async function handleCancelRequest() {
-		if (!window.confirm("Khách hàng xác nhận hủy yêu cầu đặt cọc? Phòng/giường sẽ được giải phóng.")) return;
-		setError("");
+		setCancelError("");
 		setIsSubmitting(true);
 		try {
 			const response = await fetch(`/api/ho-so-dat-coc/${hoSoId}/huy`, {
@@ -117,7 +119,7 @@ export default function CapNhatChungTuThanhToanForm({ hoSoId }: { hoSoId: number
 			router.push("/deposit");
 			router.refresh();
 		} catch (cancelError) {
-			setError(cancelError instanceof Error ? cancelError.message : "Không thể hủy yêu cầu đặt cọc.");
+			setCancelError(cancelError instanceof Error ? cancelError.message : "Không thể hủy yêu cầu đặt cọc.");
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -218,10 +220,11 @@ export default function CapNhatChungTuThanhToanForm({ hoSoId }: { hoSoId: number
 			<div className="mt-6 flex flex-wrap items-center justify-between gap-3">
 				<div className="flex flex-wrap gap-3">
 					<button type="button" onClick={() => router.push("/deposit")} className="h-10 rounded-lg border border-slate-400 bg-white px-6 text-sm font-medium text-slate-700">Quay lại</button>
-					<button type="button" disabled={isSubmitting} onClick={handleCancelRequest} className="h-10 rounded-lg border border-red-300 bg-white px-5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">Khách hàng hủy đặt cọc</button>
+					<button type="button" disabled={isSubmitting} onClick={() => { setCancelError(""); setIsCancelDialogOpen(true); }} className="h-10 rounded-lg border border-red-300 bg-white px-5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">Khách hàng hủy đặt cọc</button>
 				</div>
 				<button type="submit" disabled={isSubmitting} className="h-11 rounded-lg bg-[#155DFC] px-6 text-sm font-semibold text-white disabled:opacity-50">{isSubmitting ? "Đang cập nhật..." : "Cập nhật chứng từ"}</button>
 			</div>
+			<ActionModal open={isCancelDialogOpen} title="Xác nhận hủy đặt cọc" description="Yêu cầu đặt cọc sẽ bị hủy và phòng/giường đang giữ chỗ sẽ được giải phóng cho khách hàng khác." confirmLabel="Hủy đặt cọc" tone="danger" isLoading={isSubmitting} error={cancelError} onClose={() => { setIsCancelDialogOpen(false); setCancelError(""); }} onConfirm={() => void handleCancelRequest()} />
 		</form>
 	);
 }
