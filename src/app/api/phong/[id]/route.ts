@@ -38,7 +38,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
 		const body = await request.json();
 		const input = parseUpdatePhongInput(body);
-		const phong = await updatePhong(id, input);
+		const xacNhanDangThue = typeof body === "object" && body !== null && (body as Record<string, unknown>).xacNhanDangThue === true;
+		const phong = await updatePhong(id, input, { xacNhanDangThue });
 		return apiSuccess(phong);
 	});
 }

@@ -33,6 +33,16 @@ export class ApiNotFoundError extends Error {
 	}
 }
 
+export class ApiConflictError extends Error {
+	details?: unknown;
+
+	constructor(message: string, details?: unknown) {
+		super(message);
+		this.name = "ApiConflictError";
+		this.details = details;
+	}
+}
+
 /**
  * Wrap a Route Handler body so services can just `throw` and callers don't
  * need to repeat try/catch + status-code mapping in every route.
@@ -55,6 +65,10 @@ export async function withApiErrorHandling(handler: () => Promise<NextResponse>)
 
 		if (error instanceof ApiNotFoundError) {
 			return apiError(error.message, 404);
+		}
+
+		if (error instanceof ApiConflictError) {
+			return apiError(error.message, 409, error.details);
 		}
 
 		if (error instanceof SyntaxError) {
