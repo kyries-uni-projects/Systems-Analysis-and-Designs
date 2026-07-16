@@ -37,11 +37,11 @@ export const workflowGroups: WorkflowGroup[] = [
 			{
 				slug: "lap-lich-xem-phong",
 				label: "Lập lịch xem phòng",
-				description: "Lập lịch hẹn xem phòng cho khách hàng từ yêu cầu thuê.",
-				roles: ["nhanvien"],
-			},
-		],
-	},
+					description: "Lập lịch hẹn xem phòng cho khách hàng từ yêu cầu thuê.",
+					roles: ["nhanvien"],
+				},
+			],
+		},
 	{
 		slug: "deposit",
 		label: "Đặt cọc và xác nhận thuê",
@@ -84,7 +84,6 @@ export const workflowGroups: WorkflowGroup[] = [
 				roles: ["nhanvien"],
 			},
 			{ slug: "phe-duyet-ho-so", label: "Phê duyệt hồ sơ", description: "Phê duyệt hồ sơ đủ điều kiện nhận phòng.", roles: ["quanly"] },
-			{ slug: "ban-giao-phong", label: "Bàn giao phòng", description: "Ghi nhận tình trạng và thực hiện bàn giao phòng.", roles: ["quanly"] },
 			{ slug: "lap-hop-dong", label: "Lập hợp đồng", description: "Tạo hợp đồng thuê cho hồ sơ đã được phê duyệt.", roles: ["nhanvien"] },
 			{
 				slug: "thanh-toan-dau-ky",
@@ -92,6 +91,7 @@ export const workflowGroups: WorkflowGroup[] = [
 				description: "Xác nhận các khoản thanh toán trước khi nhận phòng.",
 				roles: ["ketoan"],
 			},
+			{ slug: "ban-giao-phong", label: "Bàn giao phòng", description: "Ghi nhận tình trạng và thực hiện bàn giao phòng.", roles: ["quanly"] },
 		],
 	},
 	{

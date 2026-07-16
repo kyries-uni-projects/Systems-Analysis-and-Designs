@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { parseLocalCalendarDate } from "../src/lib/calendar-date";
 import { parseHoSoDatCocInput } from "../src/lib/hoSoDatCocInput";
+import {
+	laPhieuDatCocHopLeDeNhanPhong,
+	phanBoThanhVienVaoChoO,
+	TRANG_THAI_CHO_BAN_GIAO,
+} from "../src/lib/nhan-phong-rules";
 import { DoiSoatHoanCoc } from "../src/lib/services/doiSoatHoanCoc.service";
 import { HopDong } from "../src/lib/services/hopDong.service";
 import { getWorkflowAction, workflowGroups } from "../src/lib/workflow-navigation";
@@ -33,6 +39,47 @@ test("check-in appointment input rejects invalid calendar values", () => {
 	assert.equal(parsed.ghiChu, "Mang CCCD");
 	assert.throws(() => parseLichHenNhanPhongInput({ ngayNhanPhong: "2026-02-30", gioNhanPhong: "08:30" }), /không tồn tại/);
 	assert.throws(() => parseLichHenNhanPhongInput({ ngayNhanPhong: "2026-08-15", gioNhanPhong: "25:00" }), /không hợp lệ/);
+});
+
+test("check-in residence date rejects JavaScript calendar normalization", () => {
+	assert.equal(Number.isNaN(parseLocalCalendarDate("2026-02-30").getTime()), true);
+	assert.equal(Number.isNaN(parseLocalCalendarDate("30/02/2026").getTime()), true);
+	assert.equal(Number.isNaN(parseLocalCalendarDate("2026-04-31").getTime()), true);
+	assert.equal(Number.isNaN(parseLocalCalendarDate("2026-13-01").getTime()), true);
+	assert.equal(Number.isNaN(parseLocalCalendarDate("2024-02-29").getTime()), false);
+	assert.equal(Number.isNaN(parseLocalCalendarDate("29/02/2024").getTime()), false);
+});
+
+test("check-in only accepts a valid deposit with a complete appointment", () => {
+	assert.equal(laPhieuDatCocHopLeDeNhanPhong({ trangThai: "Đã đặt cọc", ngayHenNhanPhong: new Date("2026-08-15"), gioHenNhanPhong: "08:30" }), true);
+	assert.equal(laPhieuDatCocHopLeDeNhanPhong({ trangThai: "Đã hủy", ngayHenNhanPhong: new Date("2026-08-15"), gioHenNhanPhong: "08:30" }), false);
+	assert.equal(laPhieuDatCocHopLeDeNhanPhong({ trangThai: "Đã đặt cọc", ngayHenNhanPhong: null, gioHenNhanPhong: "08:30" }), false);
+	assert.equal(laPhieuDatCocHopLeDeNhanPhong({ trangThai: "Đã đặt cọc", ngayHenNhanPhong: new Date("2026-08-15"), gioHenNhanPhong: null }), false);
+});
+
+test("group check-in allocates members without exceeding gender-restricted beds", () => {
+	const allocation = phanBoThanhVienVaoChoO(
+		[{ gender: "Nữ" }, { gender: "Nam" }],
+		[
+			{ chiTietDatCocId: 11, soGiuongQuyDoi: 1, gioiTinhApDung: "Khu Nữ" },
+			{ chiTietDatCocId: 12, soGiuongQuyDoi: 1, gioiTinhApDung: "Khu Nam" },
+		],
+	);
+	assert.deepEqual(allocation, [11, 12]);
+	assert.equal(phanBoThanhVienVaoChoO([{ gender: "Nam" }], [{ chiTietDatCocId: 11, soGiuongQuyDoi: 1, gioiTinhApDung: "Nữ" }]), null);
+	assert.equal(phanBoThanhVienVaoChoO([{ gender: "Nam" }, { gender: "Nam" }], [{ chiTietDatCocId: 11, soGiuongQuyDoi: 1 }]), null);
+});
+
+test("check-in workflow follows the report order and waits for handover after payment", () => {
+	const group = workflowGroups.find((item) => item.slug === "checkin");
+	assert.deepEqual(group?.actions.map((action) => action.slug), [
+		"kiem-tra-thong-tin",
+		"phe-duyet-ho-so",
+		"lap-hop-dong",
+		"thanh-toan-dau-ky",
+		"ban-giao-phong",
+	]);
+	assert.equal(TRANG_THAI_CHO_BAN_GIAO, "Cho ban giao");
 });
 
 test("Admin user input follows the report validation branches", () => {
