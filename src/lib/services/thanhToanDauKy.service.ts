@@ -1,4 +1,5 @@
 import { ApiNotFoundError, ApiValidationError } from "@/lib/api-response";
+import { TRANG_THAI_CHO_BAN_GIAO } from "@/lib/nhan-phong-rules";
 import { prisma } from "@/lib/prisma";
 import {
 	capNhatTrangThaiHoSoNhanPhong,
@@ -6,7 +7,6 @@ import {
 	docHoSoThanhToanTheoMa,
 	layDanhSachChoThanhToan,
 	TRANG_THAI_CHO_THANH_TOAN_DAU_KY,
-	TRANG_THAI_DANG_THUE,
 	type HoSoNhanPhongPaymentRecord,
 } from "@/lib/repositories/hoSoNhanPhong.repository";
 import {
@@ -207,12 +207,12 @@ export async function hoanTatThanhToanDauKy(maHoSoNhanPhong: string, keToanId: n
 
 		const charges = taoDanhSachKhoanThuDaXacNhan(hopDong, input);
 		await luuDanhSachDaThu(hopDong.hopDongId, keToanId, charges, input.phuongThucThu ?? "Tien mat", tx);
-		await capNhatTrangThaiHoSoNhanPhong(record.hoSoNhanPhongId, TRANG_THAI_DANG_THUE, tx);
+		await capNhatTrangThaiHoSoNhanPhong(record.hoSoNhanPhongId, TRANG_THAI_CHO_BAN_GIAO, tx);
 
 		return {
 			maHoSoNhanPhong: record.maHoSoNhanPhong,
 			maHopDong: hopDong.maHopDong,
-			trangThaiHoSo: TRANG_THAI_DANG_THUE,
+			trangThaiHoSo: TRANG_THAI_CHO_BAN_GIAO,
 			soTien: charges.reduce((sum, charge) => sum + charge.amount, 0),
 		};
 	});

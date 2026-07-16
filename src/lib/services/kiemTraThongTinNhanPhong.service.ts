@@ -1,5 +1,10 @@
 import { ApiNotFoundError, ApiValidationError } from "@/lib/api-response";
 import { parseLocalCalendarDate } from "@/lib/calendar-date";
+import {
+	laPhieuDatCocHopLeDeNhanPhong,
+	phanBoThanhVienVaoChoO,
+	TRANG_THAI_CHO_DUYET_DIEU_KIEN_LUU_TRU,
+} from "@/lib/nhan-phong-rules";
 import { prisma } from "@/lib/prisma";
 import {
 	capNhatThoiGianCuTru,
@@ -9,8 +14,6 @@ import {
 	layDanhSachChoNhanPhong,
 	layThongTinChiTiet,
 	themHoSoNhanPhong,
-	tinhSucChuaDaDat,
-	TRANG_THAI_CHO_DUYET_DIEU_KIEN_LUU_TRU,
 	type HoSoDatCocCheckInRecord,
 } from "@/lib/repositories/hoSoNhanPhong.repository";
 import {
@@ -83,7 +86,7 @@ function mapDetail(hoSo: HoSoDatCocCheckInRecord): KiemTraThongTinDetail {
 		ngayBatDauCuTru: formatDate(hoSo.ngayBatDauDuKien),
 		thoiHanThueThang: months,
 		ghiChu: hoSo.hoSoNhanPhong?.ghiChu ?? "",
-		daXacMinhGiayTo: representative?.daXacMinhGiayTo ?? true,
+		daXacMinhGiayTo: representative?.daXacMinhGiayTo ?? false,
 		members:
 			hoSo.hoSoNhanPhong?.thanhVienLuuTrus
 				.filter((member) => !member.laNguoiDaiDien)
@@ -123,6 +126,10 @@ export async function danhSachKiemTraThongTin(tuKhoa?: string) {
 export async function chiTietKiemTraThongTin(maHoSoDatCoc: string) {
 	const hoSo = await layThongTinChiTiet(maHoSoDatCoc);
 	if (!hoSo) throw new ApiNotFoundError("Không tìm thấy hồ sơ đặt cọc.");
+	if (!laPhieuDatCocHopLeDeNhanPhong(hoSo)) {
+		throw new ApiValidationError("Phiếu đặt cọc chưa hợp lệ để thực hiện thủ tục nhận phòng.");
+	}
+	if (hoSo.hoSoNhanPhong) throw new ApiValidationError("Phiếu đặt cọc này đã được sử dụng để nhận phòng.");
 	return mapDetail(hoSo);
 }
 
@@ -152,8 +159,11 @@ export async function luuVaChuyenKiemTraDieuKien(
 	return prisma.$transaction(async (tx) => {
 		const hoSo = await layThongTinChiTiet(maHoSoDatCoc, tx);
 		if (!hoSo) throw new ApiNotFoundError("Không tìm thấy hồ sơ đặt cọc.");
+		if (!laPhieuDatCocHopLeDeNhanPhong(hoSo)) {
+			throw new ApiValidationError("Phiếu đặt cọc chưa hợp lệ để thực hiện thủ tục nhận phòng.");
+		}
 		if (hoSo.chiTietDatCocs.length === 0) throw new ApiValidationError("Hồ sơ chưa có thông tin phòng/giường đặt cọc.");
-		if (await kiemTraTonTaiTheoHoSoDatCoc(hoSo.hoSoDatCocId, tx)) {
+		if (hoSo.hoSoNhanPhong || await kiemTraTonTaiTheoHoSoDatCoc(hoSo.hoSoDatCocId, tx)) {
 			throw new ApiValidationError("Hồ sơ này đã được chuyển sang bước kiểm tra điều kiện.");
 		}
 
@@ -166,10 +176,17 @@ export async function luuVaChuyenKiemTraDieuKien(
 		validateMember(representative, 0);
 		if (uniqueCccd.has(representative.cccd)) throw new ApiValidationError("Thành viên thêm mới trùng CCCD với khách hàng đại diện.");
 
-		const soNguoiSauKhiLuu = extraMembers.length + 1;
-		const sucChuaDaDat = await tinhSucChuaDaDat(hoSo.hoSoDatCocId, tx);
-		if (soNguoiSauKhiLuu > sucChuaDaDat) {
-			throw new ApiValidationError(`Số người ở (${soNguoiSauKhiLuu}) vượt quá sức chứa đã đặt (${sucChuaDaDat}).`);
+		const allMembers = [representative, ...extraMembers];
+		const allocation = phanBoThanhVienVaoChoO(
+			allMembers,
+			hoSo.chiTietDatCocs.map((detail) => ({
+				chiTietDatCocId: detail.chiTietDatCocId,
+				soGiuongQuyDoi: detail.soGiuongQuyDoi,
+				gioiTinhApDung: detail.phong?.gioiTinhApDung,
+			})),
+		);
+		if (!allocation) {
+			throw new ApiValidationError("Số người ở hoặc giới tính thành viên không phù hợp với phòng/giường đã đặt cọc.");
 		}
 
 		const ngayKetThuc = addMonths(ngayBatDau, input.thoiHanThueThang);
@@ -187,7 +204,6 @@ export async function luuVaChuyenKiemTraDieuKien(
 		);
 
 		await xoaTheoHoSoNhanPhong(hoSoNhanPhong.hoSoNhanPhongId, tx);
-		const allMembers = [representative, ...extraMembers];
 		for (const member of allMembers) {
 			if (await kiemTraTonTaiSoGiayTo(hoSoNhanPhong.hoSoNhanPhongId, member.cccd, tx)) {
 				throw new ApiValidationError(`Số CCCD ${member.cccd} đã tồn tại trong hồ sơ.`);
@@ -196,9 +212,9 @@ export async function luuVaChuyenKiemTraDieuKien(
 
 		await themNhieu(
 			hoSoNhanPhong.hoSoNhanPhongId,
-			hoSo.chiTietDatCocs[0].chiTietDatCocId,
 			nhanVienId,
 			allMembers.map((member, index) => ({
+				chiTietDatCocId: allocation[index],
 				hoTen: member.name,
 				soGiayTo: member.cccd,
 				gioiTinh: member.gender,

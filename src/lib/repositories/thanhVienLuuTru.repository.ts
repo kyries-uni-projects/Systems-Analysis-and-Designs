@@ -22,9 +22,9 @@ export async function xoaTheoHoSoNhanPhong(hoSoNhanPhongId: number, db: Db = pri
 
 export async function themNhieu(
 	hoSoNhanPhongId: number,
-	chiTietDatCocId: number,
 	nguoiXacMinhId: number,
 	members: {
+		chiTietDatCocId: number;
 		hoTen: string;
 		soGiayTo: string;
 		gioiTinh: string;
@@ -39,7 +39,7 @@ export async function themNhieu(
 	return db.thanhVienLuuTru.createMany({
 		data: members.map((member, index) => ({
 			hoSoNhanPhongId,
-			chiTietDatCocId,
+			chiTietDatCocId: member.chiTietDatCocId,
 			sttThanhVien: index + 1,
 			hoTen: member.hoTen,
 			gioiTinh: member.gioiTinh,
@@ -78,5 +78,16 @@ export async function capNhatTrangThaiThamGia(thanhVienLuuTruId: number, trangTh
 	return db.thanhVienLuuTru.update({
 		where: { thanhVienLuuTruId },
 		data: { trangThaiThamGia },
+	});
+}
+
+export async function datNguoiDaiDienMoi(hoSoNhanPhongId: number, thanhVienLuuTruId: number, db: Db = prisma) {
+	await db.thanhVienLuuTru.updateMany({
+		where: { hoSoNhanPhongId },
+		data: { laNguoiDaiDien: false },
+	});
+	return db.thanhVienLuuTru.update({
+		where: { thanhVienLuuTruId },
+		data: { laNguoiDaiDien: true },
 	});
 }

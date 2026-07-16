@@ -45,3 +45,8 @@ yarn-error.log*
 *.db-journal
 
 next-env.d.ts
+
+agent
+.agents
+.claude
+skills-lock.json

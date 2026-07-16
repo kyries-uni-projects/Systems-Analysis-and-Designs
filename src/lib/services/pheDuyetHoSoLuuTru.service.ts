@@ -1,4 +1,5 @@
 import { ApiNotFoundError, ApiValidationError } from "@/lib/api-response";
+import { TRANG_THAI_CHO_DUYET_DIEU_KIEN_LUU_TRU } from "@/lib/nhan-phong-rules";
 import { prisma } from "@/lib/prisma";
 import {
 	capNhatTrangThaiHoSoNhanPhong,
@@ -11,6 +12,7 @@ import { luuKetQuaPheDuyet } from "@/lib/repositories/pheDuyetLuuTru.repository"
 import {
 	capNhatKetQua,
 	capNhatTrangThaiThamGia,
+	datNguoiDaiDienMoi,
 } from "@/lib/repositories/thanhVienLuuTru.repository";
 import type {
 	LuuPheDuyetHoSoInput,
@@ -49,6 +51,7 @@ function mapMember(member: HoSoNhanPhongApprovalRecord["thanhVienLuuTrus"][numbe
 		cccd: member.soGiayTo,
 		gender: member.gioiTinh ?? "",
 		phone: member.soDienThoai ?? "",
+		isRepresentative: member.laNguoiDaiDien,
 		status: rejected ? "rejected" : approved ? "approved" : "pending",
 		rejectReason: member.lyDoKhongDat ?? "",
 	};
@@ -87,6 +90,9 @@ export async function danhSachPheDuyetHoSo(tuKhoa?: string) {
 export async function chiTietPheDuyetHoSo(maHoSoNhanPhong: string) {
 	const hoSo = await docHoSoNhanPhongTheoMa(maHoSoNhanPhong);
 	if (!hoSo) throw new ApiNotFoundError("Khong tim thay ho so nhan phong.");
+	if (hoSo.trangThai !== TRANG_THAI_CHO_DUYET_DIEU_KIEN_LUU_TRU || hoSo.pheDuyetLuuTru) {
+		throw new ApiValidationError("Ho so khong o trang thai cho duyet dieu kien luu tru.");
+	}
 	return mapDetail(hoSo);
 }
 
@@ -96,6 +102,9 @@ export async function luuKetQuaXetDuyet(maHoSoNhanPhong: string, quanLyId: numbe
 	return prisma.$transaction(async (tx) => {
 		const hoSo = await docHoSoNhanPhongTheoMa(maHoSoNhanPhong, tx);
 		if (!hoSo) throw new ApiNotFoundError("Khong tim thay ho so nhan phong.");
+		if (hoSo.trangThai !== TRANG_THAI_CHO_DUYET_DIEU_KIEN_LUU_TRU) {
+			throw new ApiValidationError("Ho so khong o trang thai cho duyet dieu kien luu tru.");
+		}
 		if (hoSo.pheDuyetLuuTru) throw new ApiValidationError("Ho so nay da co ket qua phe duyet.");
 
 		const membersById = new Map(hoSo.thanhVienLuuTrus.map((member) => [member.thanhVienLuuTruId, member]));
@@ -118,6 +127,14 @@ export async function luuKetQuaXetDuyet(maHoSoNhanPhong: string, quanLyId: numbe
 		if (approved.length === 0 && rejected.length === 0) throw new ApiValidationError("Vui long phe duyet hoac tu choi tung thanh vien.");
 		if (approved.length > 0 && rejected.length > 0 && !input.groupOption) {
 			throw new ApiValidationError("Vui long chon phuong an xu ly nhom.");
+		}
+		const currentRepresentative = hoSo.thanhVienLuuTrus.find((member) => member.laNguoiDaiDien);
+		if (!currentRepresentative) throw new ApiValidationError("Ho so chua co nguoi dai dien.");
+		const representativeRejected = rejected.some((member) => member.thanhVienLuuTruId === currentRepresentative.thanhVienLuuTruId);
+		if (representativeRejected && input.groupOption === "continue") {
+			if (!input.representativeMemberId || !approved.some((member) => member.thanhVienLuuTruId === input.representativeMemberId)) {
+				throw new ApiValidationError("Vui long chon nguoi dai dien moi trong danh sach thanh vien du dieu kien.");
+			}
 		}
 
 		for (const member of input.members) {
@@ -143,6 +160,9 @@ export async function luuKetQuaXetDuyet(maHoSoNhanPhong: string, quanLyId: numbe
 		const lyDoTuChoi = allRejected
 			? rejected.map((member) => member.rejectReason?.trim()).filter(Boolean).join("; ")
 			: null;
+		if (!stopAll && representativeRejected && input.representativeMemberId) {
+			await datNguoiDaiDienMoi(hoSo.hoSoNhanPhongId, input.representativeMemberId, tx);
+		}
 
 		await luuKetQuaPheDuyet(
 			{

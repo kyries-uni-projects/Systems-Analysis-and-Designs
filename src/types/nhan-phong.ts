@@ -57,6 +57,7 @@ export type PheDuyetThanhVien = {
 	cccd: string;
 	gender: string;
 	phone: string;
+	isRepresentative: boolean;
 	status: "pending" | "approved" | "rejected";
 	rejectReason?: string;
 };
@@ -72,6 +73,7 @@ export type LuuPheDuyetHoSoInput = {
 		rejectReason?: string;
 	}[];
 	groupOption?: "continue" | "stop";
+	representativeMemberId?: number;
 };
 
 export type LuuPheDuyetHoSoResult = {

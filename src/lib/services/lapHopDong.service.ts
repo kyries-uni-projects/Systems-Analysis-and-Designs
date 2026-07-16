@@ -74,13 +74,20 @@ function splitRules(value?: string | null) {
 		.filter(Boolean);
 }
 
+function layNguoiDaiDienHopLe(record: HoSoNhanPhongContractRecord) {
+	return record.thanhVienLuuTrus.find(
+		(member) => member.laNguoiDaiDien && member.trangThaiThamGia !== "LOAI_KHOI_HO_SO",
+	);
+}
+
 function mapListItem(record: HoSoNhanPhongContractRecord): LapHopDongListItem {
 	const hoSoDatCoc = record.hoSoDatCoc;
+	const representative = layNguoiDaiDienHopLe(record);
 	return {
 		id: String(record.hoSoNhanPhongId),
 		hoSoNhanPhongId: record.hoSoNhanPhongId,
 		code: record.maHoSoNhanPhong,
-		customer: hoSoDatCoc.khachHang.hoTen,
+		customer: representative?.hoTen ?? hoSoDatCoc.khachHang.hoTen,
 		rentType: normaliseRentType(hoSoDatCoc.hinhThucThue),
 		duration: `${diffMonths(hoSoDatCoc.ngayBatDauDuKien, hoSoDatCoc.ngayKetThucDuKien)} tháng`,
 	};
@@ -92,7 +99,8 @@ function contractCode(maHoSoNhanPhong: string) {
 
 async function buildDetail(record: HoSoNhanPhongContractRecord): Promise<LapHopDongDetail> {
 	const base = mapListItem(record);
-	const representative = record.thanhVienLuuTrus.find((member) => member.laNguoiDaiDien);
+	const representative = layNguoiDaiDienHopLe(record);
+	if (!representative) throw new ApiValidationError("Ho so chua co nguoi dai dien du dieu kien de ky hop dong.");
 	const activeMembers = record.thanhVienLuuTrus.filter((member) => !member.laNguoiDaiDien && member.trangThaiThamGia !== "LOAI_KHOI_HO_SO");
 	const details = record.hoSoDatCoc.chiTietDatCocs;
 	const firstDetail = details[0];
@@ -109,10 +117,10 @@ async function buildDetail(record: HoSoNhanPhongContractRecord): Promise<LapHopD
 
 	return {
 		...base,
-		cccd: record.hoSoDatCoc.khachHang.cccdPassport,
+		cccd: representative.soGiayTo,
 		dob: formatDate(representative?.ngaySinh),
-		phone: record.hoSoDatCoc.khachHang.soDienThoai,
-		address: record.hoSoDatCoc.khachHang.ghiChu ?? "",
+		phone: representative.soDienThoai ?? "",
+		address: representative.soGiayTo === record.hoSoDatCoc.khachHang.cccdPassport ? record.hoSoDatCoc.khachHang.ghiChu ?? "" : "",
 		room: formatRoom(record),
 		floor: formatFloor(record),
 		bedCount,
@@ -178,6 +186,22 @@ export async function luuHopDong(maHoSoNhanPhong: string, nhanVienId: number, in
 		if (record.hoSoDatCoc.chiTietDatCocs.length === 0) {
 			throw new ApiValidationError("Ho so chua co thong tin phong/giuong de lap hop dong.");
 		}
+		const representative = layNguoiDaiDienHopLe(record);
+		if (!representative) throw new ApiValidationError("Ho so chua co nguoi dai dien du dieu kien de ky hop dong.");
+		const khachHangHopDong = await tx.khachHang.upsert({
+			where: { cccdPassport: representative.soGiayTo },
+			create: {
+				hoTen: representative.hoTen,
+				cccdPassport: representative.soGiayTo,
+				gioiTinh: representative.gioiTinh,
+				soDienThoai: representative.soDienThoai ?? "",
+			},
+			update: {
+				hoTen: representative.hoTen,
+				gioiTinh: representative.gioiTinh,
+				soDienThoai: representative.soDienThoai ?? "",
+			},
+		});
 
 		const mauNoiQuy = await layMauNoiQuyDangApDung(tx);
 		if (!mauNoiQuy) throw new ApiValidationError("Chua co mau noi quy dang ap dung de lap hop dong.");
@@ -189,7 +213,7 @@ export async function luuHopDong(maHoSoNhanPhong: string, nhanVienId: number, in
 			{
 				maHopDong: contractCode(record.maHoSoNhanPhong),
 				hoSoNhanPhongId: record.hoSoNhanPhongId,
-				khachHangId: record.hoSoDatCoc.khachHangId,
+				khachHangId: khachHangHopDong.khachHangId,
 				nhanVienId,
 				idMauNoiQuy: mauNoiQuy.idMauNoiQuy,
 				kyThanhToan: KY_THANH_TOAN_MAC_DINH,

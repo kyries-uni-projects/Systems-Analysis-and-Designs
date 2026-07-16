@@ -407,7 +407,7 @@ function CheckInScreen() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Tìm kiếm hồ sơ đặt cọc (Mã đặt cọc, tên khách hàng...)"
+                placeholder="Tìm theo mã đặt cọc, tên hoặc số điện thoại khách hàng..."
                 className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-orange-400"
               />
             </div>
@@ -487,7 +487,7 @@ function CheckInDetail({ record, onBack }: { record: BookingRecord; onBack: () =
     ngayBatDauCuTru: record.appointmentDate,
     thoiHanThueThang: 12,
     ghiChu: "",
-    daXacMinhGiayTo: true,
+    daXacMinhGiayTo: false,
   });
 
   useEffect(() => {
@@ -783,6 +783,7 @@ function ApproveScreen() {
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [replacementRepresentativeId, setReplacementRepresentativeId] = useState<number | null>(null);
 
   const loadProfiles = useCallback(async (keyword = "") => {
     setIsLoading(true);
@@ -823,6 +824,7 @@ function ApproveScreen() {
       });
       setMemberStatuses(init);
       setRejectReasons(reasons);
+      setReplacementRepresentativeId(null);
     } catch (error) {
       setErrorMessage(error instanceof ApiError ? error.message : "Khong the tai chi tiet ho so phe duyet.");
     } finally {
@@ -834,6 +836,7 @@ function ApproveScreen() {
     setSelectedProfile(null);
     setMemberStatuses({});
     setRejectReasons({});
+    setReplacementRepresentativeId(null);
     setDialog(null);
   };
 
@@ -852,9 +855,12 @@ function ApproveScreen() {
   const rejectedMembers = selectedProfile?.members.filter((m) => memberStatuses[m.id] === "rejected") ?? [];
   const hasRejected = rejectedMembers.length > 0;
   const hasApproved = approvedMembers.length > 0;
+  const currentRepresentative = selectedProfile?.members.find((member) => member.isRepresentative);
+  const representativeRejected = currentRepresentative ? memberStatuses[currentRepresentative.id] === "rejected" : false;
 
   const buildPayload = (groupOption?: "continue" | "stop") => ({
     groupOption,
+    representativeMemberId: groupOption === "continue" && representativeRejected ? replacementRepresentativeId ?? undefined : undefined,
     members: selectedProfile!.members.map((m) => ({
       thanhVienLuuTruId: m.thanhVienLuuTruId,
       status: memberStatuses[m.id] as "approved" | "rejected",
@@ -902,6 +908,10 @@ function ApproveScreen() {
 
   const handleMixedChoice = (choice: "continue" | "stop") => {
     if (choice === "continue") {
+      if (representativeRejected && !replacementRepresentativeId) {
+        setErrorMessage("Vui lòng chọn người đại diện mới trong danh sách thành viên đủ điều kiện.");
+        return;
+      }
       void saveResult("continue");
     } else {
       setDialog("confirm-stop-all");
@@ -1042,7 +1052,10 @@ function ApproveScreen() {
                           status === "rejected" ? "bg-red-500" : "bg-gray-400"
                         }`}>{idx + 1}</div>
                         <div>
-                          <p className="text-sm font-semibold text-gray-800">{m.name}</p>
+                          <p className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                            {m.name}
+                            {m.isRepresentative && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">Người đại diện</span>}
+                          </p>
                           <p className="text-xs text-gray-500">CCCD: {m.cccd} · {m.gender}</p>
                         </div>
                       </div>
@@ -1151,11 +1164,31 @@ function ApproveScreen() {
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                 <p className="text-xs text-gray-500">Số thành viên đăng ký: <span className="font-medium text-gray-700">{selectedProfile.memberCount}</span></p>
               </div>
+              {representativeRejected && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Người đại diện mới <span className="text-red-500">*</span></label>
+                  <select
+                    value={replacementRepresentativeId ?? ""}
+                    onChange={(event) => {
+                      setReplacementRepresentativeId(event.target.value ? Number(event.target.value) : null);
+                      setErrorMessage("");
+                    }}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-orange-400"
+                  >
+                    <option value="">Chọn thành viên đủ điều kiện</option>
+                    {approvedMembers.map((member) => (
+                      <option key={member.id} value={member.thanhVienLuuTruId}>{member.name}</option>
+                    ))}
+                  </select>
+                  {errorMessage && <p className="mt-1 text-xs text-red-500">{errorMessage}</p>}
+                </div>
+              )}
               <p className="text-sm text-gray-700 font-medium">Bạn muốn xử lý như thế nào?</p>
               <div className="flex gap-3">
                 <button
                   onClick={() => handleMixedChoice("continue")}
-                  className="flex-1 py-2.5 text-sm font-medium text-white bg-[#155DFC] rounded-md hover:bg-[#1250d4] transition-colors"
+                  disabled={representativeRejected && !replacementRepresentativeId}
+                  className="flex-1 py-2.5 text-sm font-medium text-white bg-[#155DFC] rounded-md hover:bg-[#1250d4] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                 >
                   Tiếp tục thuê
                 </button>
@@ -2842,7 +2875,7 @@ function PaymentScreen() {
           icon={<CheckCircle2 size={28} className="text-green-500" />}
           iconBg="bg-green-100"
           title="Thanh toán thành công!"
-          message={`Phiếu thu <strong>${savedResult?.maHopDong ?? selected.contractCode}</strong> đã được lưu với tổng tiền <strong>${fmt(savedResult?.soTien ?? grandTotal)}</strong>. Hồ sơ <strong>${savedResult?.maHoSoNhanPhong ?? selected.code}</strong> chuyển sang trạng thái <strong>Đang thuê</strong>.`}
+          message={`Phiếu thu <strong>${savedResult?.maHopDong ?? selected.contractCode}</strong> đã được lưu với tổng tiền <strong>${fmt(savedResult?.soTien ?? grandTotal)}</strong>. Hồ sơ <strong>${savedResult?.maHoSoNhanPhong ?? selected.code}</strong> chuyển sang trạng thái <strong>Chờ bàn giao</strong>.`}
           onClose={() => { setDialog(null); setStep("list"); setSelected(null); setSavedResult(null); void loadProfiles(search); }}
         />
       )}

@@ -1,13 +1,10 @@
 import type { Prisma } from "@prisma/client";
+import { TRANG_THAI_CHO_BAN_GIAO } from "@/lib/nhan-phong-rules";
 import { prisma, type Db } from "@/lib/prisma";
 import type { TaiSanBanGiaoInput } from "@/types/nhan-phong";
 
-export const TRANG_THAI_CHO_BAN_GIAO = "Cho ban giao";
-export const TRANG_THAI_DANG_THUE = "Dang thue";
 export const TRANG_THAI_HOAN_TAT = "Hoan tat";
 export const TRANG_THAI_DANG_SU_DUNG = "Dang su dung";
-
-const TRANG_THAI_HO_SO_DU_DIEU_KIEN = [TRANG_THAI_CHO_BAN_GIAO, TRANG_THAI_DANG_THUE];
 
 const banGiaoInclude = {
 	hoSoDatCoc: { include: { khachHang: true } },
@@ -28,7 +25,7 @@ const banGiaoInclude = {
 export type HoSoBanGiaoRecord = Prisma.HoSoNhanPhongGetPayload<{ include: typeof banGiaoInclude }>;
 
 const dieuKienChoBanGiao = {
-	trangThai: { in: TRANG_THAI_HO_SO_DU_DIEU_KIEN },
+	trangThai: TRANG_THAI_CHO_BAN_GIAO,
 	hopDong: {
 		is: {
 			trangThai: "Da ky",
@@ -56,6 +53,8 @@ export async function layDanhSachChoBanGiao(tuKhoa?: string, db: Db = prisma) {
 		orderBy: { ngayTao: "asc" },
 	});
 }
+
+export { TRANG_THAI_CHO_BAN_GIAO };
 
 export async function demSoHoSoChoBanGiao(db: Db = prisma) {
 	return db.hoSoNhanPhong.count({ where: dieuKienChoBanGiao });

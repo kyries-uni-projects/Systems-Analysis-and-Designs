@@ -13,7 +13,6 @@ import {
 	themNhieuTaiSanBanGiao,
 	TRANG_THAI_CHO_BAN_GIAO,
 	TRANG_THAI_DANG_SU_DUNG,
-	TRANG_THAI_DANG_THUE,
 	TRANG_THAI_HOAN_TAT,
 	type HoSoBanGiaoRecord,
 } from "@/lib/repositories/banGiaoPhong.repository";
@@ -39,7 +38,7 @@ function layHopDong(record: HoSoBanGiaoRecord) {
 
 function kiemTraDuDieuKienBanGiao(record: HoSoBanGiaoRecord) {
 	const hopDong = record.hopDong;
-	return [TRANG_THAI_CHO_BAN_GIAO, TRANG_THAI_DANG_THUE].includes(record.trangThai)
+	return record.trangThai === TRANG_THAI_CHO_BAN_GIAO
 		&& hopDong?.trangThai === "Da ky"
 		&& !hopDong.bienBanBanGiao
 		&& hopDong.khoanThuDauKys.some((item) => item.trangThai === "Da thu");
@@ -149,7 +148,7 @@ export async function luuBienBanBanGiao(
 		await themNhieuTaiSanBanGiao(bienBan.bienBanBanGiaoId, input.assets, tx);
 		await capNhatTrangThaiHoSoNhanPhong(record.hoSoNhanPhongId, TRANG_THAI_HOAN_TAT, tx);
 
-		const phongIds = [...new Set(hopDong.chiTietHopDongs.flatMap((detail) => detail.phongId ? [detail.phongId] : []))];
+		const phongIds = [...new Set(hopDong.chiTietHopDongs.flatMap((detail) => detail.phongId && !detail.giuongId ? [detail.phongId] : []))];
 		const giuongIds = [...new Set(hopDong.chiTietHopDongs.flatMap((detail) => detail.giuongId ? [detail.giuongId] : []))];
 		await capNhatTrangThaiPhong(phongIds, tx);
 		await capNhatTrangThaiGiuong(giuongIds, tx);

@@ -1,4 +1,10 @@
 import type { Prisma } from "@prisma/client";
+import {
+	CHECK_IN_READY_STATUSES,
+	TRANG_THAI_CHO_DUYET_DIEU_KIEN_LUU_TRU,
+	TRANG_THAI_CHO_KY_HOP_DONG,
+	TRANG_THAI_CHO_THANH_TOAN_DAU_KY,
+} from "@/lib/nhan-phong-rules";
 import { prisma, type Db } from "@/lib/prisma";
 
 const checkInInclude = {
@@ -21,24 +27,12 @@ const checkInInclude = {
 
 export type HoSoDatCocCheckInRecord = Prisma.HoSoDatCocGetPayload<{ include: typeof checkInInclude }>;
 
-const CHECK_IN_READY_STATUSES = [
-	"Đã đặt cọc",
-	"Đã xác nhận thanh toán",
-	"CHO_NHAN_PHONG",
-	"DA_XAC_NHAN_THANH_TOAN",
-];
-
-export const TRANG_THAI_CHO_DUYET_DIEU_KIEN_LUU_TRU = "Cho duyet dieu kien luu tru";
-export const TRANG_THAI_CHO_KY_HOP_DONG = "Cho ky hop dong";
-export const TRANG_THAI_CHO_THANH_TOAN_DAU_KY = "Cho thanh toan dau ky";
-export const TRANG_THAI_DANG_THUE = "Dang thue";
-
 export async function layDanhSachChoNhanPhong(tuKhoa?: string, db: Db = prisma) {
 	const keyword = tuKhoa?.trim();
 
 	return db.hoSoDatCoc.findMany({
 		where: {
-			trangThai: { in: CHECK_IN_READY_STATUSES },
+			trangThai: { in: [...CHECK_IN_READY_STATUSES] },
 			ngayHenNhanPhong: { not: null },
 			hoSoNhanPhong: { is: null },
 			...(keyword
@@ -46,6 +40,7 @@ export async function layDanhSachChoNhanPhong(tuKhoa?: string, db: Db = prisma) 
 						OR: [
 							{ maHoSoDatCoc: { contains: keyword } },
 							{ khachHang: { hoTen: { contains: keyword } } },
+							{ khachHang: { soDienThoai: { contains: keyword } } },
 						],
 					}
 				: {}),
@@ -55,10 +50,16 @@ export async function layDanhSachChoNhanPhong(tuKhoa?: string, db: Db = prisma) 
 	});
 }
 
+export {
+	TRANG_THAI_CHO_DUYET_DIEU_KIEN_LUU_TRU,
+	TRANG_THAI_CHO_KY_HOP_DONG,
+	TRANG_THAI_CHO_THANH_TOAN_DAU_KY,
+};
+
 export async function demSoHoSoChoNhanPhong(db: Db = prisma) {
 	return db.hoSoDatCoc.count({
 		where: {
-			trangThai: { in: CHECK_IN_READY_STATUSES },
+			trangThai: { in: [...CHECK_IN_READY_STATUSES] },
 			ngayHenNhanPhong: { not: null },
 			hoSoNhanPhong: { is: null },
 		},
