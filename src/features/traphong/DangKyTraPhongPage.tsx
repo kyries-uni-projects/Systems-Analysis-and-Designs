@@ -798,11 +798,13 @@ function RecordTimeScreen({
 // ═══════════════════════════════════════════════════════════════════════════
 function SuccessScreen({
   maHoSo,
+  trangThaiHoSo,
   contract,
   timeData,
   onBackToList,
 }: {
   maHoSo: string;
+  trangThaiHoSo: string;
   contract: HopDongInfo;
   timeData: { ngay: string; gio: string; lyDo: string };
   onBackToList: () => void;
@@ -867,7 +869,7 @@ function SuccessScreen({
               label="Trạng thái hiện tại"
               value=""
               badge={{
-                text: "Đã đăng ký, chờ ngày trả phòng",
+                text: trangThaiHoSo || "Đã đăng ký, chờ ngày trả phòng",
                 color: "bg-blue-100 text-blue-700",
               }}
             />
@@ -900,9 +902,6 @@ function SuccessScreen({
           >
             Quay về danh sách
           </button>
-          <button className="px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
-            Xem chi tiết hồ sơ
-          </button>
         </div>
       </div>
     </div>
@@ -925,6 +924,7 @@ export function DangKyTraPhongPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [createdMaHoSo, setCreatedMaHoSo] = useState("");
+  const [createdTrangThai, setCreatedTrangThai] = useState("");
 
   const handleSearch = async () => {
     if (!query.trim() && !sdt.trim() && !hoTen.trim()) {
@@ -959,13 +959,14 @@ export function DangKyTraPhongPage() {
     setSubmitError(null);
     setSubmitting(true);
     try {
-      const res = await api.post<{ maHoSo: string }>("/api/tra-phong", {
+      const res = await api.post<{ maHoSo: string; hoSo: { trangThaiHoSo: string } }>("/api/tra-phong", {
         maHopDong: foundContract.soHopDong,
         ngayTraPhongDuKien: data.ngay,
         gioTraPhong: data.gio || undefined,
         lyDoTraPhong: data.lyDo && data.lyDo !== "Chọn lý do" ? data.lyDo : undefined,
       });
       setCreatedMaHoSo(res.maHoSo);
+      setCreatedTrangThai(res.hoSo.trangThaiHoSo);
       setView("success");
     } catch (e) {
       setSubmitError(e instanceof ApiError ? e.message : "Có lỗi xảy ra khi tạo hồ sơ trả phòng.");
@@ -1012,6 +1013,7 @@ export function DangKyTraPhongPage() {
       {view === "success" && foundContract && (
         <SuccessScreen
           maHoSo={createdMaHoSo}
+          trangThaiHoSo={createdTrangThai}
           contract={foundContract}
           timeData={timeData}
           onBackToList={() => router.push("/tra-phong")}

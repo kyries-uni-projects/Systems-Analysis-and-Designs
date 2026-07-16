@@ -75,4 +75,19 @@ export const YeuCauTraPhongDB = {
 		});
 		return !!result;
 	},
+
+	/**
+	 * UC1 Màn 3: kiểm tra xem phòng/giường (chiTietHopDongId) này đã có một hồ sơ trả phòng
+	 * khác đang xử lý (trạng thái khác "Hoàn tất") hay chưa — dùng để chặn tạo trùng hồ sơ
+	 * cho cùng 1 phòng.
+	 * SỬA: trước đây route `POST /api/tra-phong` gọi thẳng `prisma.yeuCauTraPhong.findFirst()`
+	 * ngay trong route handler, bỏ qua tầng Repository này — chuyển vào đây cho đúng kiến
+	 * trúc 3 tầng (route/BUS không tự query Prisma trực tiếp nữa).
+	 */
+	async timHoSoDangXuLyTheoPhong(chiTietHopDongId: number, db: Db = prisma) {
+		return db.yeuCauTraPhong.findFirst({
+			where: { chiTietHopDongId, trangThai: { notIn: ["Hoàn tất"] } },
+			select: { yeuCauTraPhongId: true },
+		});
+	},
 };

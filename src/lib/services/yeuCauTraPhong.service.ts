@@ -57,4 +57,13 @@ export const YeuCauTraPhong = {
 	async capNhatTrangThai(yeuCauTraPhongId: number, trangThaiMoi: string, db: Db = prisma): Promise<boolean> {
 		return YeuCauTraPhongDB.capNhatTrangThai(yeuCauTraPhongId, trangThaiMoi, db);
 	},
+
+	/**
+	 * UC1 Màn 3: kiểm tra phòng/giường đã có hồ sơ trả phòng khác đang xử lý chưa.
+	 * Trả về `{ yeuCauTraPhongId }` nếu có, `null` nếu không — dùng để chặn tạo trùng hồ sơ.
+	 * SỬA: route trước đây tự gọi thẳng Prisma, nay đi qua đúng tầng BUS → DB.
+	 */
+	async timHoSoDangXuLyTheoPhong(chiTietHopDongId: number, db: Db = prisma) {
+		return YeuCauTraPhongDB.timHoSoDangXuLyTheoPhong(chiTietHopDongId, db);
+	},
 };

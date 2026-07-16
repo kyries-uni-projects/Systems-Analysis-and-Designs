@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTraPhongData } from "@/context/TraPhongDataContext";
 import { api, ApiError } from "@/lib/apiClient";
+import { formatMaBienBanKiemTra } from "@/lib/maHoSo";
 import {
   ChevronRight,
   ChevronDown,
@@ -823,11 +824,13 @@ function ReviewScreen({
 // ═══════════════════════════════════════════════════════════════════════════
 function SuccessScreen({
   item,
+  maBienBanKiemTra,
   khauTruList,
   onBackToQueue,
   onContinueDoiSoat,
 }: {
   item: QueueItem;
+  maBienBanKiemTra: string;
   khauTruList: KhoanKhauTru[];
   onBackToQueue: () => void;
   onContinueDoiSoat: () => void;
@@ -854,7 +857,7 @@ function SuccessScreen({
         <div className="border border-gray-200 rounded-lg p-6 mb-8">
           <p className="text-sm font-semibold text-gray-700 mb-4">Thông tin biên bản kiểm tra</p>
           <div className="grid grid-cols-2 gap-x-10 gap-y-4">
-            <InfoRow icon={Hash} label="Mã biên bản kiểm tra" value="BBKT-2025-000031" />
+            <InfoRow icon={Hash} label="Mã biên bản kiểm tra" value={maBienBanKiemTra} />
             <InfoRow icon={FileText} label="Mã hồ sơ trả phòng" value={item.maHoSo} />
             <InfoRow icon={User} label="Khách hàng" value={item.khachHang} />
             <InfoRow icon={BedDouble} label="Phòng / Giường" value={item.phongGiuong} />
@@ -920,6 +923,7 @@ export function KiemTraTinhTrangPhongGiuongPage() {
   const [ghiChuKiemTra, setGhiChuKiemTra] = useState("");
   const [khauTruList, setKhauTruList] = useState<KhoanKhauTru[]>([]);
   const [nghiaVuList, setNghiaVuList] = useState<NghiaVuConLai[]>([]);
+  const [bienBanKiemTraId, setBienBanKiemTraId] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -929,6 +933,7 @@ export function KiemTraTinhTrangPhongGiuongPage() {
     setGhiChuKiemTra("");
     setKhauTruList([]);
     setNghiaVuList([]);
+    setBienBanKiemTraId(null);
     setSubmitError(null);
     setView("assets");
     setLoadingTaiSan(true);
@@ -1006,7 +1011,7 @@ export function KiemTraTinhTrangPhongGiuongPage() {
           })),
         },
       );
-      void bienBan;
+      setBienBanKiemTraId(bienBan.bienBanKiemTraId);
       await refresh();
       setView("success");
     } catch (e) {
@@ -1092,6 +1097,7 @@ export function KiemTraTinhTrangPhongGiuongPage() {
   return (
     <SuccessScreen
       item={selectedItem}
+      maBienBanKiemTra={bienBanKiemTraId != null ? formatMaBienBanKiemTra(bienBanKiemTraId) : "—"}
       khauTruList={khauTruList}
       onBackToQueue={() => router.push("/tra-phong")}
       onContinueDoiSoat={() => router.push(`/tra-phong/doi-soat-hoan-coc/${selectedItem.maHoSo}`)}

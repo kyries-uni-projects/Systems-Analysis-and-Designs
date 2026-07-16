@@ -992,21 +992,22 @@ function SettleScreen({
 // ═══════════════════════════════════════════════════════════════════════════
 function SuccessScreen({
   item,
-  rate,
-  khauTruList,
+  ketQua,
   onBackToQueue,
   onContinueThanhLy,
 }: {
   item: QueueItem;
-  rate: number;
-  khauTruList: KhoanKhauTru[];
+  ketQua: {
+    tyLeHoanCoc: number;
+    soTienHoanThucNhan: number;
+    soTienCanThuThem: number;
+  };
   onBackToQueue: () => void;
   onContinueThanhLy: () => void;
 }) {
-  const soTienHoanCoBan = Math.round(
-    (item.tienCocGoc * rate) / 100,
-  );
-  const chenhLech = soTienHoanCoBan - sumVND(khauTruList);
+  // Dùng đúng kết quả server đã lưu (bảng DoiSoatHoanCoc), không tính lại từ state client —
+  // tránh lệch nếu BUS làm tròn/tính khác đi so với client trong tương lai.
+  const chenhLech = ketQua.soTienCanThuThem > 0 ? -ketQua.soTienCanThuThem : ketQua.soTienHoanThucNhan;
   const isThuThem = chenhLech < 0;
 
   return (
@@ -1048,7 +1049,7 @@ function SuccessScreen({
             <InfoRow
               icon={Percent}
               label="Tỷ lệ hoàn cọc áp dụng"
-              value={`${rate}%`}
+              value={`${ketQua.tyLeHoanCoc}%`}
             />
             <InfoRow
               icon={Wallet}
@@ -1196,6 +1197,11 @@ export function TinhToanDoiSoatHoanCocPage() {
     KhoanKhauTru[]
   >([]);
   const [disputeNote, setDisputeNote] = useState("");
+  const [ketQuaDoiSoat, setKetQuaDoiSoat] = useState<{
+    tyLeHoanCoc: number;
+    soTienHoanThucNhan: number;
+    soTienCanThuThem: number;
+  } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -1204,6 +1210,7 @@ export function TinhToanDoiSoatHoanCocPage() {
     setRate(suggestRate(item));
     setKhauTruList([]);
     setDisputeNote("");
+    setKetQuaDoiSoat(null);
     setSubmitError(null);
     setView("rate");
 
@@ -1268,14 +1275,18 @@ export function TinhToanDoiSoatHoanCocPage() {
     setSubmitError(null);
     setSubmitting(true);
     try {
-      await api.post(`/api/tra-phong/${selectedItem.maHoSo}/doi-soat`, {
-        tyLeHoanCoc: rate,
-        dsKhauTru: khauTruList.map((kt) => ({
-          loaiKhoanKhauTru: kt.loai,
-          moTa: kt.moTa || undefined,
-          soTien: Number(kt.soTien.replace(/[^\d]/g, "")) || 0,
-        })),
-      });
+      const doiSoat = await api.post<{ tyLeHoanCoc: number; soTienHoanThucNhan: number; soTienCanThuThem: number }>(
+        `/api/tra-phong/${selectedItem.maHoSo}/doi-soat`,
+        {
+          tyLeHoanCoc: rate,
+          dsKhauTru: khauTruList.map((kt) => ({
+            loaiKhoanKhauTru: kt.loai,
+            moTa: kt.moTa || undefined,
+            soTien: Number(kt.soTien.replace(/[^\d]/g, "")) || 0,
+          })),
+        },
+      );
+      setKetQuaDoiSoat(doiSoat);
       await refresh();
       setView("success");
     } catch (e) {
@@ -1372,11 +1383,12 @@ export function TinhToanDoiSoatHoanCocPage() {
     );
   }
 
+  if (!ketQuaDoiSoat) return null;
+
   return (
     <SuccessScreen
       item={selectedItem}
-      rate={rate}
-      khauTruList={khauTruList}
+      ketQua={ketQuaDoiSoat}
       onBackToQueue={() => router.push("/tra-phong")}
       onContinueThanhLy={() => router.push(`/tra-phong/lap-bien-ban-thanh-ly/${selectedItem.maHoSo}`)}
     />
