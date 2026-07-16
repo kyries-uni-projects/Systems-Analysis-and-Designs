@@ -26,10 +26,17 @@ const pageCopy: Record<Role, { title: string; sectionTitle: string }> = {
 
 function statusClass(status: string) {
 	if (["Đã xác nhận điều kiện", "Đã xác nhận thanh toán", "Đã đặt cọc"].includes(status)) return "bg-emerald-50 text-emerald-700";
+	if (["DA_XAC_NHAN", "Đã xác nhận"].includes(status)) return "bg-teal-50 text-teal-700";
 	if (status === "Chờ thanh toán") return "bg-blue-50 text-blue-700";
 	if (status.includes("Chờ")) return "bg-amber-50 text-amber-700";
 	if (status === "Từ chối") return "bg-red-50 text-red-700";
 	return "bg-slate-100 text-slate-600";
+}
+
+function statusLabel(status: string) {
+	if (status === "DA_XAC_NHAN") return "Đã xác nhận (có HĐ)";
+	if (status === "CHO_XAC_NHAN") return "Chờ xác nhận";
+	return status;
 }
 
 function actionFor(role: Role, hoSo: HoSoDatCoc) {
@@ -171,7 +178,7 @@ export default function DanhSachHoSoDatCoc({ mode = "all" }: { mode?: "all" | "r
 						<option value="all">Tất cả trạng thái</option>
 						{statuses.map((status) => (
 							<option key={status} value={status}>
-								{status}
+								{statusLabel(status)}
 							</option>
 						))}
 					</select>
@@ -190,16 +197,16 @@ export default function DanhSachHoSoDatCoc({ mode = "all" }: { mode?: "all" | "r
 						<span className="text-xs text-slate-500">{filteredDanhSach.length} hồ sơ</span>
 					</div>
 					<div className="overflow-x-auto">
-						<table className="min-w-190 w-full table-fixed text-left text-[13px]">
+						<table className="w-full min-w-[860px] text-left text-[13px]">
 							<thead className="border-b border-slate-200 text-xs font-medium text-slate-500">
 								<tr>
-									<th className="px-4 py-3 font-medium sm:px-5">Mã hồ sơ</th>
-									<th className="px-3 py-3 font-medium">Khách hàng</th>
-									<th className="px-3 py-3 font-medium">Phòng/Giường</th>
-									<th className="hidden px-3 py-3 font-medium lg:table-cell">Hình thức thuê</th>
-									<th className="hidden px-3 py-3 font-medium lg:table-cell">Số giường</th>
-									<th className="px-3 py-3 font-medium">Trạng thái</th>
-									<th className="px-3 py-3 text-right font-medium">Thao tác</th>
+									<th className="w-36 px-4 py-3 font-medium sm:px-5">Mã hồ sơ</th>
+									<th className="w-40 px-3 py-3 font-medium">Khách hàng</th>
+									<th className="w-32 px-3 py-3 font-medium">Phòng/Giường</th>
+									<th className="hidden w-32 px-3 py-3 font-medium lg:table-cell">Hình thức thuê</th>
+									<th className="hidden w-20 px-3 py-3 font-medium lg:table-cell">Số giường</th>
+									<th className="w-52 px-3 py-3 font-medium">Trạng thái</th>
+									<th className="w-40 px-3 py-3 text-right font-medium">Thao tác</th>
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-slate-200 text-slate-700">
@@ -234,16 +241,16 @@ export default function DanhSachHoSoDatCoc({ mode = "all" }: { mode?: "all" | "r
 											<td className="hidden whitespace-nowrap px-3 py-3.5 lg:table-cell">{hoSo.chiTietDatCoc?.soGiuongQuyDoi ?? 0}</td>
 											<td className="px-3 py-3.5">
 												<span
-													className={`inline-flex max-w-full truncate whitespace-nowrap rounded-full px-3 py-1 text-[11px] font-medium ${statusClass(hoSo.trangThai)}`}
+													className={`inline-flex whitespace-nowrap rounded-full px-3 py-1 text-[11px] font-medium ${statusClass(hoSo.trangThai)}`}
 													title={hoSo.trangThai}
 												>
-													{hoSo.trangThai}
+													{statusLabel(hoSo.trangThai)}
 												</span>
 											</td>
 											<td className="px-3 py-3.5 text-right">
 												<Link
 													href={action.href}
-													className="inline-flex h-8 items-center rounded-md bg-[#0f766e] px-3 text-xs font-semibold text-white transition hover:bg-[#0b625b]"
+													className="inline-flex h-8 items-center whitespace-nowrap rounded-md bg-[#0f766e] px-3 text-xs font-semibold text-white transition hover:bg-[#0b625b]"
 												>
 													{action.label}
 												</Link>
