@@ -44,9 +44,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ maH
 		if (submittedTotal < mandatoryTotal) {
 			return apiError("Danh sách đối soát chưa bao gồm đầy đủ khấu trừ và nghĩa vụ còn nợ từ biên bản kiểm tra.", 400);
 		}
+		// SỬA: trước đây chỉ dựa vào trạng thái HopDong TẠI THỜI ĐIỂM đối soát — bỏ qua
+		// coHetHanTheoLich đã được chốt và lưu lại từ lúc đăng ký trả phòng (UC1, nhánh A4).
+		// Giờ coi hợp đồng là "đã hết hạn" nếu HOẶC trạng thái hiện tại là vậy, HOẶC cờ đã
+		// chốt trước đó là "Có" — tránh bị lệch nếu trạng thái hợp đồng thay đổi giữa 2 mốc.
+		const coiLaHetHan = hoSo.trangThaiHopDong === "Đã hết hạn" || hoSo.coHetHanTheoLich === "Có";
 		const expectedRate = hoSo.laHoSoDatCocChuaKyHD
 			? 80
-			: DoiSoatHoanCoc.deXuatTyLeHoanCoc(hoSo.trangThaiHopDong, Math.max(0, (hoSo.ngayTraPhong.getFullYear() - hoSo.ngayBatDauLuuTru.getFullYear()) * 12 + hoSo.ngayTraPhong.getMonth() - hoSo.ngayBatDauLuuTru.getMonth()));
+			: DoiSoatHoanCoc.deXuatTyLeHoanCoc(coiLaHetHan ? "Đã hết hạn" : hoSo.trangThaiHopDong, Math.max(0, (hoSo.ngayTraPhong.getFullYear() - hoSo.ngayBatDauLuuTru.getFullYear()) * 12 + hoSo.ngayTraPhong.getMonth() - hoSo.ngayBatDauLuuTru.getMonth()));
 		if (tyLeHoanCoc !== expectedRate) return apiError(`Tỷ lệ hoàn cọc đúng cho hồ sơ này là ${expectedRate}%.`, 400);
 
 		const soTienHoanCoBan = DoiSoatHoanCoc.tinhSoTienHoanTheoTyLe(hoSo.tienCocGoc, tyLeHoanCoc);

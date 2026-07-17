@@ -293,21 +293,31 @@ function ConfirmScreen({
   onConfirm: (data: {
     phuongThuc: PhuongThuc;
     soTaiKhoan: string;
+    ngayThucHien: string;
+    chungTu: string | null;
   }) => void;
 }) {
   const [phuongThuc, setPhuongThuc] = useState<PhuongThuc>("");
   const [soTaiKhoan, setSoTaiKhoan] = useState("");
   const [tenNganHang, setTenNganHang] = useState("");
-  const [daTaiChungTu, setDaTaiChungTu] = useState(false);
+  const [chungTu, setChungTu] = useState<string | null>(null);
   const [daLapPhieuChi, setDaLapPhieuChi] = useState(false);
   const [ngayThucHien, setNgayThucHien] = useState("");
   const ngayThucHienInputRef = useRef<HTMLInputElement>(null);
+  const chungTuInputRef = useRef<HTMLInputElement>(null);
+  const handleChungTuChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setChungTu(reader.result as string);
+    reader.readAsDataURL(file);
+  };
 
   const canConfirm =
     !!phuongThuc &&
     !!ngayThucHien &&
     (phuongThuc === "chuyen-khoan"
-      ? !!soTaiKhoan && !!tenNganHang && daTaiChungTu
+      ? !!soTaiKhoan && !!tenNganHang && !!chungTu
       : daLapPhieuChi);
 
   return (
@@ -448,20 +458,27 @@ function ConfirmScreen({
                 />
               </div>
             </div>
+            <input
+              ref={chungTuInputRef}
+              type="file"
+              accept="image/*,.pdf"
+              onChange={handleChungTuChange}
+              className="hidden"
+            />
             <button
-              onClick={() => setDaTaiChungTu(true)}
+              onClick={() => chungTuInputRef.current?.click()}
               className={`w-full flex items-center justify-center gap-2 border border-dashed rounded-lg px-3 py-3 text-sm transition-colors ${
-                daTaiChungTu
+                chungTu
                   ? "border-green-400 bg-green-50 text-green-700"
                   : "border-gray-300 text-gray-500 hover:bg-gray-50"
               }`}
             >
-              {daTaiChungTu ? (
+              {chungTu ? (
                 <CheckCircle size={16} />
               ) : (
                 <Upload size={16} />
               )}
-              {daTaiChungTu
+              {chungTu
                 ? "Đã tải chứng từ chuyển khoản"
                 : "Tải lên chứng từ chuyển khoản"}
             </button>
@@ -527,7 +544,7 @@ function ConfirmScreen({
           Quay lại
         </button>
         <button
-          onClick={() => onConfirm({ phuongThuc, soTaiKhoan })}
+          onClick={() => onConfirm({ phuongThuc, soTaiKhoan, ngayThucHien, chungTu })}
           disabled={!canConfirm}
           className={`px-6 py-2.5 rounded-lg text-sm text-white ${
             canConfirm
@@ -697,13 +714,15 @@ export function ThucHienHoanCocPage() {
   if (!selectedItem) return null;
 
   if (view === "confirm") {
-    const handleConfirm = async (data: { phuongThuc: PhuongThuc; soTaiKhoan: string }) => {
+    const handleConfirm = async (data: { phuongThuc: PhuongThuc; soTaiKhoan: string; ngayThucHien: string; chungTu: string | null }) => {
       setSubmitError(null);
       setSubmitting(true);
       try {
         await api.post(`/api/tra-phong/${selectedItem.maHoSo}/hoan-coc`, {
           phuongThucHoan: data.phuongThuc === "chuyen-khoan" ? "Chuyển khoản" : "Tiền mặt",
           soTaiKhoanNhan: data.soTaiKhoan || undefined,
+          thoiDiemThucHien: data.ngayThucHien ? new Date(data.ngayThucHien).toISOString() : undefined,
+          duongDanChungTu: data.chungTu || undefined,
         });
         setPhuongThuc(data.phuongThuc);
         await refresh();

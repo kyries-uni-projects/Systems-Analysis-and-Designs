@@ -29,6 +29,9 @@ export type HoSoTraPhongInfo = {
 	ngayBatDauLuuTru: Date;
 	ngayTraPhong: Date;
 	trangThaiHopDong: string;
+	coHetHanTheoLich: string; // "Có"/"Không" — chốt tại UC1 (Đăng ký trả phòng), UC3 dùng lại giá trị này
+	// thay vì tự suy ra lại từ trangThaiHopDong hiện tại, để không bị lệch nếu trạng thái hợp
+	// đồng thay đổi giữa lúc đăng ký trả phòng và lúc đối soát.
 	trangThaiHoSo: TrangThaiHoSo;
 	bienBanKiemTraId: number | null;
 	maBienBanKiemTra: string | null;
@@ -85,6 +88,7 @@ function map(hs: RawHoSo): HoSoTraPhongInfo {
 		ngayBatDauLuuTru: cthd?.ngayBatDau ?? hs.ngayTao,
 		ngayTraPhong: hs.ngayTraPhongDuKien,
 		trangThaiHopDong: hopDong?.trangThai ?? ctdc?.trangThai ?? "—",
+		coHetHanTheoLich: hs.coHetHanTheoLich,
 		trangThaiHoSo: hs.trangThai as TrangThaiHoSo,
 		bienBanKiemTraId: bbkt?.bienBanKiemTraId ?? null,
 		maBienBanKiemTra: bbkt ? formatMaBienBanKiemTra(bbkt.bienBanKiemTraId) : null,

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTraPhongData } from "@/context/TraPhongDataContext";
 import { api, ApiError } from "@/lib/apiClient";
@@ -375,6 +375,8 @@ function InspectScreen({
   onTinhTrangVeSinhChange,
   ghiChuKiemTra,
   onGhiChuKiemTraChange,
+  anhHienTrang,
+  onAnhHienTrangChange,
   khauTruList,
   onKhauTruChange,
   onAddKhauTru,
@@ -393,6 +395,8 @@ function InspectScreen({
   onTinhTrangVeSinhChange: (v: string) => void;
   ghiChuKiemTra: string;
   onGhiChuKiemTraChange: (v: string) => void;
+  anhHienTrang: string | null;
+  onAnhHienTrangChange: (v: string | null) => void;
   khauTruList: KhoanKhauTru[];
   onKhauTruChange: (id: string, field: keyof KhoanKhauTru, value: string) => void;
   onAddKhauTru: () => void;
@@ -407,6 +411,14 @@ function InspectScreen({
   const hasDamage = taiSanList.some(
     (ts) => ts.tinhTrangKhiTra && ts.tinhTrangKhiTra !== "Tốt",
   );
+  const anhInputRef = useRef<HTMLInputElement>(null);
+  const handleAnhChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => onAnhHienTrangChange(reader.result as string);
+    reader.readAsDataURL(file);
+  };
 
   return (
     <div>
@@ -515,9 +527,31 @@ function InspectScreen({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Hình ảnh hiện trạng <span className="text-gray-400 font-normal">(tùy chọn)</span>
             </label>
-            <button className="w-full flex items-center justify-center gap-2 border border-dashed border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-500 hover:bg-gray-50">
-              <Camera size={16} /> Tải ảnh lên
+            <input
+              ref={anhInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleAnhChange}
+              className="hidden"
+            />
+            <button
+              onClick={() => anhInputRef.current?.click()}
+              className={`w-full flex items-center justify-center gap-2 border border-dashed rounded-lg px-3 py-2.5 text-sm transition-colors ${
+                anhHienTrang
+                  ? "border-green-400 bg-green-50 text-green-700"
+                  : "border-gray-300 text-gray-500 hover:bg-gray-50"
+              }`}
+            >
+              {anhHienTrang ? <CheckCircle size={16} /> : <Camera size={16} />}
+              {anhHienTrang ? "Đã chọn ảnh hiện trạng" : "Tải ảnh lên"}
             </button>
+            {anhHienTrang && (
+              <img
+                src={anhHienTrang}
+                alt="Ảnh hiện trạng"
+                className="mt-2 h-20 w-20 rounded-lg object-cover border border-gray-200"
+              />
+            )}
           </div>
         </div>
 
@@ -826,15 +860,27 @@ function SuccessScreen({
   item,
   maBienBanKiemTra,
   khauTruList,
+  nghiaVuList,
   onBackToQueue,
   onContinueDoiSoat,
 }: {
   item: QueueItem;
   maBienBanKiemTra: string;
   khauTruList: KhoanKhauTru[];
+  nghiaVuList: NghiaVuConLai[];
   onBackToQueue: () => void;
   onContinueDoiSoat: () => void;
 }) {
+  // SỬA: trước đây chỉ cộng khauTruList — bỏ sót nghiaVuList (nghĩa vụ còn lại), trong khi
+  // UC3 (đối soát) đòi hỏi Kế toán phải nhập đủ TỔNG của cả 2 khoản này mới được xác nhận.
+  // Hiển thị thiếu khiến Quản lý tưởng nhầm số tiền cần chuyển cho kế toán thấp hơn thực tế.
+  // Lưu ý: sumVND() trả về CHUỖI đã định dạng ("500.000 đ") — không được nối 2 chuỗi lại,
+  // phải cộng số thô của cả 2 danh sách rồi format 1 lần duy nhất.
+  const tongSoTho = [...khauTruList, ...nghiaVuList].reduce(
+    (acc, it) => acc + (Number(it.soTien.replace(/[^\d]/g, "")) || 0),
+    0,
+  );
+  const tongKhauTruVaNghiaVu = tongSoTho.toLocaleString("vi-VN") + " đ";
   return (
     <div>
       <Breadcrumb sub="Hoàn tất" />
@@ -861,7 +907,7 @@ function SuccessScreen({
             <InfoRow icon={FileText} label="Mã hồ sơ trả phòng" value={item.maHoSo} />
             <InfoRow icon={User} label="Khách hàng" value={item.khachHang} />
             <InfoRow icon={BedDouble} label="Phòng / Giường" value={item.phongGiuong} />
-            <InfoRow icon={Wallet} label="Tổng khấu trừ ghi nhận" value={sumVND(khauTruList)} />
+            <InfoRow icon={Wallet} label="Tổng khấu trừ & nghĩa vụ ghi nhận" value={tongKhauTruVaNghiaVu} />
             <InfoRow
               icon={ClipboardCheck}
               label="Trạng thái hồ sơ"
@@ -921,6 +967,7 @@ export function KiemTraTinhTrangPhongGiuongPage() {
   const [taiSanList, setTaiSanList] = useState<TaiSan[]>([]);
   const [tinhTrangVeSinh, setTinhTrangVeSinh] = useState("");
   const [ghiChuKiemTra, setGhiChuKiemTra] = useState("");
+  const [anhHienTrang, setAnhHienTrang] = useState<string | null>(null);
   const [khauTruList, setKhauTruList] = useState<KhoanKhauTru[]>([]);
   const [nghiaVuList, setNghiaVuList] = useState<NghiaVuConLai[]>([]);
   const [bienBanKiemTraId, setBienBanKiemTraId] = useState<number | null>(null);
@@ -934,6 +981,7 @@ export function KiemTraTinhTrangPhongGiuongPage() {
     setKhauTruList([]);
     setNghiaVuList([]);
     setBienBanKiemTraId(null);
+    setAnhHienTrang(null);
     setSubmitError(null);
     setView("assets");
     setLoadingTaiSan(true);
@@ -990,6 +1038,7 @@ export function KiemTraTinhTrangPhongGiuongPage() {
         {
           tinhTrangVeSinh: tinhTrangVeSinh || undefined,
           ghiChuKiemTra: ghiChuKiemTra || undefined,
+          duongDanHinhAnh: anhHienTrang || undefined,
           coHuHong,
           dsChiTietTaiSan: taiSanList.map((ts) => ({
             idTaiSanBanGiao: Number(ts.id),
@@ -1050,6 +1099,8 @@ export function KiemTraTinhTrangPhongGiuongPage() {
         onTinhTrangVeSinhChange={setTinhTrangVeSinh}
         ghiChuKiemTra={ghiChuKiemTra}
         onGhiChuKiemTraChange={setGhiChuKiemTra}
+        anhHienTrang={anhHienTrang}
+        onAnhHienTrangChange={setAnhHienTrang}
         khauTruList={khauTruList}
         onKhauTruChange={updateKhauTru}
         onAddKhauTru={addKhauTru}
@@ -1099,6 +1150,7 @@ export function KiemTraTinhTrangPhongGiuongPage() {
       item={selectedItem}
       maBienBanKiemTra={bienBanKiemTraId != null ? formatMaBienBanKiemTra(bienBanKiemTraId) : "—"}
       khauTruList={khauTruList}
+      nghiaVuList={nghiaVuList}
       onBackToQueue={() => router.push("/tra-phong")}
       onContinueDoiSoat={() => router.push(`/tra-phong/doi-soat-hoan-coc/${selectedItem.maHoSo}`)}
     />

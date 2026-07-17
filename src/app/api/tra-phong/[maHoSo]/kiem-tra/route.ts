@@ -8,7 +8,7 @@ import { TaiSanBanGiao } from "@/lib/services/taiSanBanGiao.service";
 
 /**
  * POST /api/tra-phong/[maHoSo]/kiem-tra — UC2 Màn 3, nút "Xác nhận hoàn tất kiểm tra".
- * Body: { tinhTrangVeSinh?, ghiChuKiemTra?, coHuHong, dsChiTietTaiSan[], dsKhauTru[], dsNghiaVu[] }
+ * Body: { tinhTrangVeSinh?, ghiChuKiemTra?, duongDanHinhAnh?, coHuHong, dsChiTietTaiSan[], dsKhauTru[], dsNghiaVu[] }
  * `dsChiTietTaiSan`: [{ idTaiSanBanGiao, soLuongDaTra, tinhTrangKhiTra, coHuHongMatMat, chiPhiBoiThuong, ghiChu? }]
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ maHoSo: string }> }) {
@@ -51,6 +51,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ maH
 			quanLyId: auth.user.nguoiDungId,
 			tinhTrangVeSinh: typeof body.tinhTrangVeSinh === "string" ? body.tinhTrangVeSinh : undefined,
 			ghiChuKiemTra: typeof body.ghiChuKiemTra === "string" ? body.ghiChuKiemTra : undefined,
+			duongDanHinhAnh: typeof body.duongDanHinhAnh === "string" ? body.duongDanHinhAnh : undefined,
 			coHuHong: !!body.coHuHong,
 			dsChiTietTaiSan: body.dsChiTietTaiSan,
 			dsKhauTru: body.dsKhauTru,

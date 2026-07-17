@@ -646,7 +646,7 @@ function CollectKeysScreen({
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <p className="text-sm text-blue-800 mb-2 font-medium">Sau khi xác nhận, hệ thống sẽ tự động:</p>
           <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
-            <li>Cập nhật thông tin bàn giao tài sản</li>
+            <li>Đánh dấu đã thu hồi chìa khóa/thẻ ra vào trong biên bản trả phòng</li>
             <li>
               Chuyển trạng thái phòng/giường <strong>{item.phongGiuong}</strong> sang &ldquo;Trống&rdquo;
             </li>
