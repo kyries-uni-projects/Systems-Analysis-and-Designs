@@ -1304,7 +1304,7 @@ function ResultDialog({ icon, iconBg, title, message, onClose }: {
   icon: React.ReactNode;
   iconBg: string;
   title: string;
-  message: string;
+  message?: string;
   onClose: () => void;
 }) {
   return (
@@ -1313,8 +1313,8 @@ function ResultDialog({ icon, iconBg, title, message, onClose }: {
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
         <div className="px-5 py-6 text-center">
           <div className={`w-14 h-14 rounded-full ${iconBg} flex items-center justify-center mx-auto mb-3`}>{icon}</div>
-          <h3 className="text-base font-semibold text-gray-800 mb-2">{title}</h3>
-          <p className="text-sm text-gray-500" dangerouslySetInnerHTML={{ __html: message }} />
+          <h3 className={`text-base font-semibold text-gray-800 ${message ? "mb-2" : ""}`}>{title}</h3>
+          {message && <p className="text-sm text-gray-500" dangerouslySetInnerHTML={{ __html: message }} />}
         </div>
         <div className="px-5 pb-5">
           <button onClick={onClose} className="w-full py-2.5 text-sm font-medium text-white bg-[#155DFC] rounded-md hover:bg-[#1250d4] transition-colors">Đóng</button>
@@ -1934,7 +1934,6 @@ function ContractScreen() {
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [savedContractCode, setSavedContractCode] = useState("");
 
   const loadProfiles = useCallback(async (keyword = "", options?: { showLoading?: boolean }) => {
     if (options?.showLoading !== false) setIsLoading(true);
@@ -1996,11 +1995,10 @@ function ContractScreen() {
     setIsSaving(true);
     setErrorMessage("");
     try {
-      const result = await api.post<LuuHopDongResult>(
+      await api.post<LuuHopDongResult>(
         `/api/nhan-phong/lap-hop-dong/${encodeURIComponent(selected.code)}`,
         { daXacNhanKhachDaKy: customerSigned },
       );
-      setSavedContractCode(result.maHopDong);
       setProfiles((prev) => prev.filter((p) => p.id !== selected.id));
       setTotalProfiles((prev) => Math.max(0, prev - 1));
       setDialog("save-success");
@@ -2413,8 +2411,7 @@ function ContractScreen() {
           <ResultDialog
             icon={<CheckCircle2 size={28} className="text-green-500" />}
             iconBg="bg-green-100"
-            title="Lưu hợp đồng thành công!"
-            message={`Hợp đồng <strong>${savedContractCode || selected.contractCode}</strong> đã được lưu. Trạng thái hợp đồng chuyển sang <strong>Đã ký</strong>. Hồ sơ chuyển sang <strong>Chờ thanh toán đầu kỳ</strong>.`}
+            title="Lưu hợp đồng thành công"
             onClose={() => { setDialog(null); setStep("list"); setSelected(null); }}
           />
         )}
