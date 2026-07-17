@@ -10,6 +10,46 @@ export const TRANG_THAI_CHO_KY_HOP_DONG = "Cho ky hop dong";
 export const TRANG_THAI_CHO_THANH_TOAN_DAU_KY = "Cho thanh toan dau ky";
 export const TRANG_THAI_CHO_BAN_GIAO = "Cho ban giao";
 
+export function laHinhThucThueTheoGiuong(hinhThucThue: string) {
+	const normalized = hinhThucThue
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/gu, "")
+		.toLocaleLowerCase("vi-VN");
+	return normalized.includes("giuong");
+}
+
+/**
+ * Chốt số lượng được đưa vào hợp đồng sau bước phê duyệt lưu trú.
+ * Thuê nguyên phòng giữ nguyên số lượng quy đổi/giá phòng đã đặt cọc;
+ * thuê theo giường chỉ giữ số chỗ đang có thành viên tiếp tục tham gia.
+ */
+export function tinhPhanBoHopDongSauPheDuyet(input: {
+	hinhThucThue: string;
+	chiTietDatCocs: { chiTietDatCocId: number; soGiuongQuyDoi: number }[];
+	thanhVienLuuTrus: { chiTietDatCocId: number; trangThaiThamGia: string }[];
+}) {
+	if (!laHinhThucThueTheoGiuong(input.hinhThucThue)) {
+		return input.chiTietDatCocs.map((detail) => ({
+			chiTietDatCocId: detail.chiTietDatCocId,
+			soGiuongQuyDoi: detail.soGiuongQuyDoi,
+		}));
+	}
+
+	const soThanhVienTheoChiTiet = new Map<number, number>();
+	for (const member of input.thanhVienLuuTrus) {
+		if (member.trangThaiThamGia !== "THAM_GIA") continue;
+		soThanhVienTheoChiTiet.set(
+			member.chiTietDatCocId,
+			(soThanhVienTheoChiTiet.get(member.chiTietDatCocId) ?? 0) + 1,
+		);
+	}
+
+	return input.chiTietDatCocs.flatMap((detail) => {
+		const soGiuongQuyDoi = soThanhVienTheoChiTiet.get(detail.chiTietDatCocId) ?? 0;
+		return soGiuongQuyDoi > 0 ? [{ chiTietDatCocId: detail.chiTietDatCocId, soGiuongQuyDoi }] : [];
+	});
+}
+
 export function laPhieuDatCocHopLeDeNhanPhong(input: {
 	trangThai: string;
 	ngayHenNhanPhong: Date | null;

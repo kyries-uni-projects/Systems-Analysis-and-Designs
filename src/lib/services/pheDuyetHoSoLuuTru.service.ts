@@ -1,5 +1,8 @@
 import { ApiNotFoundError, ApiValidationError } from "@/lib/api-response";
-import { TRANG_THAI_CHO_DUYET_DIEU_KIEN_LUU_TRU } from "@/lib/nhan-phong-rules";
+import {
+	laHinhThucThueTheoGiuong,
+	TRANG_THAI_CHO_DUYET_DIEU_KIEN_LUU_TRU,
+} from "@/lib/nhan-phong-rules";
 import { prisma } from "@/lib/prisma";
 import {
 	capNhatTrangThaiHoSoNhanPhong,
@@ -162,6 +165,39 @@ export async function luuKetQuaXetDuyet(maHoSoNhanPhong: string, quanLyId: numbe
 			: null;
 		if (!stopAll && representativeRejected && input.representativeMemberId) {
 			await datNguoiDaiDienMoi(hoSo.hoSoNhanPhongId, input.representativeMemberId, tx);
+		}
+
+		if (!stopAll) {
+			await tx.yeuCauThue.update({
+				where: { yeuCauId: hoSo.hoSoDatCoc.yeuCauId },
+				data: { soNguoiDuKien: approved.length },
+			});
+		}
+
+		// Với thuê theo giường, giải phóng các phân bổ không còn thành viên nào được duyệt.
+		// Chi tiết dùng chung cho nhiều thành viên vẫn được giữ; số lượng chính xác sẽ được
+		// chốt thành snapshot khi lập hợp đồng.
+		if (laHinhThucThueTheoGiuong(hoSo.hoSoDatCoc.hinhThucThue)) {
+			const thanhVienTiepTuc = stopAll ? [] : approved;
+			const chiTietConNguoiThue = new Set(
+				thanhVienTiepTuc.map((member) => membersById.get(member.thanhVienLuuTruId)?.chiTietDatCocId).filter((id): id is number => id != null),
+			);
+			const chiTietCanGiaiPhong = hoSo.hoSoDatCoc.chiTietDatCocs.filter(
+				(detail) => !chiTietConNguoiThue.has(detail.chiTietDatCocId),
+			);
+			if (chiTietCanGiaiPhong.length > 0) {
+				await tx.chiTietDatCoc.updateMany({
+					where: { chiTietDatCocId: { in: chiTietCanGiaiPhong.map((detail) => detail.chiTietDatCocId) } },
+					data: { trangThai: "Đã hủy" },
+				});
+				const giuongIds = chiTietCanGiaiPhong.flatMap((detail) => detail.giuongId ? [detail.giuongId] : []);
+				if (giuongIds.length > 0) {
+					await tx.giuong.updateMany({
+						where: { giuongId: { in: giuongIds } },
+						data: { trangThai: "Trống" },
+					});
+				}
+			}
 		}
 
 		await luuKetQuaPheDuyet(

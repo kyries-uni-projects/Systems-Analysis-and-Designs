@@ -5,6 +5,7 @@ import { parseHoSoDatCocInput } from "../src/lib/hoSoDatCocInput";
 import {
 	laPhieuDatCocHopLeDeNhanPhong,
 	phanBoThanhVienVaoChoO,
+	tinhPhanBoHopDongSauPheDuyet,
 	TRANG_THAI_CHO_BAN_GIAO,
 } from "../src/lib/nhan-phong-rules";
 import { DoiSoatHoanCoc } from "../src/lib/services/doiSoatHoanCoc.service";
@@ -68,6 +69,25 @@ test("group check-in allocates members without exceeding gender-restricted beds"
 	assert.deepEqual(allocation, [11, 12]);
 	assert.equal(phanBoThanhVienVaoChoO([{ gender: "Nam" }], [{ chiTietDatCocId: 11, soGiuongQuyDoi: 1, gioiTinhApDung: "Nữ" }]), null);
 	assert.equal(phanBoThanhVienVaoChoO([{ gender: "Nam" }, { gender: "Nam" }], [{ chiTietDatCocId: 11, soGiuongQuyDoi: 1 }]), null);
+});
+
+test("approved occupancy reduces bed rental but keeps whole-room rental unchanged", () => {
+	const chiTietDatCocs = [{ chiTietDatCocId: 11, soGiuongQuyDoi: 4 }];
+	const thanhVienLuuTrus = [
+		{ chiTietDatCocId: 11, trangThaiThamGia: "THAM_GIA" },
+		{ chiTietDatCocId: 11, trangThaiThamGia: "THAM_GIA" },
+		{ chiTietDatCocId: 11, trangThaiThamGia: "THAM_GIA" },
+		{ chiTietDatCocId: 11, trangThaiThamGia: "LOAI_KHOI_HO_SO" },
+	];
+
+	assert.deepEqual(
+		tinhPhanBoHopDongSauPheDuyet({ hinhThucThue: "Thuê giường", chiTietDatCocs, thanhVienLuuTrus }),
+		[{ chiTietDatCocId: 11, soGiuongQuyDoi: 3 }],
+	);
+	assert.deepEqual(
+		tinhPhanBoHopDongSauPheDuyet({ hinhThucThue: "Thuê nguyên phòng", chiTietDatCocs, thanhVienLuuTrus }),
+		[{ chiTietDatCocId: 11, soGiuongQuyDoi: 4 }],
+	);
 });
 
 test("check-in workflow follows the report order and waits for handover after payment", () => {

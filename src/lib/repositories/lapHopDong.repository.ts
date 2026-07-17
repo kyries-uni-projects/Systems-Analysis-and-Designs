@@ -82,6 +82,7 @@ export async function taoHopDongDaKy(
 			giuongId: number | null;
 			hinhThucThue: string;
 			giaThueThoaThuan: number;
+			soGiuongQuyDoi: number;
 			tienCocPhanBo: number;
 			ngayBatDau: Date;
 			ngayKetThuc: Date;
@@ -119,6 +120,7 @@ export async function taoHopDongDaKy(
 				giuongId: detail.giuongId,
 				hinhThucThue: detail.hinhThucThue,
 				giaThueThoaThuan: detail.giaThueThoaThuan,
+				soGiuongQuyDoi: detail.soGiuongQuyDoi,
 				tienCocPhanBo: detail.tienCocPhanBo,
 				ngayBatDau: detail.ngayBatDau,
 				ngayKetThuc: detail.ngayKetThuc,

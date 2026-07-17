@@ -9,6 +9,12 @@ export async function POST(request: NextRequest) {
 	if ("error" in auth) return auth.error;
 
 	try {
+		const ngayBatDauDuKien = new Date();
+		ngayBatDauDuKien.setHours(0, 0, 0, 0);
+		ngayBatDauDuKien.setDate(ngayBatDauDuKien.getDate() + 7);
+		const ngayKetThucDuKien = new Date(ngayBatDauDuKien);
+		ngayKetThucDuKien.setMonth(ngayKetThucDuKien.getMonth() + 6);
+
 		// 1. Seed QuyDinhKyTucXa
 		const quyDinhs = [
 			{ maQuyDinh: "QD_GT", tenQuyDinh: "Giới tính phù hợp khu vực", nhomQuyDinh: "DatCoc" },
@@ -100,8 +106,13 @@ export async function POST(request: NextRequest) {
 					loaiThue: "Thuê giường",
 					khuVucMongMuon: "Khu A - Nữ",
 					soNguoiDuKien: 2,
-					thoiGianDuKienVaoO: new Date("2026-07-01"),
+					thoiGianDuKienVaoO: ngayBatDauDuKien,
 				},
+			});
+		} else {
+			yeuCauThue = await prisma.yeuCauThue.update({
+				where: { yeuCauId: yeuCauThue.yeuCauId },
+				data: { thoiGianDuKienVaoO: ngayBatDauDuKien },
 			});
 		}
 
@@ -117,8 +128,8 @@ export async function POST(request: NextRequest) {
 					khachHangId: khachHang.khachHangId,
 					hinhThucThue: "Thuê giường",
 					nhanVienId: sale.nguoiDungId,
-					ngayBatDauDuKien: new Date("2026-07-01"),
-					ngayKetThucDuKien: new Date("2026-12-31"),
+					ngayBatDauDuKien,
+					ngayKetThucDuKien,
 					trangThai: "Chờ xác nhận điều kiện",
 					chiTietDatCocs: {
 						create: {
@@ -130,6 +141,11 @@ export async function POST(request: NextRequest) {
 						},
 					},
 				},
+			});
+		} else {
+			hoSoDatCoc = await prisma.hoSoDatCoc.update({
+				where: { hoSoDatCocId: hoSoDatCoc.hoSoDatCocId },
+				data: { ngayBatDauDuKien, ngayKetThucDuKien },
 			});
 		}
 

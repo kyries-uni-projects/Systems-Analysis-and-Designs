@@ -11,7 +11,7 @@ import { luuHopDong } from "../src/lib/services/lapHopDong.service";
 import { luuKetQuaXetDuyet } from "../src/lib/services/pheDuyetHoSoLuuTru.service";
 import { chiTietThanhToanDauKy, hoanTatThanhToanDauKy } from "../src/lib/services/thanhToanDauKy.service";
 
-const useTemporaryDatabase = process.env.DATABASE_URL?.includes("/private/tmp/homestay-deposit-crud-test.db") ?? false;
+const useTemporaryDatabase = process.env.RUN_DB_INTEGRATION === "1";
 
 after(async () => {
 	await prisma.$disconnect();
@@ -69,6 +69,9 @@ test("check-in workflow persists the report state transitions and replacement re
 	await prisma.mauNoiQuy.create({
 		data: { tenMau: `Mẫu test ${suffix}`, noiQuy: "Giữ vệ sinh", quyDinhHoanCoc: "Theo hợp đồng", dieuKhoanViPham: "Bồi thường hư hỏng", trangThai: "Đang dùng" },
 	});
+	const perPersonFee = await prisma.khoanPhiDichVu.create({
+		data: { tenLoaiPhi: `Phí theo người ${suffix}`, donViTinh: "người/tháng", donGia: 100_000, trangThai: "Đang áp dụng" },
+	});
 	let asset = await prisma.taiSanMacDinh.findFirst({ where: { trangThai: { in: ["Dang dung", "Đang dùng"] } } });
 	asset ??= await prisma.taiSanMacDinh.create({ data: { tenTaiSan: `Tài sản test ${suffix}`, soLuongMacDinh: 1, trangThai: "Đang dùng" } });
 	const [checkInDetail, phoneSearch] = await Promise.all([
@@ -107,12 +110,25 @@ test("check-in workflow persists the report state transitions and replacement re
 	});
 	const representative = await prisma.thanhVienLuuTru.findFirst({ where: { hoSoNhanPhong: { maHoSoNhanPhong: checkIn.maHoSoNhanPhong }, laNguoiDaiDien: true } });
 	assert.equal(representative?.thanhVienLuuTruId, members[1].thanhVienLuuTruId);
+	const rejectedAllocation = await prisma.chiTietDatCoc.findUniqueOrThrow({
+		where: { chiTietDatCocId: members[0].chiTietDatCocId },
+		include: { giuong: true },
+	});
+	assert.equal(rejectedAllocation.trangThai, "Đã hủy");
+	assert.equal(rejectedAllocation.giuong?.trangThai, "Trống");
 
 	await luuHopDong(checkIn.maHoSoNhanPhong, sale.nguoiDungId, { daXacNhanKhachDaKy: true });
-	const contract = await prisma.hopDong.findFirstOrThrow({ where: { hoSoNhanPhong: { maHoSoNhanPhong: checkIn.maHoSoNhanPhong } }, include: { khachHang: true } });
+	const contract = await prisma.hopDong.findFirstOrThrow({
+		where: { hoSoNhanPhong: { maHoSoNhanPhong: checkIn.maHoSoNhanPhong } },
+		include: { khachHang: true, chiTietHopDongs: true, khoanPhiHopDongs: true },
+	});
 	assert.equal(contract.khachHang.cccdPassport, members[1].soGiayTo);
+	assert.equal(contract.chiTietHopDongs.length, 1);
+	assert.equal(contract.chiTietHopDongs[0]?.soGiuongQuyDoi, 1);
+	assert.equal(contract.khoanPhiHopDongs.find((fee) => fee.idKhoanPhi === perPersonFee.idKhoanPhi)?.soLuong, 1);
 
 	const paymentDetail = await chiTietThanhToanDauKy(checkIn.maHoSoNhanPhong);
+	assert.equal(paymentDetail.charges.find((charge) => charge.source === "rent")?.amount, 2_000_000);
 	const payment = await hoanTatThanhToanDauKy(checkIn.maHoSoNhanPhong, accountant.nguoiDungId, { charges: paymentDetail.charges, phuongThucThu: "Tien mat" });
 	assert.equal(payment.trangThaiHoSo, "Cho ban giao");
 
@@ -127,6 +143,6 @@ test("check-in workflow persists the report state transitions and replacement re
 		prisma.hoSoNhanPhong.findUniqueOrThrow({ where: { maHoSoNhanPhong: handoverDetail.code } }),
 	]);
 	assert.equal(savedRoom.trangThai, "Trống");
-	assert.deepEqual(savedBeds.map((bed) => bed.trangThai).sort(), ["Dang su dung", "Dang su dung"]);
+	assert.deepEqual(savedBeds.map((bed) => bed.trangThai).sort(), ["Dang su dung", "Trống"]);
 	assert.equal(savedCheckIn.trangThai, "Hoan tat");
 });

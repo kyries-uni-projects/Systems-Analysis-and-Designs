@@ -437,6 +437,7 @@ model ChiTietHopDong {
   giuongId          Int?     @map("giuong_id")
   hinhThucThue      String   @map("hinh_thuc_thue")
   giaThueThoaThuan  Float    @map("gia_thue_thoa_thuan")
+  soGiuongQuyDoi    Int      @default(1) @map("so_giuong_quy_doi")
   tienCocPhanBo     Float    @map("tien_coc_phan_bo")
   ngayBatDau        DateTime @map("ngay_bat_dau")
   ngayKetThuc       DateTime @map("ngay_ket_thuc")

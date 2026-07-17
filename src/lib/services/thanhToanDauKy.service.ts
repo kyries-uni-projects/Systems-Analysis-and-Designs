@@ -60,14 +60,13 @@ function layHopDong(record: HoSoNhanPhongPaymentRecord) {
 
 function tinhTienThueKyDau(hopDong: HopDongThanhToanRecord | NonNullable<HoSoNhanPhongPaymentRecord["hopDong"]>) {
 	return hopDong.chiTietHopDongs.reduce((sum, detail) => {
-		const soLuong = detail.chiTietDatCoc?.soGiuongQuyDoi ?? 1;
-		return sum + detail.giaThueThoaThuan * soLuong;
+		return sum + detail.giaThueThoaThuan * detail.soGiuongQuyDoi;
 	}, 0);
 }
 
 function taoKhoanThuDauKy(hopDong: HopDongThanhToanRecord | NonNullable<HoSoNhanPhongPaymentRecord["hopDong"]>): ThanhToanKhoanThu[] {
 	const tienThue = tinhTienThueKyDau(hopDong);
-	const soGiuong = hopDong.chiTietHopDongs.reduce((sum, detail) => sum + (detail.chiTietDatCoc?.soGiuongQuyDoi ?? 1), 0);
+	const soGiuong = hopDong.chiTietHopDongs.reduce((sum, detail) => sum + detail.soGiuongQuyDoi, 0);
 	const firstDetail = hopDong.chiTietHopDongs[0];
 	const charges: ThanhToanKhoanThu[] = [
 		{

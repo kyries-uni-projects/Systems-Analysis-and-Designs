@@ -1,4 +1,5 @@
 import { ApiNotFoundError, ApiValidationError } from "@/lib/api-response";
+import { tinhPhanBoHopDongSauPheDuyet } from "@/lib/nhan-phong-rules";
 import { prisma } from "@/lib/prisma";
 import {
 	capNhatTrangThaiHoSoNhanPhong,
@@ -46,8 +47,10 @@ function normaliseRentType(value: string): "giường" | "phòng" {
 	return lower.includes("phong") || lower.includes("phòng") ? "phòng" : "giường";
 }
 
-function formatRoom(record: HoSoNhanPhongContractRecord) {
-	const details = record.hoSoDatCoc.chiTietDatCocs;
+function formatRoom(record: HoSoNhanPhongContractRecord, chiTietDatCocIds?: Set<number>) {
+	const details = record.hoSoDatCoc.chiTietDatCocs.filter(
+		(detail) => !chiTietDatCocIds || chiTietDatCocIds.has(detail.chiTietDatCocId),
+	);
 	if (details.length === 0) return "Chua co phong";
 	return details
 		.map((detail) => {
@@ -76,8 +79,32 @@ function splitRules(value?: string | null) {
 
 function layNguoiDaiDienHopLe(record: HoSoNhanPhongContractRecord) {
 	return record.thanhVienLuuTrus.find(
-		(member) => member.laNguoiDaiDien && member.trangThaiThamGia !== "LOAI_KHOI_HO_SO",
+		(member) => member.laNguoiDaiDien && member.trangThaiThamGia === "THAM_GIA",
 	);
+}
+
+function layPhanBoHopDong(record: HoSoNhanPhongContractRecord) {
+	const soLuongTheoChiTiet = new Map(
+		tinhPhanBoHopDongSauPheDuyet({
+			hinhThucThue: record.hoSoDatCoc.hinhThucThue,
+			chiTietDatCocs: record.hoSoDatCoc.chiTietDatCocs,
+			thanhVienLuuTrus: record.thanhVienLuuTrus,
+		}).map((item) => [item.chiTietDatCocId, item.soGiuongQuyDoi]),
+	);
+
+	return record.hoSoDatCoc.chiTietDatCocs.flatMap((detail) => {
+		const soGiuongQuyDoi = soLuongTheoChiTiet.get(detail.chiTietDatCocId);
+		return soGiuongQuyDoi ? [{ detail, soGiuongQuyDoi }] : [];
+	});
+}
+
+function laPhiTinhTheoNguoi(donViTinh?: string | null) {
+	if (!donViTinh) return false;
+	return donViTinh
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/gu, "")
+		.toLocaleLowerCase("vi-VN")
+		.includes("nguoi");
 }
 
 function mapListItem(record: HoSoNhanPhongContractRecord): LapHopDongListItem {
@@ -101,12 +128,14 @@ async function buildDetail(record: HoSoNhanPhongContractRecord): Promise<LapHopD
 	const base = mapListItem(record);
 	const representative = layNguoiDaiDienHopLe(record);
 	if (!representative) throw new ApiValidationError("Ho so chua co nguoi dai dien du dieu kien de ky hop dong.");
-	const activeMembers = record.thanhVienLuuTrus.filter((member) => !member.laNguoiDaiDien && member.trangThaiThamGia !== "LOAI_KHOI_HO_SO");
-	const details = record.hoSoDatCoc.chiTietDatCocs;
-	const firstDetail = details[0];
-	const totalRent = details.reduce((sum, detail) => sum + detail.giaThueThoaThuan * detail.soGiuongQuyDoi, 0);
-	const totalDeposit = details.reduce((sum, detail) => sum + detail.tienCocPhanBo, 0);
-	const bedCount = details.reduce((sum, detail) => sum + detail.soGiuongQuyDoi, 0);
+	const activeMembers = record.thanhVienLuuTrus.filter((member) => !member.laNguoiDaiDien && member.trangThaiThamGia === "THAM_GIA");
+	const phanBoHopDong = layPhanBoHopDong(record);
+	if (phanBoHopDong.length === 0) throw new ApiValidationError("Ho so khong con thanh vien du dieu kien de lap hop dong.");
+	const firstDetail = phanBoHopDong[0]?.detail;
+	const totalRent = phanBoHopDong.reduce((sum, item) => sum + item.detail.giaThueThoaThuan * item.soGiuongQuyDoi, 0);
+	const totalDeposit = record.hoSoDatCoc.chiTietDatCocs.reduce((sum, detail) => sum + detail.tienCocPhanBo, 0);
+	const bedCount = phanBoHopDong.reduce((sum, item) => sum + item.soGiuongQuyDoi, 0);
+	const chiTietDatCocIds = new Set(phanBoHopDong.map((item) => item.detail.chiTietDatCocId));
 
 	const [fees, mauNoiQuy, noiQuy, dieuKhoanViPham] = await Promise.all([
 		layDanhSachKhoanPhiDangApDung(),
@@ -121,7 +150,7 @@ async function buildDetail(record: HoSoNhanPhongContractRecord): Promise<LapHopD
 		dob: formatDate(representative?.ngaySinh),
 		phone: representative.soDienThoai ?? "",
 		address: representative.soGiayTo === record.hoSoDatCoc.khachHang.cccdPassport ? record.hoSoDatCoc.khachHang.ghiChu ?? "" : "",
-		room: formatRoom(record),
+		room: formatRoom(record, chiTietDatCocIds),
 		floor: formatFloor(record),
 		bedCount,
 		pricePerBed: firstDetail?.giaThueThoaThuan ?? 0,
@@ -186,6 +215,10 @@ export async function luuHopDong(maHoSoNhanPhong: string, nhanVienId: number, in
 		if (record.hoSoDatCoc.chiTietDatCocs.length === 0) {
 			throw new ApiValidationError("Ho so chua co thong tin phong/giuong de lap hop dong.");
 		}
+		const phanBoHopDong = layPhanBoHopDong(record);
+		if (phanBoHopDong.length === 0) {
+			throw new ApiValidationError("Ho so khong con thanh vien du dieu kien de lap hop dong.");
+		}
 		const representative = layNguoiDaiDienHopLe(record);
 		if (!representative) throw new ApiValidationError("Ho so chua co nguoi dai dien du dieu kien de ky hop dong.");
 		const khachHangHopDong = await tx.khachHang.upsert({
@@ -208,6 +241,7 @@ export async function luuHopDong(maHoSoNhanPhong: string, nhanVienId: number, in
 
 		const fees = await layDanhSachKhoanPhiDangApDung(tx);
 		const totalDeposit = record.hoSoDatCoc.chiTietDatCocs.reduce((sum, detail) => sum + detail.tienCocPhanBo, 0);
+		const soThanhVienDuocDuyet = record.thanhVienLuuTrus.filter((member) => member.trangThaiThamGia === "THAM_GIA").length;
 		const now = new Date();
 		const hopDong = await taoHopDongDaKy(
 			{
@@ -220,12 +254,13 @@ export async function luuHopDong(maHoSoNhanPhong: string, nhanVienId: number, in
 				tienCocGoc: totalDeposit,
 				trangThai: TRANG_THAI_HOP_DONG_DA_KY,
 				ngayKy: now,
-				chiTietDatCocs: record.hoSoDatCoc.chiTietDatCocs.map((detail) => ({
+				chiTietDatCocs: phanBoHopDong.map(({ detail, soGiuongQuyDoi }) => ({
 					chiTietDatCocId: detail.chiTietDatCocId,
 					phongId: detail.phongId,
 					giuongId: detail.giuongId,
 					hinhThucThue: record.hoSoDatCoc.hinhThucThue,
 					giaThueThoaThuan: detail.giaThueThoaThuan,
+					soGiuongQuyDoi,
 					tienCocPhanBo: detail.tienCocPhanBo,
 					ngayBatDau: record.hoSoDatCoc.ngayBatDauDuKien,
 					ngayKetThuc: record.hoSoDatCoc.ngayKetThucDuKien,
@@ -233,8 +268,8 @@ export async function luuHopDong(maHoSoNhanPhong: string, nhanVienId: number, in
 				khoanPhiDichVus: fees.map((fee) => ({
 					idKhoanPhi: fee.idKhoanPhi,
 					donGia: fee.donGia,
-					soLuong: 1,
-					thanhTien: fee.donGia,
+					soLuong: laPhiTinhTheoNguoi(fee.donViTinh) ? soThanhVienDuocDuyet : 1,
+					thanhTien: fee.donGia * (laPhiTinhTheoNguoi(fee.donViTinh) ? soThanhVienDuocDuyet : 1),
 					ghiChu: fee.donViTinh,
 				})),
 			},

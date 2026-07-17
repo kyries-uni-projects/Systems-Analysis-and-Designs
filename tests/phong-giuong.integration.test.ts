@@ -3,7 +3,7 @@ import { after, test } from "node:test";
 import { prisma } from "../src/lib/prisma";
 import { createGiuong, createPhong, listPhong, updateGiuong, updatePhong } from "../src/lib/services/phongService";
 
-const useTemporaryDatabase = process.env.DATABASE_URL?.includes("/private/tmp/homestay-deposit-crud-test.db") ?? false;
+const useTemporaryDatabase = process.env.RUN_DB_INTEGRATION === "1";
 
 after(async () => {
 	await prisma.$disconnect();
