@@ -10,9 +10,23 @@ import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { ensureDemoAccounts } from "../src/lib/demo-account-seed";
+import type { RentalType } from "../src/types/yeu-cau-thue";
 
 const adapter = new PrismaBetterSqlite3({ url: process.env.DATABASE_URL ?? "file:./dev.db" });
 const prisma = new PrismaClient({ adapter });
+const THUE_GIUONG = "Thuê giường" satisfies RentalType;
+const THUE_NGUYEN_PHONG = "Thuê nguyên phòng" satisfies RentalType;
+
+async function taoGiuongTheoSucChua(phongId: number, sucChua: number, trangThaiTheoMa: Record<string, string> = {}) {
+	return Promise.all(
+		Array.from({ length: sucChua }, (_, index) => {
+			const maGiuongLocal = `G${index + 1}`;
+			return prisma.giuong.create({
+				data: { phongId, maGiuongLocal, trangThai: trangThaiTheoMa[maGiuongLocal] ?? "Trống" },
+			});
+		}),
+	);
+}
 
 async function main() {
 	console.log("Đang xoá dữ liệu cũ của Nhóm 4 + danh mục dùng chung (nếu có)...");
@@ -76,7 +90,7 @@ async function main() {
 	const phongA101 = await prisma.phong.create({
 		data: { maPhong: "A-101", khu: "A", tang: 1, idLoaiPhong: loaiPhongTapThe.idLoaiPhong, sucChua: 4, trangThai: "DANG_HOAT_DONG" },
 	});
-	const giuongA101G1 = await prisma.giuong.create({ data: { phongId: phongA101.phongId, maGiuongLocal: "G1", trangThai: "Đang sử dụng" } });
+	const [giuongA101G1] = await taoGiuongTheoSucChua(phongA101.phongId, phongA101.sucChua, { G1: "Đang sử dụng" });
 
 	const phongB201 = await prisma.phong.create({
 		data: { maPhong: "B-201", khu: "B", tang: 2, idLoaiPhong: loaiPhongDon.idLoaiPhong, sucChua: 1, trangThai: "DANG_HOAT_DONG" },
@@ -85,12 +99,12 @@ async function main() {
 	const phongD404 = await prisma.phong.create({
 		data: { maPhong: "D-404", khu: "D", tang: 4, idLoaiPhong: loaiPhongTapThe.idLoaiPhong, sucChua: 4, trangThai: "DANG_HOAT_DONG" },
 	});
-	const giuongD404G2 = await prisma.giuong.create({ data: { phongId: phongD404.phongId, maGiuongLocal: "G2", trangThai: "Đang sử dụng" } });
+	const [, giuongD404G2] = await taoGiuongTheoSucChua(phongD404.phongId, phongD404.sucChua, { G2: "Đang sử dụng" });
 
 	const phongC303 = await prisma.phong.create({
 		data: { maPhong: "C-303", khu: "C", tang: 3, idLoaiPhong: loaiPhongTapThe.idLoaiPhong, sucChua: 4, trangThai: "DANG_HOAT_DONG" },
 	});
-	const giuongC303G1 = await prisma.giuong.create({ data: { phongId: phongC303.phongId, maGiuongLocal: "G1", trangThai: "Đang sử dụng" } });
+	const [giuongC303G1] = await taoGiuongTheoSucChua(phongC303.phongId, phongC303.sucChua, { G1: "Đang sử dụng" });
 
 	const phongB202 = await prisma.phong.create({
 		data: { maPhong: "B-202", khu: "B", tang: 2, idLoaiPhong: loaiPhongDon.idLoaiPhong, sucChua: 1, trangThai: "DANG_HOAT_DONG" },
@@ -99,7 +113,7 @@ async function main() {
 	const phongE505 = await prisma.phong.create({
 		data: { maPhong: "E-505", khu: "E", tang: 5, idLoaiPhong: loaiPhongTapThe.idLoaiPhong, sucChua: 4, trangThai: "DANG_HOAT_DONG" },
 	});
-	const giuongE505G2 = await prisma.giuong.create({ data: { phongId: phongE505.phongId, maGiuongLocal: "G2", trangThai: "Đang sử dụng" } });
+	const [, giuongE505G2] = await taoGiuongTheoSucChua(phongE505.phongId, phongE505.sucChua, { G2: "Đang sử dụng" });
 
 	console.log("Tạo khách hàng...");
 	const khNames: [string, string][] = [
@@ -134,7 +148,10 @@ async function main() {
 		/** Thành viên đại diện (người ký hợp đồng) — dùng để tạo ThanhVienLuuTru */
 		thanhVien: { hoTen: string; soGiayTo: string };
 	}) {
-		const hinhThucThue = params.giuongId ? "Theo giường" : "Nguyên phòng";
+		const hinhThucThue = params.giuongId ? THUE_GIUONG : THUE_NGUYEN_PHONG;
+		const phong = await prisma.phong.findUniqueOrThrow({ where: { phongId: params.phongId }, select: { sucChua: true } });
+		const soGiuongQuyDoi = params.giuongId ? 1 : phong.sucChua;
+		const giaThueThoaThuan = params.tienCocGoc / (2 * soGiuongQuyDoi);
 
 		const yc = await prisma.yeuCauThue.create({
 			data: { khachHangId: params.khachHangId, nhanVienId: nhanVien.nguoiDungId, loaiThue: hinhThucThue, soNguoiDuKien: 1, trangThai: "Đã xử lý" },
@@ -156,7 +173,8 @@ async function main() {
 				hoSoDatCocId: hoSoDatCoc.hoSoDatCocId,
 				phongId: params.phongId,
 				giuongId: params.giuongId,
-				giaThueThoaThuan: params.giuongId ? 1_500_000 : 3_000_000,
+				giaThueThoaThuan,
+				soGiuongQuyDoi,
 				tienCocPhanBo: params.tienCocGoc,
 				quanLyXacNhanId: quanLy.nguoiDungId,
 				thoiDiemXacNhan: new Date(),
@@ -216,7 +234,7 @@ async function main() {
 				phongId: params.phongId,
 				giuongId: params.giuongId,
 				hinhThucThue,
-				giaThueThoaThuan: params.giuongId ? 1_500_000 : 3_000_000,
+				giaThueThoaThuan,
 				tienCocPhanBo: params.tienCocGoc,
 				ngayBatDau: params.ngayBatDau,
 				ngayKetThuc: params.ngayKetThuc,
@@ -443,7 +461,7 @@ async function main() {
 	const phongF601 = await prisma.phong.create({
 		data: { maPhong: "F-601", khu: "F", tang: 6, idLoaiPhong: loaiPhongTapThe.idLoaiPhong, sucChua: 4, trangThai: "DANG_HOAT_DONG" },
 	});
-	const giuongF601G1 = await prisma.giuong.create({ data: { phongId: phongF601.phongId, maGiuongLocal: "G1", trangThai: "Trống" } });
+	const [giuongF601G1] = await taoGiuongTheoSucChua(phongF601.phongId, phongF601.sucChua);
 
 	const phongF602 = await prisma.phong.create({
 		data: { maPhong: "F-602", khu: "F", tang: 6, idLoaiPhong: loaiPhongDon.idLoaiPhong, sucChua: 1, trangThai: "Đang chờ xác nhận" },
@@ -452,7 +470,7 @@ async function main() {
 	const phongG701 = await prisma.phong.create({
 		data: { maPhong: "G-701", khu: "G", tang: 7, idLoaiPhong: loaiPhongTapThe.idLoaiPhong, sucChua: 4, trangThai: "DANG_HOAT_DONG" },
 	});
-	const giuongG701G1 = await prisma.giuong.create({ data: { phongId: phongG701.phongId, maGiuongLocal: "G1", trangThai: "Đang chờ xác nhận" } });
+	const [giuongG701G1] = await taoGiuongTheoSucChua(phongG701.phongId, phongG701.sucChua, { G1: "Đang chờ xác nhận" });
 
 	const phongG702 = await prisma.phong.create({
 		data: { maPhong: "G-702", khu: "G", tang: 7, idLoaiPhong: loaiPhongDon.idLoaiPhong, sucChua: 1, trangThai: "Đang chờ xác nhận" },
@@ -461,12 +479,12 @@ async function main() {
 	const phongH801 = await prisma.phong.create({
 		data: { maPhong: "H-801", khu: "H", tang: 8, idLoaiPhong: loaiPhongTapThe.idLoaiPhong, sucChua: 4, trangThai: "DANG_HOAT_DONG" },
 	});
-	const giuongH801G1 = await prisma.giuong.create({ data: { phongId: phongH801.phongId, maGiuongLocal: "G1", trangThai: "Đang chờ xác nhận" } });
+	const [giuongH801G1] = await taoGiuongTheoSucChua(phongH801.phongId, phongH801.sucChua, { G1: "Đang chờ xác nhận" });
 
 	// Hàm phụ: tạo nhanh YeuCauThue + HoSoDatCoc với trạng thái tuỳ chọn
 	async function taoHoSoCoTrangThai(params: {
 		khachHangId: number;
-		hinhThucThue: string;
+		hinhThucThue: RentalType;
 		ngayBatDau: Date;
 		ngayKetThuc: Date;
 		trangThaiHoSo: string;
@@ -500,7 +518,7 @@ async function main() {
 	console.log("Kịch bản SD7 — Hồ sơ mới, CHỜ QUẢN LÝ XÁC NHẬN điều kiện đặt cọc...");
 	const sd7 = await taoHoSoCoTrangThai({
 		khachHangId: khNam.khachHangId,
-		hinhThucThue: "Theo giường",
+		hinhThucThue: THUE_GIUONG,
 		ngayBatDau: new Date(Date.UTC(2025, 7, 1)),
 		ngayKetThuc: new Date(Date.UTC(2026, 1, 1)),
 		trangThaiHoSo: "Chờ xác nhận quản lý",
@@ -511,8 +529,9 @@ async function main() {
 			phongId: phongF601.phongId,
 			giuongId: giuongF601G1.giuongId,
 			giaThueThoaThuan: 1_500_000,
+			soGiuongQuyDoi: 1,
 			tienCocPhanBo: 3_000_000,
-			trangThai: "CHO_XAC_NHAN",
+			trangThai: "Chờ xác nhận quản lý",
 		},
 	});
 
@@ -521,7 +540,7 @@ async function main() {
 	console.log("Kịch bản SD8 — Quản lý ĐÃ XÁC NHẬN ĐIỀU KIỆN, chờ kế toán lập phiếu thanh toán...");
 	const sd8 = await taoHoSoCoTrangThai({
 		khachHangId: khThu.khachHangId,
-		hinhThucThue: "Nguyên phòng",
+		hinhThucThue: THUE_NGUYEN_PHONG,
 		ngayBatDau: new Date(Date.UTC(2025, 7, 1)),
 		ngayKetThuc: new Date(Date.UTC(2026, 1, 1)),
 		trangThaiHoSo: "Đã xác nhận điều kiện",
@@ -531,6 +550,7 @@ async function main() {
 			hoSoDatCocId: sd8.hoSo.hoSoDatCocId,
 			phongId: phongF602.phongId,
 			giaThueThoaThuan: 3_000_000,
+			soGiuongQuyDoi: phongF602.sucChua,
 			tienCocPhanBo: 6_000_000,
 			quanLyXacNhanId: quanLy.nguoiDungId,
 			thoiDiemXacNhan: new Date(Date.now() - 2 * 60 * 60 * 1000),
@@ -543,7 +563,7 @@ async function main() {
 	console.log("Kịch bản SD9 — Kế toán đã lập phiếu, CHỜ KHÁCH THANH TOÁN cọc...");
 	const sd9 = await taoHoSoCoTrangThai({
 		khachHangId: khMinh.khachHangId,
-		hinhThucThue: "Theo giường",
+		hinhThucThue: THUE_GIUONG,
 		ngayBatDau: new Date(Date.UTC(2025, 8, 1)),
 		ngayKetThuc: new Date(Date.UTC(2026, 2, 1)),
 		trangThaiHoSo: "Chờ thanh toán",
@@ -554,6 +574,7 @@ async function main() {
 			phongId: phongG701.phongId,
 			giuongId: giuongG701G1.giuongId,
 			giaThueThoaThuan: 1_500_000,
+			soGiuongQuyDoi: 1,
 			tienCocPhanBo: 3_000_000,
 			quanLyXacNhanId: quanLy.nguoiDungId,
 			thoiDiemXacNhan: new Date(Date.now() - 3 * 60 * 60 * 1000),
@@ -578,7 +599,7 @@ async function main() {
 	console.log("Kịch bản SD10 — Nhân viên đã nộp chứng từ, CHỜ QUẢN LÝ XÁC NHẬN THANH TOÁN...");
 	const sd10 = await taoHoSoCoTrangThai({
 		khachHangId: khBich.khachHangId,
-		hinhThucThue: "Nguyên phòng",
+		hinhThucThue: THUE_NGUYEN_PHONG,
 		ngayBatDau: new Date(Date.UTC(2025, 8, 1)),
 		ngayKetThuc: new Date(Date.UTC(2026, 2, 1)),
 		trangThaiHoSo: "Chờ xác nhận thanh toán",
@@ -588,6 +609,7 @@ async function main() {
 			hoSoDatCocId: sd10.hoSo.hoSoDatCocId,
 			phongId: phongG702.phongId,
 			giaThueThoaThuan: 3_000_000,
+			soGiuongQuyDoi: phongG702.sucChua,
 			tienCocPhanBo: 6_000_000,
 			quanLyXacNhanId: quanLy.nguoiDungId,
 			thoiDiemXacNhan: new Date(Date.now() - 5 * 60 * 60 * 1000),
@@ -622,7 +644,7 @@ async function main() {
 	console.log("Kịch bản SD11 — ĐÃ XÁC NHẬN THANH TOÁN, có lịch hẹn nhận phòng, chờ lập hồ sơ nhận...");
 	const sd11 = await taoHoSoCoTrangThai({
 		khachHangId: khKhanh.khachHangId,
-		hinhThucThue: "Theo giường",
+		hinhThucThue: THUE_GIUONG,
 		ngayBatDau: new Date(Date.UTC(2025, 9, 1)),
 		ngayKetThuc: new Date(Date.UTC(2026, 3, 1)),
 		trangThaiHoSo: "Đã xác nhận thanh toán",
@@ -641,6 +663,7 @@ async function main() {
 			phongId: phongH801.phongId,
 			giuongId: giuongH801G1.giuongId,
 			giaThueThoaThuan: 1_500_000,
+			soGiuongQuyDoi: 1,
 			tienCocPhanBo: 3_000_000,
 			quanLyXacNhanId: quanLy.nguoiDungId,
 			thoiDiemXacNhan: new Date(Date.now() - 4 * 60 * 60 * 1000),
@@ -669,10 +692,9 @@ async function main() {
 		},
 	});
 
-	// ---- Kịch bản SD12: CHO_XAC_NHAN (Chờ xác nhận) ----
-	// Hồ sơ vừa được sale tạo sau khi khách đồng ý thuê. Trạng thái mặc định ban đầu:
-	// chưa có ai xác nhận, chưa chọn phòng/giường cụ thể — bước đầu tiên của quy trình đặt cọc.
-	console.log("Kịch bản SD12 — Hồ sơ CHO_XAC_NHAN, sale vừa tạo, chưa có ai xác nhận...");
+	// ---- Kịch bản SD12: Mới tạo ----
+	// Hồ sơ vừa được Sale tạo, chưa chọn phòng/giường cụ thể.
+	console.log("Kịch bản SD12 — Hồ sơ MỚI TẠO, chưa có ai xác nhận...");
 	const khTuan = await prisma.khachHang.create({
 		data: { hoTen: "Lý Minh Tuấn", cccdPassport: "079099012345", soDienThoai: "0912345678" },
 	});
@@ -680,7 +702,7 @@ async function main() {
 		data: {
 			khachHangId: khTuan.khachHangId,
 			nhanVienId: nhanVien.nguoiDungId,
-			loaiThue: "Theo giường",
+			loaiThue: THUE_GIUONG,
 			soNguoiDuKien: 1,
 			trangThai: "Đang xử lý",
 		},
@@ -691,10 +713,10 @@ async function main() {
 			yeuCauId: ycSD12.yeuCauId,
 			khachHangId: khTuan.khachHangId,
 			nhanVienId: nhanVien.nguoiDungId,
-			hinhThucThue: "Theo giường",
+			hinhThucThue: THUE_GIUONG,
 			ngayBatDauDuKien: new Date(Date.UTC(2025, 9, 15)),
 			ngayKetThucDuKien: new Date(Date.UTC(2026, 3, 15)),
-			trangThai: "CHO_XAC_NHAN",
+			trangThai: "Mới tạo",
 		},
 	});
 
@@ -708,36 +730,26 @@ async function main() {
 	const phongI901 = await prisma.phong.create({
 		data: { maPhong: "I-901", khu: "I", tang: 9, idLoaiPhong: loaiPhongTapThe.idLoaiPhong, sucChua: 4, trangThai: "DANG_HOAT_DONG" },
 	});
-	const giuongI901G1 = await prisma.giuong.create({ data: { phongId: phongI901.phongId, maGiuongLocal: "G1", trangThai: "Trống" } });
+	await taoGiuongTheoSucChua(phongI901.phongId, phongI901.sucChua);
 	const ycSD13 = await prisma.yeuCauThue.create({
 		data: {
 			khachHangId: khLinh.khachHangId,
 			nhanVienId: nhanVien.nguoiDungId,
-			loaiThue: "Theo giường",
+			loaiThue: THUE_GIUONG,
 			soNguoiDuKien: 1,
 			trangThai: "Đã xử lý",
 		},
 	});
-	const hoSoSD13 = await prisma.hoSoDatCoc.create({
+	await prisma.hoSoDatCoc.create({
 		data: {
 			maHoSoDatCoc: maTiepTheo("DC"),
 			yeuCauId: ycSD13.yeuCauId,
 			khachHangId: khLinh.khachHangId,
 			nhanVienId: nhanVien.nguoiDungId,
-			hinhThucThue: "Theo giường",
+			hinhThucThue: THUE_GIUONG,
 			ngayBatDauDuKien: new Date(Date.UTC(2025, 10, 1)),
 			ngayKetThucDuKien: new Date(Date.UTC(2026, 4, 1)),
 			trangThai: "Chờ xác nhận điều kiện",
-		},
-	});
-	await prisma.chiTietDatCoc.create({
-		data: {
-			hoSoDatCocId: hoSoSD13.hoSoDatCocId,
-			phongId: phongI901.phongId,
-			giuongId: giuongI901G1.giuongId,
-			giaThueThoaThuan: 1_500_000,
-			tienCocPhanBo: 3_000_000,
-			trangThai: "CHO_XAC_NHAN",
 		},
 	});
 
@@ -757,8 +769,8 @@ async function main() {
 	console.log("  HD-2025-000188 (Lê Thị Hồng, E-505)    — đã đối soát (hoàn cọc dương), sẵn sàng UC4->UC5");
 	console.log("");
 	console.log("7 kịch bản hồ sơ đặt cọc (theo trạng thái — đúng luồng nghiệp vụ):");
-	console.log("  SD12 (Lý Minh Tuấn,    chưa có phòng) — CHO_XAC_NHAN  (sale vừa tạo hồ sơ)");
-	console.log("  SD13 (Nguyễn Thị Linh, I-901/G1)      — Chờ xác nhận điều kiện  (sale đang rà soát)");
+	console.log("  SD12 (Lý Minh Tuấn,    chưa có phòng) — Mới tạo                 (sale vừa tạo hồ sơ)");
+	console.log("  SD13 (Nguyễn Thị Linh, chưa có phòng) — Chờ xác nhận điều kiện (sale đang rà soát)");
 	console.log("  SD7  (Bùi Văn Nam,     F-601/G1)      — Chờ xác nhận quản lý   (quản lý đang kiểm tra phòng)");
 	console.log("  SD8  (Đặng Thị Thu,    F-602)          — Đã xác nhận điều kiện  (chờ kế toán lập phiếu)");
 	console.log("  SD9  (Hoàng Văn Minh,  G-701/G1)      — Chờ thanh toán          (kế toán đã lập phiếu)");
