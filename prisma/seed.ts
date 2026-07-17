@@ -446,22 +446,22 @@ async function main() {
 	const giuongF601G1 = await prisma.giuong.create({ data: { phongId: phongF601.phongId, maGiuongLocal: "G1", trangThai: "Trống" } });
 
 	const phongF602 = await prisma.phong.create({
-		data: { maPhong: "F-602", khu: "F", tang: 6, idLoaiPhong: loaiPhongDon.idLoaiPhong, sucChua: 1, trangThai: "DANG_HOAT_DONG" },
+		data: { maPhong: "F-602", khu: "F", tang: 6, idLoaiPhong: loaiPhongDon.idLoaiPhong, sucChua: 1, trangThai: "Đang chờ xác nhận" },
 	});
 
 	const phongG701 = await prisma.phong.create({
 		data: { maPhong: "G-701", khu: "G", tang: 7, idLoaiPhong: loaiPhongTapThe.idLoaiPhong, sucChua: 4, trangThai: "DANG_HOAT_DONG" },
 	});
-	const giuongG701G1 = await prisma.giuong.create({ data: { phongId: phongG701.phongId, maGiuongLocal: "G1", trangThai: "Trống" } });
+	const giuongG701G1 = await prisma.giuong.create({ data: { phongId: phongG701.phongId, maGiuongLocal: "G1", trangThai: "Đang chờ xác nhận" } });
 
 	const phongG702 = await prisma.phong.create({
-		data: { maPhong: "G-702", khu: "G", tang: 7, idLoaiPhong: loaiPhongDon.idLoaiPhong, sucChua: 1, trangThai: "DANG_HOAT_DONG" },
+		data: { maPhong: "G-702", khu: "G", tang: 7, idLoaiPhong: loaiPhongDon.idLoaiPhong, sucChua: 1, trangThai: "Đang chờ xác nhận" },
 	});
 
 	const phongH801 = await prisma.phong.create({
 		data: { maPhong: "H-801", khu: "H", tang: 8, idLoaiPhong: loaiPhongTapThe.idLoaiPhong, sucChua: 4, trangThai: "DANG_HOAT_DONG" },
 	});
-	const giuongH801G1 = await prisma.giuong.create({ data: { phongId: phongH801.phongId, maGiuongLocal: "G1", trangThai: "Trống" } });
+	const giuongH801G1 = await prisma.giuong.create({ data: { phongId: phongH801.phongId, maGiuongLocal: "G1", trangThai: "Đang chờ xác nhận" } });
 
 	// Hàm phụ: tạo nhanh YeuCauThue + HoSoDatCoc với trạng thái tuỳ chọn
 	async function taoHoSoCoTrangThai(params: {
@@ -534,7 +534,7 @@ async function main() {
 			tienCocPhanBo: 6_000_000,
 			quanLyXacNhanId: quanLy.nguoiDungId,
 			thoiDiemXacNhan: new Date(Date.now() - 2 * 60 * 60 * 1000),
-			trangThai: "DA_XAC_NHAN",
+			trangThai: "Đã xác nhận điều kiện",
 		},
 	});
 
@@ -557,7 +557,7 @@ async function main() {
 			tienCocPhanBo: 3_000_000,
 			quanLyXacNhanId: quanLy.nguoiDungId,
 			thoiDiemXacNhan: new Date(Date.now() - 3 * 60 * 60 * 1000),
-			trangThai: "DA_XAC_NHAN",
+			trangThai: "Đã xác nhận điều kiện",
 		},
 	});
 	const hanTT9 = new Date();
@@ -591,7 +591,7 @@ async function main() {
 			tienCocPhanBo: 6_000_000,
 			quanLyXacNhanId: quanLy.nguoiDungId,
 			thoiDiemXacNhan: new Date(Date.now() - 5 * 60 * 60 * 1000),
-			trangThai: "DA_XAC_NHAN",
+			trangThai: "Đã xác nhận điều kiện",
 		},
 	});
 	const hanTT10 = new Date();
@@ -603,7 +603,7 @@ async function main() {
 			keToanId: keToan.nguoiDungId,
 			hanThanhToan: hanTT10,
 			soTaiKhoanNhan: "9876543210",
-			trangThai: "Chờ xác nhận",
+			trangThai: "Chờ xác nhận thanh toán",
 		},
 	});
 	await prisma.chungTuThanhToan.create({
@@ -644,7 +644,7 @@ async function main() {
 			tienCocPhanBo: 3_000_000,
 			quanLyXacNhanId: quanLy.nguoiDungId,
 			thoiDiemXacNhan: new Date(Date.now() - 4 * 60 * 60 * 1000),
-			trangThai: "DA_XAC_NHAN",
+			trangThai: "Đã xác nhận điều kiện",
 		},
 	});
 	const yctt11 = await prisma.yeuCauThanhToanCoc.create({
@@ -654,7 +654,7 @@ async function main() {
 			keToanId: keToan.nguoiDungId,
 			hanThanhToan: new Date(Date.now() - 1 * 60 * 60 * 1000),
 			soTaiKhoanNhan: "9876543210",
-			trangThai: "Đã xác nhận",
+			trangThai: "Đã xác nhận thanh toán",
 		},
 	});
 	await prisma.chungTuThanhToan.create({

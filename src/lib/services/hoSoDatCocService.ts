@@ -150,23 +150,25 @@ export async function layDanhSachPhongGiuongKhaDung() {
 	const phongDaGiuNguyen = new Set(chiTietDangGiuCho.filter((chiTiet) => chiTiet.giuongId === null).map((chiTiet) => chiTiet.phongId));
 	const giuongDaGiu = new Set(chiTietDangGiuCho.flatMap((chiTiet) => (chiTiet.giuongId ? [chiTiet.giuongId] : [])));
 
-	return danhSach.filter((phong) => !phongDaGiuNguyen.has(phong.phongId)).map((phong) => ({
-		phongId: phong.phongId,
-		maPhong: phong.maPhong,
-		khu: phong.khu,
-		tang: phong.tang,
-		sucChua: phong.sucChua,
-		gioiTinhApDung: phong.gioiTinhApDung,
-		trangThai: phong.trangThai,
-		loaiPhong: phong.loaiPhong.tenLoaiPhong,
-		donGia: phong.loaiPhong.donGia,
-		giuongs: phong.giuongs.map((giuong) => ({
-			giuongId: giuong.giuongId,
-			maGiuongLocal: giuong.maGiuongLocal,
-			trangThai: giuong.trangThai,
-			khaDung: laTrangThaiGiuongTrong(giuong.trangThai) && !giuongDaGiu.has(giuong.giuongId),
-		})),
-	}));
+	return danhSach
+		.filter((phong) => !phongDaGiuNguyen.has(phong.phongId))
+		.map((phong) => ({
+			phongId: phong.phongId,
+			maPhong: phong.maPhong,
+			khu: phong.khu,
+			tang: phong.tang,
+			sucChua: phong.sucChua,
+			gioiTinhApDung: phong.gioiTinhApDung,
+			trangThai: phong.trangThai,
+			loaiPhong: phong.loaiPhong.tenLoaiPhong,
+			donGia: phong.loaiPhong.donGia,
+			giuongs: phong.giuongs.map((giuong) => ({
+				giuongId: giuong.giuongId,
+				maGiuongLocal: giuong.maGiuongLocal,
+				trangThai: giuong.trangThai,
+				khaDung: laTrangThaiGiuongTrong(giuong.trangThai) && !giuongDaGiu.has(giuong.giuongId),
+			})),
+		}));
 }
 
 export async function lapYeuCauThanhToanCoc(hoSoId: number, keToanId: number) {
@@ -208,7 +210,7 @@ async function danhDauYeuCauDatCocDaHuy(hoSoId: number, reason: string) {
 			include: { yeuCauThanhToanCoc: true, chiTietDatCocs: true },
 		});
 		if (!hoSo) return null;
-		if (!['Chờ thanh toán', 'Chờ xác nhận thanh toán'].includes(hoSo.trangThai)) {
+		if (!["Chờ thanh toán", "Chờ xác nhận thanh toán"].includes(hoSo.trangThai)) {
 			throw new ApiValidationError("Chỉ có thể hủy yêu cầu đặt cọc đang chờ thanh toán.");
 		}
 		if (hoSo.yeuCauThanhToanCoc) {
@@ -222,7 +224,10 @@ async function danhDauYeuCauDatCocDaHuy(hoSoId: number, reason: string) {
 			if (detail.giuongId) {
 				await transaction.giuong.updateMany({ where: { giuongId: detail.giuongId, trangThai: "Đang chờ xác nhận" }, data: { trangThai: "Trống" } });
 			} else if (detail.phongId) {
-				await transaction.phong.updateMany({ where: { phongId: detail.phongId, trangThai: "Đang chờ xác nhận" }, data: { trangThai: "DANG_HOAT_DONG" } });
+				await transaction.phong.updateMany({
+					where: { phongId: detail.phongId, trangThai: "Đang chờ xác nhận" },
+					data: { trangThai: "DANG_HOAT_DONG" },
+				});
 			}
 		}
 		await transaction.hoSoDatCoc.update({
@@ -452,9 +457,10 @@ export async function luuLichHenNhanPhong(hoSoId: number, input: LichHenNhanPhon
 	return {
 		trangThai: "Đã đặt cọc",
 		maHoSoDatCoc: result.hoSo.maHoSoDatCoc,
-		thongBao: kenhThongBao.length > 0
-			? { success: true, message: `Đã gửi thông báo lịch nhận phòng qua ${kenhThongBao.join(" và ")}.` }
-			: { success: false, message: "Lịch hẹn đã được lưu nhưng không có email hoặc số điện thoại để gửi thông báo." },
+		thongBao:
+			kenhThongBao.length > 0
+				? { success: true, message: `Đã gửi thông báo lịch nhận phòng qua ${kenhThongBao.join(" và ")}.` }
+				: { success: false, message: "Lịch hẹn đã được lưu nhưng không có email hoặc số điện thoại để gửi thông báo." },
 	};
 }
 
@@ -604,11 +610,11 @@ export async function kiemTraTinhTrangPhong(phongId: number, giuongId?: number |
 		hasOtherDeposit = cacsHoSoKhac.length > 0;
 	}
 
-	const hoSo = hoSoDatCocId
-		? await prisma.hoSoDatCoc.findUnique({ where: { hoSoDatCocId }, include: { khachHang: true } })
-		: null;
+	const hoSo = hoSoDatCocId ? await prisma.hoSoDatCoc.findUnique({ where: { hoSoDatCocId }, include: { khachHang: true } }) : null;
 	const phuHopGioiTinh =
-		!phong.gioiTinhApDung || !hoSo?.khachHang.gioiTinh || phong.gioiTinhApDung.toLocaleLowerCase("vi-VN") === hoSo.khachHang.gioiTinh.toLocaleLowerCase("vi-VN");
+		!phong.gioiTinhApDung ||
+		!hoSo?.khachHang.gioiTinh ||
+		phong.gioiTinhApDung.toLocaleLowerCase("vi-VN") === hoSo.khachHang.gioiTinh.toLocaleLowerCase("vi-VN");
 	const doiTuongKhaDung = giuongYeuCau
 		? laTrangThaiGiuongTrong(giuongYeuCau.trangThai)
 		: laTrangThaiPhongKhaDung(phong.trangThai) && phong.giuongs.every((giuong) => laTrangThaiGiuongTrong(giuong.trangThai));
