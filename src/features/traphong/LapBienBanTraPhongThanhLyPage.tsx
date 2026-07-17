@@ -373,8 +373,22 @@ function HandoverScreen({
   const ngayTraInputRef = useRef<HTMLInputElement>(null);
   const [khachKy, setKhachKy] = useState<"chua" | "da-ky" | "tu-choi">("chua");
   const [refuseReason, setRefuseReason] = useState("");
+  const [touchedNgayTra, setTouchedNgayTra] = useState(false);
 
-  const canSign = !!ngayTra && !!tinhTrang;
+  // "Ngày trả phòng thực tế" ghi nhận việc ĐÃ xảy ra — khác UC1 (ngày DỰ KIẾN trong tương
+  // lai), ở đây phải chặn NGƯỢC LẠI: không cho chọn ngày trong tương lai (chưa xảy ra sao
+  // ghi nhận được). Tính "hôm nay" theo giờ local máy, không dùng toISOString() (bị lệch
+  // múi giờ UTC — xem lỗi tương tự đã sửa ở UC1).
+  const nowUC4 = new Date();
+  const todayUC4 = `${nowUC4.getFullYear()}-${String(nowUC4.getMonth() + 1).padStart(2, "0")}-${String(nowUC4.getDate()).padStart(2, "0")}`;
+  const ngayTraError =
+    touchedNgayTra && !ngayTra
+      ? "Vui lòng chọn ngày trả phòng thực tế"
+      : touchedNgayTra && ngayTra > todayUC4
+        ? "Ngày trả phòng thực tế không được ở trong tương lai"
+        : undefined;
+
+  const canSign = !!ngayTra && !!tinhTrang && ngayTra <= todayUC4;
 
   return (
     <div>
@@ -402,8 +416,15 @@ function HandoverScreen({
                 ref={ngayTraInputRef}
                 type="date"
                 value={ngayTra}
-                onChange={(e) => setNgayTra(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg pl-3 pr-9 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => {
+                  setNgayTra(e.target.value);
+                  setTouchedNgayTra(true);
+                }}
+                className={`w-full border rounded-lg pl-3 pr-9 py-2.5 text-sm focus:outline-none focus:ring-2 ${
+                  ngayTraError
+                    ? "border-red-400 focus:ring-red-300"
+                    : "border-gray-300 focus:ring-blue-500"
+                }`}
               />
               <button
                 type="button"
@@ -414,6 +435,9 @@ function HandoverScreen({
                 <Calendar size={16} />
               </button>
             </div>
+            {ngayTraError && (
+              <p className="text-xs text-red-500 mt-1">{ngayTraError}</p>
+            )}
           </div>
         </div>
         <div>

@@ -28,6 +28,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ maH
 		if (Number.isNaN(ngayTraPhongThucTe.getTime())) {
 			return apiError("ngayTraPhongThucTe không hợp lệ.", 400);
 		}
+		// SỬA: trước đây không kiểm tra gì thêm — cho phép ghi nhận "đã trả phòng" vào 1 ngày
+		// còn chưa tới, vô lý về nghiệp vụ. Đây là ngày ghi nhận việc ĐÃ xảy ra nên phải chặn
+		// NGƯỢC với UC1 (không cho ở tương lai, thay vì không cho ở quá khứ).
+		const endOfToday = new Date();
+		endOfToday.setHours(23, 59, 59, 999);
+		if (ngayTraPhongThucTe > endOfToday) {
+			return apiError("Ngày trả phòng thực tế không được ở trong tương lai.", 400);
+		}
 
 		const hoSo = await HoSoTraPhong.layThongTin(parsed.id);
 		if (!hoSo) return apiError("Không tìm thấy hồ sơ.", 404);

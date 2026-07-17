@@ -589,7 +589,13 @@ function RecordTimeScreen({
   const ngayInputRef = useRef<HTMLInputElement>(null);
   const gioInputRef = useRef<HTMLInputElement>(null);
 
-  const today = new Date().toISOString().slice(0, 10);
+  // SỬA: trước đây dùng new Date().toISOString().slice(0,10) để lấy "hôm nay" — hàm này trả
+  // về NGÀY THEO GIỜ UTC, không phải giờ Việt Nam (UTC+7). Trong khung 0h-7h sáng giờ VN,
+  // ngày UTC vẫn là "hôm qua" -> hệ thống hiểu nhầm "hôm nay" là hôm qua, cho phép chọn
+  // 1 ngày thực ra đã trôi qua. Giờ tính "hôm nay"/"giờ hiện tại" theo đúng giờ local máy.
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const nowHHMM = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
   const ngayError =
     touched && !ngay
       ? "Vui lòng chọn ngày trả phòng"
@@ -597,8 +603,12 @@ function RecordTimeScreen({
         ? "Ngày trả phòng phải lớn hơn hoặc bằng ngày hiện tại"
         : undefined;
   const gioError =
-    touched && !gio ? "Vui lòng chọn giờ trả phòng" : undefined;
-  const canContinue = !!ngay && !!gio && ngay >= today;
+    touched && !gio
+      ? "Vui lòng chọn giờ trả phòng"
+      : touched && !ngayError && ngay === today && gio < nowHHMM
+        ? "Giờ trả phòng đã trôi qua trong hôm nay, vui lòng chọn giờ khác hoặc đổi ngày"
+        : undefined;
+  const canContinue = !!ngay && !!gio && ngay >= today && !(ngay === today && gio < nowHHMM);
 
   const reasons = [
     "Chọn lý do",
@@ -902,6 +912,7 @@ function SuccessScreen({
           >
             Quay về danh sách
           </button>
+          
         </div>
       </div>
     </div>

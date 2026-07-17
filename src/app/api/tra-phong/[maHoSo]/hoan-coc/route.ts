@@ -34,6 +34,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ maH
 			const parsedDate = new Date(body.thoiDiemThucHien);
 			if (!Number.isNaN(parsedDate.getTime())) thoiDiemThucHien = parsedDate;
 		}
+		// SỬA: trước đây không kiểm tra gì thêm — cho phép ghi nhận giao dịch đã "thực hiện"
+		// vào 1 thời điểm còn chưa tới, vô lý về nghiệp vụ (giống UC4, chặn NGƯỢC với UC1).
+		if (thoiDiemThucHien > new Date()) {
+			return apiError("Thời điểm thực hiện không được ở trong tương lai.", 400);
+		}
 
 		const hoSo = await HoSoTraPhong.layThongTin(parsed.id);
 		if (!hoSo) return apiError("Không tìm thấy hồ sơ.", 404);

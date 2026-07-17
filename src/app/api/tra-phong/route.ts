@@ -44,6 +44,20 @@ export async function POST(req: NextRequest) {
 		if (ngayTraPhongDuKien < today) {
 			return apiError("Ngày trả phòng dự kiến không được ở trong quá khứ.", 400);
 		}
+		// SỬA: chỉ check theo NGÀY chưa đủ chặt — nếu ngày là hôm nay nhưng giờ đã nhập là
+		// giờ đã trôi qua (vd 8h sáng trong khi bây giờ đã 15h) thì vẫn cần từ chối. Việc này
+		// trước đây chỉ được chặn phía client (và có lúc còn bị lỗi timezone) — giờ server tự
+		// kiểm tra lại độc lập, không tin tưởng hoàn toàn dữ liệu client gửi lên.
+		if (gioTraPhong) {
+			const [gio, phut] = gioTraPhong.split(":").map(Number);
+			if (!Number.isNaN(gio) && !Number.isNaN(phut)) {
+				const ngayGioDuKien = new Date(ngayTraPhongDuKien);
+				ngayGioDuKien.setHours(gio, phut, 0, 0);
+				if (ngayGioDuKien < new Date()) {
+					return apiError("Ngày giờ trả phòng dự kiến đã trôi qua, vui lòng chọn lại.", 400);
+				}
+			}
+		}
 
 		const hopDong = await HopDong.layThongTin(maHopDong);
 		if (!hopDong) {

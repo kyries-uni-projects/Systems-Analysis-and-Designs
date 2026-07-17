@@ -305,6 +305,7 @@ function ConfirmScreen({
   const [ngayThucHien, setNgayThucHien] = useState("");
   const ngayThucHienInputRef = useRef<HTMLInputElement>(null);
   const chungTuInputRef = useRef<HTMLInputElement>(null);
+  const [touchedNgayThucHien, setTouchedNgayThucHien] = useState(false);
   const handleChungTuChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -313,9 +314,21 @@ function ConfirmScreen({
     reader.readAsDataURL(file);
   };
 
+  // "Thời điểm thực hiện" ghi nhận giao dịch ĐÃ xảy ra — không được ở tương lai. Input
+  // datetime-local trả về chuỗi "YYYY-MM-DDTHH:MM" không kèm timezone, new Date() parse
+  // chuỗi này đúng theo giờ local máy — không bị lỗi UTC như toISOString().
+  const ngayThucHienTrongTuongLai = !!ngayThucHien && new Date(ngayThucHien) > new Date();
+  const ngayThucHienError =
+    touchedNgayThucHien && !ngayThucHien
+      ? "Vui lòng chọn thời điểm thực hiện"
+      : touchedNgayThucHien && ngayThucHienTrongTuongLai
+        ? "Thời điểm thực hiện không được ở trong tương lai"
+        : undefined;
+
   const canConfirm =
     !!phuongThuc &&
     !!ngayThucHien &&
+    !ngayThucHienTrongTuongLai &&
     (phuongThuc === "chuyen-khoan"
       ? !!soTaiKhoan && !!tenNganHang && !!chungTu
       : daLapPhieuChi);
@@ -518,10 +531,15 @@ function ConfirmScreen({
                 ref={ngayThucHienInputRef}
                 type="datetime-local"
                 value={ngayThucHien}
-                onChange={(e) =>
-                  setNgayThucHien(e.target.value)
-                }
-                className="w-full border border-gray-300 rounded-lg pl-3 pr-9 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => {
+                  setNgayThucHien(e.target.value);
+                  setTouchedNgayThucHien(true);
+                }}
+                className={`w-full border rounded-lg pl-3 pr-9 py-2.5 text-sm focus:outline-none focus:ring-2 ${
+                  ngayThucHienError
+                    ? "border-red-400 focus:ring-red-300"
+                    : "border-gray-300 focus:ring-blue-500"
+                }`}
               />
               <button
                 type="button"
@@ -532,6 +550,9 @@ function ConfirmScreen({
                 <Calendar size={16} />
               </button>
             </div>
+            {ngayThucHienError && (
+              <p className="text-xs text-red-500 mt-1">{ngayThucHienError}</p>
+            )}
           </div>
         )}
       </Card>
