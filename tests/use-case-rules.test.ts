@@ -33,6 +33,26 @@ test("deposit creation preserves the source rental request", () => {
 	assert.equal(input.yeuCauThue.loaiThue, "Thuê giường");
 });
 
+test("deposit confirmation can save the latest customer and stay details before reviewing again", () => {
+	const input = parseHoSoDatCocInput({
+		khachHang: {
+			hoTen: "Nguyễn Văn A",
+			cccdPassport: "012345678901",
+			gioiTinh: "Nam",
+			soDienThoai: "0900000000",
+			email: "nguyenvana@example.com",
+		},
+		yeuCauThue: { soNguoiDuKien: 3, loaiThue: "Thuê nguyên phòng", khuVucMongMuon: "Khu B" },
+		ngayBatDauDuKien: "2026-09-15",
+		ngayKetThucDuKien: "2027-03-15",
+	});
+
+	assert.equal(input.yeuCauThue.soNguoiDuKien, 3);
+	assert.equal(input.yeuCauThue.loaiThue, "Thuê nguyên phòng");
+	assert.equal(input.ngayBatDauDuKien.toISOString(), "2026-09-15T00:00:00.000Z");
+	assert.equal(input.ngayKetThucDuKien.toISOString(), "2027-03-15T00:00:00.000Z");
+});
+
 test("check-in appointment input rejects invalid calendar values", () => {
 	const parsed = parseLichHenNhanPhongInput({ ngayNhanPhong: "2026-08-15", gioNhanPhong: "08:30", ghiChu: "Mang CCCD" });
 	assert.equal(parsed.gioNhanPhong, "08:30");

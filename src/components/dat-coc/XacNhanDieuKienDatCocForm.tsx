@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Check, CheckCircle2, ChevronRight, X } from "lucide-react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { AlertTriangle, Check, CheckCircle2, ChevronRight, PencilLine, Save, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { GENDER_OPTIONS } from "@/lib/gender";
+import { RENTAL_TYPES } from "@/types/yeu-cau-thue";
 
 type HoSoDatCocDetail = {
 	hoSoDatCocId: number;
 	maHoSoDatCoc: string;
 	trangThai: string;
 	hinhThucThue: string;
+	ngayBatDauDuKien: string;
+	ngayKetThucDuKien: string;
 	lyDoTuChoi: string | null;
 	nhanVien: { hoTen: string };
 	khachHang: {
@@ -51,11 +55,45 @@ type PhongKhaDung = {
 
 type DetailPayload = { hoSo: HoSoDatCocDetail; quyDinhList: QuyDinhItem[] | null; tinhTrangPhong: TinhTrangPhong | null };
 
+type HoSoProfileDraft = {
+	hoTen: string;
+	cccdPassport: string;
+	gioiTinh: string;
+	quocTich: string;
+	soDienThoai: string;
+	email: string;
+	soNguoiDuKien: string;
+	loaiThue: string;
+	khuVucMongMuon: string;
+	ngayBatDauDuKien: string;
+	ngayKetThucDuKien: string;
+};
+
 const controlClass =
 	"h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-[#101828] outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100";
 
 function formatCurrency(value: number) {
 	return new Intl.NumberFormat("vi-VN").format(value) + " VND";
+}
+
+function formatDate(value: string) {
+	return value ? new Date(value).toLocaleDateString("vi-VN") : "—";
+}
+
+function createProfileDraft(hoSo: HoSoDatCocDetail): HoSoProfileDraft {
+	return {
+		hoTen: hoSo.khachHang.hoTen,
+		cccdPassport: hoSo.khachHang.cccdPassport,
+		gioiTinh: hoSo.khachHang.gioiTinh ?? "",
+		quocTich: hoSo.khachHang.quocTich ?? "",
+		soDienThoai: hoSo.khachHang.soDienThoai,
+		email: hoSo.khachHang.email ?? "",
+		soNguoiDuKien: String(hoSo.yeuCauThue.soNguoiDuKien),
+		loaiThue: hoSo.yeuCauThue.loaiThue,
+		khuVucMongMuon: hoSo.yeuCauThue.khuVucMongMuon ?? "",
+		ngayBatDauDuKien: hoSo.ngayBatDauDuKien.slice(0, 10),
+		ngayKetThucDuKien: hoSo.ngayKetThucDuKien.slice(0, 10),
+	};
 }
 
 export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }) {
@@ -73,6 +111,10 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 	const [giuongId, setGiuongId] = useState("");
 	const [giaThueThoaThuan, setGiaThueThoaThuan] = useState("");
 	const [soGiuongQuyDoi, setSoGiuongQuyDoi] = useState("1");
+	const [profileDraft, setProfileDraft] = useState<HoSoProfileDraft | null>(null);
+	const [isEditingProfile, setIsEditingProfile] = useState(false);
+	const [isSavingProfile, setIsSavingProfile] = useState(false);
+	const [profileSuccess, setProfileSuccess] = useState("");
 
 	useEffect(() => {
 		async function loadData() {
@@ -83,6 +125,7 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 
 				const loadedData = detailPayload.data as DetailPayload;
 				setData(loadedData);
+				setProfileDraft(createProfileDraft(loadedData.hoSo));
 				setPhongId(loadedData.hoSo.phong?.phongId ? String(loadedData.hoSo.phong.phongId) : "");
 				setGiuongId(loadedData.hoSo.giuong?.giuongId ? String(loadedData.hoSo.giuong.giuongId) : "");
 				setGiaThueThoaThuan(loadedData.hoSo.chiTietDatCoc ? String(loadedData.hoSo.chiTietDatCoc.giaThueThoaThuan) : "");
@@ -118,6 +161,64 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 		setGiuongId("");
 		const room = rooms.find((item) => item.phongId === Number(value));
 		setGiaThueThoaThuan(room ? String(room.donGia) : "");
+	}
+
+	function updateProfileField<Key extends keyof HoSoProfileDraft>(field: Key, value: HoSoProfileDraft[Key]) {
+		setProfileDraft((current) => (current ? { ...current, [field]: value } : current));
+	}
+
+	function cancelProfileEdit() {
+		if (data) setProfileDraft(createProfileDraft(data.hoSo));
+		setIsEditingProfile(false);
+		setError("");
+	}
+
+	async function handleProfileSubmit(event: FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		if (!data || !profileDraft) return;
+
+		setError("");
+		setProfileSuccess("");
+		setIsSavingProfile(true);
+		try {
+			const response = await fetch(`/api/ho-so-dat-coc/${hoSoId}/cap-nhat-thong-tin`, {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					khachHang: {
+						hoTen: profileDraft.hoTen,
+						cccdPassport: profileDraft.cccdPassport,
+						gioiTinh: profileDraft.gioiTinh,
+						quocTich: profileDraft.quocTich,
+						soDienThoai: profileDraft.soDienThoai,
+						email: profileDraft.email,
+					},
+					yeuCauThue: {
+						soNguoiDuKien: Number(profileDraft.soNguoiDuKien),
+						loaiThue: profileDraft.loaiThue,
+						khuVucMongMuon: profileDraft.khuVucMongMuon,
+					},
+					ngayBatDauDuKien: profileDraft.ngayBatDauDuKien,
+					ngayKetThucDuKien: profileDraft.ngayKetThucDuKien,
+				}),
+			});
+			const payload: { success?: boolean; error?: string; data?: HoSoDatCocDetail } = await response.json().catch(() => ({}));
+			if (!response.ok || !payload.success || !payload.data) {
+				throw new Error(payload.error || "Không thể cập nhật thông tin hồ sơ.");
+			}
+
+			const updatedHoSo = payload.data;
+			setData((current) => (current ? { ...current, hoSo: updatedHoSo } : current));
+			setProfileDraft(createProfileDraft(updatedHoSo));
+			setCheckedConditions(Object.fromEntries((data.quyDinhList ?? []).map((quyDinh) => [quyDinh.quyDinhId, false])));
+			if (!updatedHoSo.hinhThucThue.toLocaleLowerCase("vi-VN").includes("giường")) setGiuongId("");
+			setProfileSuccess("Đã lưu thông tin mới. Vui lòng rà soát lại các điều kiện lưu trú trước khi gửi yêu cầu.");
+			setIsEditingProfile(false);
+		} catch (submitError) {
+			setError(submitError instanceof Error ? submitError.message : "Không thể cập nhật thông tin hồ sơ.");
+		} finally {
+			setIsSavingProfile(false);
+		}
 	}
 
 	async function handleSubmit(isRejected: boolean) {
@@ -235,13 +336,89 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 					<AlertTriangle className="size-4 shrink-0" aria-hidden="true" /> {error}
 				</p>
 			)}
+			{profileSuccess && (
+				<p className="mt-5 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700" role="status">
+					<CheckCircle2 className="size-4 shrink-0" aria-hidden="true" /> {profileSuccess}
+				</p>
+			)}
 
 			<div className="mt-6 grid gap-5 lg:grid-cols-2">
 				<section className="rounded-xl border border-[#d7ece7] bg-[#f8fefd] p-5 shadow-sm">
-					<h2 className="mb-4 text-base font-semibold text-[#101828]">{isSaleView ? "Thông tin khách hàng" : "Thông tin yêu cầu kiểm tra"}</h2>
-					<InfoRow label="Khách hàng" value={hoSo.khachHang.hoTen} />
-					{isSaleView ? (
+					<div className="mb-4 flex items-center justify-between gap-3">
+						<h2 className="text-base font-semibold text-[#101828]">{isSaleView ? "Thông tin khách hàng" : "Thông tin yêu cầu kiểm tra"}</h2>
+						{isSaleView && !isEditingProfile && (
+							<button
+								type="button"
+								onClick={() => {
+									setError("");
+									setProfileSuccess("");
+									setIsEditingProfile(true);
+								}}
+								className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-teal-200 bg-white px-3 text-xs font-semibold text-[#0f766e] transition hover:bg-teal-50"
+							>
+								<PencilLine className="size-3.5" aria-hidden="true" />
+								Cập nhật hồ sơ
+							</button>
+						)}
+					</div>
+					{isSaleView && isEditingProfile && profileDraft ? (
+						<form onSubmit={handleProfileSubmit}>
+							<div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-800">
+								Cập nhật theo thông tin khách cung cấp tại thời điểm xác nhận. Sau khi lưu, hệ thống sẽ đưa hồ sơ về bước rà soát điều kiện với dữ liệu mới.
+							</div>
+							<div className="grid gap-3 sm:grid-cols-2">
+								<ProfileField label="Họ và tên" className="sm:col-span-2">
+									<input required value={profileDraft.hoTen} onChange={(event) => updateProfileField("hoTen", event.target.value)} className={controlClass} />
+								</ProfileField>
+								<ProfileField label="Số CCCD">
+									<input required value={profileDraft.cccdPassport} onChange={(event) => updateProfileField("cccdPassport", event.target.value)} className={controlClass} />
+								</ProfileField>
+								<ProfileField label="Giới tính">
+									<select value={profileDraft.gioiTinh} onChange={(event) => updateProfileField("gioiTinh", event.target.value)} className={controlClass}>
+										<option value="">Chưa cung cấp</option>
+										{GENDER_OPTIONS.map((gender) => <option key={gender} value={gender}>{gender}</option>)}
+									</select>
+								</ProfileField>
+								<ProfileField label="Quốc tịch">
+									<input value={profileDraft.quocTich} onChange={(event) => updateProfileField("quocTich", event.target.value)} className={controlClass} />
+								</ProfileField>
+								<ProfileField label="Số điện thoại">
+									<input required value={profileDraft.soDienThoai} onChange={(event) => updateProfileField("soDienThoai", event.target.value)} className={controlClass} />
+								</ProfileField>
+								<ProfileField label="Email" className="sm:col-span-2">
+									<input type="email" value={profileDraft.email} onChange={(event) => updateProfileField("email", event.target.value)} className={controlClass} />
+								</ProfileField>
+								<ProfileField label="Số người dự kiến">
+									<input required type="number" min="1" value={profileDraft.soNguoiDuKien} onChange={(event) => updateProfileField("soNguoiDuKien", event.target.value)} className={controlClass} />
+								</ProfileField>
+								<ProfileField label="Hình thức thuê">
+									<select required value={profileDraft.loaiThue} onChange={(event) => updateProfileField("loaiThue", event.target.value)} className={controlClass}>
+										{[...new Set([profileDraft.loaiThue, ...RENTAL_TYPES])].filter(Boolean).map((rentalType) => <option key={rentalType} value={rentalType}>{rentalType}</option>)}
+									</select>
+								</ProfileField>
+								<ProfileField label="Khu vực mong muốn" className="sm:col-span-2">
+									<input value={profileDraft.khuVucMongMuon} onChange={(event) => updateProfileField("khuVucMongMuon", event.target.value)} className={controlClass} />
+								</ProfileField>
+								<ProfileField label="Ngày vào ở dự kiến">
+									<input required type="date" value={profileDraft.ngayBatDauDuKien} onChange={(event) => updateProfileField("ngayBatDauDuKien", event.target.value)} className={controlClass} />
+								</ProfileField>
+								<ProfileField label="Ngày kết thúc dự kiến">
+									<input required type="date" value={profileDraft.ngayKetThucDuKien} onChange={(event) => updateProfileField("ngayKetThucDuKien", event.target.value)} className={controlClass} />
+								</ProfileField>
+							</div>
+							<div className="mt-4 flex flex-wrap justify-end gap-2">
+								<button type="button" onClick={cancelProfileEdit} disabled={isSavingProfile} className="h-9 rounded-lg border border-slate-300 bg-white px-4 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50">
+									Hủy
+								</button>
+								<button type="submit" disabled={isSavingProfile} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#0f766e] px-4 text-xs font-semibold text-white transition hover:bg-[#0b625b] disabled:opacity-50">
+									<Save className="size-3.5" aria-hidden="true" />
+									{isSavingProfile ? "Đang lưu..." : "Lưu và rà soát lại"}
+								</button>
+							</div>
+						</form>
+					) : isSaleView ? (
 						<>
+							<InfoRow label="Khách hàng" value={hoSo.khachHang.hoTen} />
 							<InfoRow label="Số CCCD" value={hoSo.khachHang.cccdPassport} />
 							<InfoRow label="Giới tính" value={hoSo.khachHang.gioiTinh || "—"} />
 							<InfoRow label="Quốc tịch" value={hoSo.khachHang.quocTich || "—"} />
@@ -249,10 +426,13 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 							<InfoRow label="Email" value={hoSo.khachHang.email || "—"} />
 							<InfoRow label="Số người dự kiến" value={`${hoSo.yeuCauThue.soNguoiDuKien} người`} />
 							<InfoRow label="Hình thức thuê" value={hoSo.hinhThucThue} />
-							<InfoRow label="Khu vực mong muốn" value={hoSo.yeuCauThue.khuVucMongMuon || "—"} last />
+							<InfoRow label="Khu vực mong muốn" value={hoSo.yeuCauThue.khuVucMongMuon || "—"} />
+							<InfoRow label="Ngày vào ở dự kiến" value={formatDate(hoSo.ngayBatDauDuKien)} />
+							<InfoRow label="Ngày kết thúc dự kiến" value={formatDate(hoSo.ngayKetThucDuKien)} last />
 						</>
 					) : (
 						<>
+							<InfoRow label="Khách hàng" value={hoSo.khachHang.hoTen} />
 							<InfoRow label="Phòng yêu cầu" value={hoSo.phong ? `${hoSo.phong.maPhong} – ${hoSo.phong.khu || "Khu chung"}` : "—"} />
 							<InfoRow label="Giường yêu cầu" value={hoSo.giuong ? `Giường ${hoSo.giuong.maGiuongLocal}` : "Thuê nguyên phòng"} />
 							<InfoRow label="Số giường quy đổi" value={`${hoSo.chiTietDatCoc?.soGiuongQuyDoi ?? 0}`} />
@@ -334,13 +514,13 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 			</div>
 
 			<div className="mt-7 flex flex-wrap items-center justify-between gap-3">
-				<button type="button" onClick={() => void handleSubmit(true)} disabled={isSubmitting || !ghiChuTuChoi.trim()} className="h-11 rounded-lg border border-red-300 bg-white px-6 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50">
+				<button type="button" onClick={() => void handleSubmit(true)} disabled={isSubmitting || isSavingProfile || isEditingProfile || !ghiChuTuChoi.trim()} className="h-11 rounded-lg border border-red-300 bg-white px-6 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50">
 					Từ chối
 				</button>
 				<button
 					type="button"
 					onClick={() => void handleSubmit(false)}
-					disabled={isSubmitting || (isSaleView ? !canSubmitSale : !tinhTrangPhong?.coTheXacNhan)}
+					disabled={isSubmitting || isSavingProfile || isEditingProfile || (isSaleView ? !canSubmitSale : !tinhTrangPhong?.coTheXacNhan)}
 					className="h-11 rounded-lg bg-[#155DFC] px-6 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					{isSubmitting ? "Đang xử lý..." : isSaleView ? "Gửi yêu cầu kiểm tra phòng" : "Xác nhận có thể nhận cọc"}
@@ -363,6 +543,15 @@ function FormField({ label, children, className = "" }: { label: string; childre
 	return (
 		<label className={`block ${className}`}>
 			<span className="mb-1.5 block text-xs font-medium text-slate-600">{label}</span>
+			{children}
+		</label>
+	);
+}
+
+function ProfileField({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
+	return (
+		<label className={`block ${className}`}>
+			<span className="mb-1.5 block text-xs font-medium text-[#364153]">{label}</span>
 			{children}
 		</label>
 	);
