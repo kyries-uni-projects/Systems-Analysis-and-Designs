@@ -8,6 +8,7 @@ import {
 	TRANG_THAI_CHO_BAN_GIAO,
 } from "../src/lib/nhan-phong-rules";
 import { DoiSoatHoanCoc } from "../src/lib/services/doiSoatHoanCoc.service";
+import { TRANG_THAI_DANG_GIU_CHO, trangThaiSauKhiSaleCapNhat } from "../src/lib/services/hoSoDatCocService";
 import { HopDong } from "../src/lib/services/hopDong.service";
 import { getWorkflowAction, workflowGroups } from "../src/lib/workflow-navigation";
 import { parseLichHenNhanPhongInput } from "../src/lib/lichHenNhanPhongInput";
@@ -31,6 +32,34 @@ test("deposit creation preserves the source rental request", () => {
 	});
 	assert.equal(input.yeuCauId, 12);
 	assert.equal(input.yeuCauThue.loaiThue, "Thuê giường");
+});
+
+test("returned payment profiles stay reserved and go back to accounting after Sale updates them", () => {
+	assert.equal(TRANG_THAI_DANG_GIU_CHO.includes("Cần cập nhật"), true);
+	assert.equal(trangThaiSauKhiSaleCapNhat("Cần cập nhật"), "Đã xác nhận điều kiện");
+	assert.equal(trangThaiSauKhiSaleCapNhat("Mới tạo"), "Mới tạo");
+});
+
+test("Sale can correct the financial fields requested by accounting", () => {
+	const input = parseHoSoDatCocInput({
+		khachHang: { hoTen: "Nguyễn Văn A", cccdPassport: "012345678901", soDienThoai: "0900000000" },
+		yeuCauThue: { soNguoiDuKien: 2, loaiThue: "Thuê giường" },
+		chiTietDatCoc: { giaThueThoaThuan: 2_500_000, soGiuongQuyDoi: 2 },
+		ngayBatDauDuKien: "2026-09-01",
+		ngayKetThucDuKien: "2027-03-01",
+	});
+
+	assert.deepEqual(input.chiTietDatCoc, { giaThueThoaThuan: 2_500_000, soGiuongQuyDoi: 2 });
+	assert.throws(
+		() => parseHoSoDatCocInput({
+			khachHang: { hoTen: "Nguyễn Văn A", cccdPassport: "012345678901", soDienThoai: "0900000000" },
+			yeuCauThue: { soNguoiDuKien: 2, loaiThue: "Thuê giường" },
+			chiTietDatCoc: { giaThueThoaThuan: 0, soGiuongQuyDoi: 2 },
+			ngayBatDauDuKien: "2026-09-01",
+			ngayKetThucDuKien: "2027-03-01",
+		}),
+		/Giá thuê thỏa thuận/,
+	);
 });
 
 test("deposit confirmation can save the latest customer and stay details before reviewing again", () => {

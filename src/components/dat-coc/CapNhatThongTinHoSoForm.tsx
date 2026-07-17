@@ -24,6 +24,10 @@ type InitialData = {
 		loaiThue: string;
 		khuVucMongMuon: string | null;
 	};
+	chiTietDatCoc: {
+		giaThueThoaThuan: number;
+		soGiuongQuyDoi: number;
+	} | null;
 	dieuKien: { quyDinhId: number; tenQuyDinh: string; ketQua: string }[];
 };
 
@@ -40,6 +44,7 @@ export default function CapNhatThongTinHoSoForm({ initialData, prefillData, sour
 	const [success, setSuccess] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const isCreate = !initialData;
+	const isFinancialUpdate = initialData?.trangThai === "Cần cập nhật";
 	const formDataSource = initialData ?? prefillData;
 	const today = new Date().toISOString().slice(0, 10);
 	const defaultEndDate = new Date(new Date(`${today}T00:00:00`).setMonth(new Date(`${today}T00:00:00`).getMonth() + 6)).toISOString().slice(0, 10);
@@ -70,6 +75,12 @@ export default function CapNhatThongTinHoSoForm({ initialData, prefillData, sour
 					loaiThue: formData.get("loaiThue"),
 					khuVucMongMuon: formData.get("khuVucMongMuon"),
 				},
+				chiTietDatCoc: initialData?.chiTietDatCoc
+					? {
+							giaThueThoaThuan: formData.get("giaThueThoaThuan"),
+							soGiuongQuyDoi: formData.get("soGiuongQuyDoi"),
+						}
+					: undefined,
 				ngayBatDauDuKien: formData.get("ngayBatDauDuKien"),
 				ngayKetThucDuKien: formData.get("ngayKetThucDuKien"),
 				lyDoTuChoi: formData.get("lyDoTuChoi"),
@@ -82,7 +93,7 @@ export default function CapNhatThongTinHoSoForm({ initialData, prefillData, sour
 			return;
 		}
 
-		setSuccess(isCreate ? "Đã tạo hồ sơ đặt cọc." : "Đã lưu cập nhật hồ sơ.");
+		setSuccess(isCreate ? "Đã tạo hồ sơ đặt cọc." : isFinancialUpdate ? "Đã bổ sung thông tin và chuyển lại hồ sơ cho Kế toán." : "Đã lưu cập nhật hồ sơ.");
 		setIsSubmitting(false);
 		if (isCreate) {
 			router.push("/deposit");
@@ -111,11 +122,11 @@ export default function CapNhatThongTinHoSoForm({ initialData, prefillData, sour
 		<form onSubmit={handleSubmit} className="mx-auto w-full max-w-[960px]">
 			<div className="mb-6">
 				<nav className="mb-6 text-[13px] text-[#6a7282]" aria-label="Breadcrumb">
-					Đặt cọc &amp; xác nhận thuê&nbsp;&nbsp;&gt;&nbsp;&nbsp; {isCreate ? "Lập phiếu đặt cọc" : "Cập nhật thông tin hồ sơ đặt cọc"}
+					Đặt cọc &amp; xác nhận thuê&nbsp;&nbsp;&gt;&nbsp;&nbsp; {isCreate ? "Lập phiếu đặt cọc" : isFinancialUpdate ? "Bổ sung thông tin tài chính" : "Cập nhật thông tin hồ sơ đặt cọc"}
 				</nav>
-				<h1 className="text-2xl font-bold text-[#101828]">{isCreate ? "Lập phiếu đặt cọc" : "Cập nhật thông tin hồ sơ đặt cọc"}</h1>
+				<h1 className="text-2xl font-bold text-[#101828]">{isCreate ? "Lập phiếu đặt cọc" : isFinancialUpdate ? "Bổ sung thông tin tài chính" : "Cập nhật thông tin hồ sơ đặt cọc"}</h1>
 				<p className="mt-1 text-[13px] text-[#6a7282]">
-					{isCreate ? "Nhập thông tin để tạo hồ sơ đặt cọc mới." : "Chỉnh sửa thông tin của hồ sơ đặt cọc đã chọn."}
+					{isCreate ? "Nhập thông tin để tạo hồ sơ đặt cọc mới." : isFinancialUpdate ? "Cập nhật nội dung Kế toán yêu cầu, sau đó gửi lại hồ sơ để lập yêu cầu thanh toán." : "Chỉnh sửa thông tin của hồ sơ đặt cọc đã chọn."}
 				</p>
 			</div>
 
@@ -125,6 +136,12 @@ export default function CapNhatThongTinHoSoForm({ initialData, prefillData, sour
 				</p>
 			)}
 			{success && <p className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{success}</p>}
+			{isFinancialUpdate && initialData?.lyDoTuChoi && (
+				<div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+					<p className="font-semibold">Kế toán yêu cầu bổ sung</p>
+					<p className="mt-1 leading-6">{initialData.lyDoTuChoi}</p>
+				</div>
+			)}
 
 			<div className="grid gap-5 lg:grid-cols-2">
 				<section className="min-h-[480px] rounded-[10px] border border-[#d7ece7] bg-[#f8fefd] p-[19px] shadow-[0_1px_1.5px_rgba(0,0,0,0.08)]">
@@ -168,6 +185,16 @@ export default function CapNhatThongTinHoSoForm({ initialData, prefillData, sour
 						<Field label="Ngày kết thúc dự kiến">
 							<input name="ngayKetThucDuKien" required type="date" defaultValue={formDataSource?.ngayKetThucDuKien || defaultEndDate} className={inputClass} />
 						</Field>
+						{initialData?.chiTietDatCoc && (
+							<>
+								<Field label="Giá thuê thỏa thuận">
+									<input name="giaThueThoaThuan" required min="1" type="number" defaultValue={initialData.chiTietDatCoc.giaThueThoaThuan} className={inputClass} />
+								</Field>
+								<Field label="Số giường thuê">
+									<input name="soGiuongQuyDoi" required min="1" step="1" type="number" defaultValue={initialData.chiTietDatCoc.soGiuongQuyDoi} className={inputClass} />
+								</Field>
+							</>
+						)}
 					</div>
 				</section>
 
@@ -193,16 +220,23 @@ export default function CapNhatThongTinHoSoForm({ initialData, prefillData, sour
 							);
 						})}
 					</div>
-					<label className="mt-5 block text-[13px] font-medium text-[#364153]">
-						Ghi chú từ chối (nếu có)
-						<textarea
-							name="lyDoTuChoi"
-							rows={3}
-							defaultValue={initialData?.lyDoTuChoi ?? ""}
-							placeholder="Nhập lý do từ chối (nếu không đáp ứng điều kiện)..."
-							className="mt-3 h-20 w-full resize-none rounded-lg border border-[#d1d5dc] bg-white p-3 text-[13px] text-[#101828] outline-none placeholder:text-[#a0a4a8] focus:border-[#0f766e] focus:ring-1 focus:ring-[#0f766e]"
-						/>
-					</label>
+					{isFinancialUpdate ? (
+						<div className="mt-5 rounded-lg border border-amber-200 bg-white p-4 text-[13px]">
+							<p className="font-semibold text-[#364153]">Nội dung cần hoàn thiện trước khi gửi lại</p>
+							<p className="mt-2 leading-6 text-slate-600">{initialData?.lyDoTuChoi || "Bổ sung đầy đủ thông tin tài chính trong hồ sơ."}</p>
+						</div>
+					) : (
+						<label className="mt-5 block text-[13px] font-medium text-[#364153]">
+							Ghi chú từ chối (nếu có)
+							<textarea
+								name="lyDoTuChoi"
+								rows={3}
+								defaultValue={initialData?.lyDoTuChoi ?? ""}
+								placeholder="Nhập lý do từ chối (nếu không đáp ứng điều kiện)..."
+								className="mt-3 h-20 w-full resize-none rounded-lg border border-[#d1d5dc] bg-white p-3 text-[13px] text-[#101828] outline-none placeholder:text-[#a0a4a8] focus:border-[#0f766e] focus:ring-1 focus:ring-[#0f766e]"
+							/>
+						</label>
+					)}
 					<div className="mt-3 flex items-center justify-between text-[13px]">
 						<span className="font-medium text-[#364153]">Trạng thái phòng/giường</span>
 						<span className={`rounded-full px-[10px] py-[7px] text-[11px] font-medium ${statusStyle}`}>{currentStatus}</span>
@@ -223,7 +257,7 @@ export default function CapNhatThongTinHoSoForm({ initialData, prefillData, sour
 					disabled={isSubmitting}
 					className="h-11 rounded-lg border border-[#0f766e] bg-[#0f766e] px-4 text-sm font-medium text-white transition hover:bg-[#0b625b] disabled:cursor-not-allowed disabled:opacity-60"
 				>
-					{isSubmitting ? "Đang lưu..." : isCreate ? "Lưu hồ sơ" : "Lưu cập nhật hồ sơ"}
+					{isSubmitting ? "Đang lưu..." : isCreate ? "Lưu hồ sơ" : isFinancialUpdate ? "Gửi lại cho Kế toán" : "Lưu cập nhật hồ sơ"}
 				</button>
 			</div>
 		</form>

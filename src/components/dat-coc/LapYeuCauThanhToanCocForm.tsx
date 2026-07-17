@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, Check, CheckCircle2, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
+import ActionModal from "@/components/ui/ActionModal";
 
 type HoSoDatCocDetail = {
 	hoSoDatCocId: number;
@@ -24,6 +25,12 @@ type YeuCauThanhToan = {
 	trangThai: string;
 };
 
+type HoSoTraLai = {
+	trangThai: string;
+	lyDoCanCapNhat: string;
+	thongBao: string;
+};
+
 function formatCurrency(value: number) {
 	return new Intl.NumberFormat("vi-VN").format(value) + " VND";
 }
@@ -36,6 +43,11 @@ export default function LapYeuCauThanhToanCocForm({ hoSoId }: { hoSoId: number }
 	const [isLoading, setIsLoading] = useState(true);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [success, setSuccess] = useState<YeuCauThanhToan | null>(null);
+	const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
+	const [isReturning, setIsReturning] = useState(false);
+	const [returnReason, setReturnReason] = useState("");
+	const [returnError, setReturnError] = useState("");
+	const [returnedProfile, setReturnedProfile] = useState<HoSoTraLai | null>(null);
 
 	useEffect(() => {
 		async function loadHoSo() {
@@ -69,6 +81,31 @@ export default function LapYeuCauThanhToanCocForm({ hoSoId }: { hoSoId: number }
 		}
 	}
 
+	async function handleReturnProfile() {
+		if (!returnReason.trim()) {
+			setReturnError("Vui lòng nhập thông tin tài chính cần Sale bổ sung.");
+			return;
+		}
+
+		setReturnError("");
+		setIsReturning(true);
+		try {
+			const response = await fetch(`/api/ho-so-dat-coc/${hoSoId}/yeu-cau-thanh-toan`, {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ lyDoCanCapNhat: returnReason }),
+			});
+			const payload = await response.json();
+			if (!response.ok || !payload.success) throw new Error(payload.error || "Không thể trả hồ sơ cho Sale cập nhật.");
+			setReturnedProfile(payload.data);
+			setIsReturnDialogOpen(false);
+		} catch (returnProfileError) {
+			setReturnError(returnProfileError instanceof Error ? returnProfileError.message : "Không thể trả hồ sơ cho Sale cập nhật.");
+		} finally {
+			setIsReturning(false);
+		}
+	}
+
 	if (isAuthLoading || isLoading) return <p className="py-12 text-center text-sm text-slate-500">Đang tải dữ liệu hồ sơ...</p>;
 	if (!sessionUser || (sessionUser.role !== "ketoan" && sessionUser.role !== "admin"))
 		return <p className="py-12 text-center text-sm text-red-600">Tài khoản hiện tại không có quyền lập yêu cầu thanh toán.</p>;
@@ -81,6 +118,31 @@ export default function LapYeuCauThanhToanCocForm({ hoSoId }: { hoSoId: number }
 		);
 	if (!hoSo || !hoSo.chiTietDatCoc)
 		return <p className="py-12 text-center text-sm text-slate-500">Hồ sơ chưa có thông tin phòng hoặc giường để tính tiền cọc.</p>;
+	if (returnedProfile) {
+		return (
+			<div className="mx-auto max-w-3xl pb-10 pt-6">
+				<section className="overflow-hidden rounded-xl border border-amber-200 bg-white shadow-sm">
+					<div className="bg-amber-50 px-6 py-8 text-center">
+						<div className="mx-auto flex size-16 items-center justify-center rounded-full bg-amber-500 text-white">
+							<CheckCircle2 className="size-9" aria-hidden="true" />
+						</div>
+						<h1 className="mt-4 text-2xl font-bold text-[#101828]">Đã trả hồ sơ cho Sale cập nhật</h1>
+						<p className="mt-2 text-sm text-slate-600">Hồ sơ đã chuyển sang trạng thái <strong>{returnedProfile.trangThai}</strong> và không còn trong danh sách chờ Kế toán.</p>
+					</div>
+					<div className="p-6">
+						<p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Thông tin cần bổ sung</p>
+						<p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">{returnedProfile.lyDoCanCapNhat}</p>
+						<p className="mt-3 text-sm text-slate-500">{returnedProfile.thongBao}</p>
+						<div className="mt-6 flex justify-end">
+							<button type="button" onClick={() => router.push("/deposit")} className="h-11 rounded-lg bg-[#0f766e] px-6 text-sm font-semibold text-white transition hover:bg-[#0b625b]">
+								Quay về danh sách
+							</button>
+						</div>
+					</div>
+				</section>
+			</div>
+		);
+	}
 	if (success) {
 		return (
 			<div className="pb-10">
@@ -180,7 +242,11 @@ export default function LapYeuCauThanhToanCocForm({ hoSoId }: { hoSoId: number }
 			<div className="mt-6 flex items-center justify-between">
 				<button
 					type="button"
-					onClick={() => router.push("/deposit")}
+					onClick={() => {
+						setReturnError("");
+						setIsReturnDialogOpen(true);
+					}}
+					disabled={isSubmitting || isReturning}
 					className="h-10 rounded-lg border border-slate-500 bg-white px-6 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
 				>
 					Trả lại hồ sơ
@@ -188,12 +254,39 @@ export default function LapYeuCauThanhToanCocForm({ hoSoId }: { hoSoId: number }
 				<button
 					type="button"
 					onClick={() => void handleSubmit()}
-					disabled={isSubmitting}
+					disabled={isSubmitting || isReturning}
 					className="h-11 rounded-lg bg-[#155DFC] px-6 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
 				>
 					{isSubmitting ? "Đang gửi..." : "Gửi yêu cầu thanh toán"}
 				</button>
 			</div>
+			<ActionModal
+				open={isReturnDialogOpen}
+				title="Trả hồ sơ cho Sale cập nhật"
+				description="Hồ sơ sẽ chuyển sang trạng thái Cần cập nhật. Sale sẽ thấy nội dung bên dưới, bổ sung thông tin và gửi lại cho Kế toán."
+				confirmLabel="Trả hồ sơ"
+				tone="warning"
+				isLoading={isReturning}
+				confirmDisabled={!returnReason.trim()}
+				error={returnError}
+				onClose={() => {
+					setIsReturnDialogOpen(false);
+					setReturnError("");
+				}}
+				onConfirm={() => void handleReturnProfile()}
+			>
+				<label className="mt-4 block text-sm font-medium text-[#364153]">
+					Thông tin tài chính cần bổ sung
+					<textarea
+						rows={4}
+						value={returnReason}
+						onChange={(event) => setReturnReason(event.target.value)}
+						placeholder="Ví dụ: Bổ sung giá thuê thỏa thuận và số giường thuê chính xác..."
+						disabled={isReturning}
+						className="mt-2 w-full resize-none rounded-lg border border-slate-300 bg-white p-3 text-sm text-[#101828] outline-none placeholder:text-slate-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:bg-slate-50"
+					/>
+				</label>
+			</ActionModal>
 		</div>
 	);
 }

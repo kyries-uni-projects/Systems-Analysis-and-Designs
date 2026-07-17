@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId } from "react";
+import { useEffect, useId, type ReactNode } from "react";
 import { AlertTriangle, Info, X } from "lucide-react";
 
 interface ActionModalProps {
@@ -14,6 +14,8 @@ interface ActionModalProps {
 	tone?: "danger" | "warning" | "info";
 	isLoading?: boolean;
 	error?: string;
+	confirmDisabled?: boolean;
+	children?: ReactNode;
 }
 
 const toneStyles = {
@@ -33,6 +35,8 @@ export default function ActionModal({
 	tone = "danger",
 	isLoading = false,
 	error,
+	confirmDisabled = false,
+	children,
 }: ActionModalProps) {
 	const titleId = useId();
 	const descriptionId = useId();
@@ -68,10 +72,11 @@ export default function ActionModal({
 				</div>
 				<h2 id={titleId} className="mt-4 text-lg font-bold text-[#1b2b4b]">{title}</h2>
 				<p id={descriptionId} className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
+				{children}
 				{error && <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-600" role="alert">{error}</p>}
 				<div className="mt-6 grid grid-cols-2 gap-3 border-t border-slate-100 pt-5">
 					<button type="button" onClick={onClose} disabled={isLoading} className="h-11 rounded-lg bg-slate-100 text-sm font-medium text-slate-600 hover:bg-slate-200 disabled:opacity-50">{cancelLabel}</button>
-					<button type="button" onClick={onConfirm} disabled={isLoading} className={`h-11 rounded-lg text-sm font-semibold text-white transition disabled:opacity-50 ${styles.button}`}>{isLoading ? "Đang xử lý..." : confirmLabel}</button>
+					<button type="button" onClick={onConfirm} disabled={isLoading || confirmDisabled} className={`h-11 rounded-lg text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50 ${styles.button}`}>{isLoading ? "Đang xử lý..." : confirmLabel}</button>
 				</div>
 			</section>
 		</div>

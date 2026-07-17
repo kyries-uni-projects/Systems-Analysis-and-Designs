@@ -59,6 +59,10 @@ export type CapNhatThongTinHoSoDatCocInput = {
 		loaiThue: string;
 		khuVucMongMuon?: string;
 	};
+	chiTietDatCoc?: {
+		giaThueThoaThuan: number;
+		soGiuongQuyDoi: number;
+	};
 	ngayBatDauDuKien: Date;
 	ngayKetThucDuKien: Date;
 	lyDoTuChoi?: string;
@@ -90,13 +94,18 @@ export type LichHenNhanPhongInput = {
 	ghiChu?: string;
 };
 
-const TRANG_THAI_DANG_GIU_CHO = [
+export const TRANG_THAI_DANG_GIU_CHO = [
 	"Chờ xác nhận quản lý",
 	"Đã xác nhận điều kiện",
+	"Cần cập nhật",
 	"Chờ thanh toán",
 	"Chờ xác nhận thanh toán",
 	"Đã xác nhận thanh toán",
 ];
+
+export function trangThaiSauKhiSaleCapNhat(trangThaiHienTai: string) {
+	return trangThaiHienTai === "Cần cập nhật" ? "Đã xác nhận điều kiện" : trangThaiHienTai;
+}
 
 function laTrangThaiPhongKhaDung(trangThai: string) {
 	return ["Trống", "DANG_HOAT_DONG", "Đang hoạt động"].includes(trangThai);
@@ -200,6 +209,33 @@ export async function lapYeuCauThanhToanCoc(hoSoId: number, keToanId: number) {
 		});
 		await tx.hoSoDatCoc.update({ where: { hoSoDatCocId: hoSoId }, data: { trangThai: "Chờ thanh toán" } });
 		return yeuCau;
+	});
+}
+
+export async function traHoSoChoSaleCapNhat(hoSoId: number, lyDoCanCapNhat: string) {
+	const lyDo = lyDoCanCapNhat.trim();
+	if (!lyDo) throw new ApiValidationError("Vui lòng nhập thông tin tài chính cần Sale bổ sung.");
+
+	return prisma.$transaction(async (transaction) => {
+		const hoSo = await transaction.hoSoDatCoc.findUnique({
+			where: { hoSoDatCocId: hoSoId },
+			include: { yeuCauThanhToanCoc: true },
+		});
+		if (!hoSo) return null;
+		if (hoSo.trangThai !== "Đã xác nhận điều kiện" || hoSo.yeuCauThanhToanCoc) {
+			throw new ApiValidationError("Chỉ có thể trả hồ sơ chưa phát hành yêu cầu thanh toán cho Sale cập nhật.");
+		}
+
+		await transaction.hoSoDatCoc.update({
+			where: { hoSoDatCocId: hoSoId },
+			data: { trangThai: "Cần cập nhật", lyDoTuChoi: lyDo },
+		});
+
+		return {
+			trangThai: "Cần cập nhật",
+			lyDoCanCapNhat: lyDo,
+			thongBao: "Hồ sơ đã được trả cho nhân viên Sale bổ sung thông tin còn thiếu.",
+		};
 	});
 }
 
@@ -467,32 +503,45 @@ export async function luuLichHenNhanPhong(hoSoId: number, input: LichHenNhanPhon
 export async function capNhatThongTinHoSoDatCoc(hoSoId: number, input: CapNhatThongTinHoSoDatCocInput) {
 	const hoSo = await prisma.hoSoDatCoc.findUnique({
 		where: { hoSoDatCocId: hoSoId },
-		select: { khachHangId: true, yeuCauId: true },
+		select: { khachHangId: true, yeuCauId: true, trangThai: true },
 	});
 	if (!hoSo) return null;
+	const trangThaiMoi = trangThaiSauKhiSaleCapNhat(hoSo.trangThai);
+	const laHoSoKeToanTraLai = hoSo.trangThai === "Cần cập nhật";
 
-	await prisma.$transaction([
-		prisma.khachHang.update({
+	await prisma.$transaction(async (transaction) => {
+		await transaction.khachHang.update({
 			where: { khachHangId: hoSo.khachHangId },
 			data: input.khachHang,
-		}),
-		prisma.yeuCauThue.update({
+		});
+		await transaction.yeuCauThue.update({
 			where: { yeuCauId: hoSo.yeuCauId },
 			data: {
 				...input.yeuCauThue,
 				thoiGianDuKienVaoO: input.ngayBatDauDuKien,
 			},
-		}),
-		prisma.hoSoDatCoc.update({
+		});
+		if (input.chiTietDatCoc) {
+			await transaction.chiTietDatCoc.updateMany({
+				where: { hoSoDatCocId: hoSoId },
+				data: {
+					giaThueThoaThuan: input.chiTietDatCoc.giaThueThoaThuan,
+					soGiuongQuyDoi: input.chiTietDatCoc.soGiuongQuyDoi,
+					tienCocPhanBo: input.chiTietDatCoc.giaThueThoaThuan * 2 * input.chiTietDatCoc.soGiuongQuyDoi,
+				},
+			});
+		}
+		await transaction.hoSoDatCoc.update({
 			where: { hoSoDatCocId: hoSoId },
 			data: {
 				hinhThucThue: input.yeuCauThue.loaiThue,
 				ngayBatDauDuKien: input.ngayBatDauDuKien,
 				ngayKetThucDuKien: input.ngayKetThucDuKien,
-				lyDoTuChoi: input.lyDoTuChoi ?? null,
+				trangThai: trangThaiMoi,
+				lyDoTuChoi: laHoSoKeToanTraLai ? null : input.lyDoTuChoi ?? null,
 			},
-		}),
-	]);
+		});
+	});
 
 	return layChiTietHoSoDatCoc(hoSoId);
 }

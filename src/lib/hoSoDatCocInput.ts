@@ -30,7 +30,7 @@ export function parseHoSoDatCocInput(body: unknown): CapNhatThongTinHoSoDatCocIn
 		throw new ApiValidationError("Nội dung hồ sơ không hợp lệ.");
 	}
 
-	const { yeuCauId, khachHang, yeuCauThue, ngayBatDauDuKien, ngayKetThucDuKien, lyDoTuChoi } = body as Record<string, unknown>;
+	const { yeuCauId, khachHang, yeuCauThue, chiTietDatCoc, ngayBatDauDuKien, ngayKetThucDuKien, lyDoTuChoi } = body as Record<string, unknown>;
 	if (typeof khachHang !== "object" || khachHang === null || typeof yeuCauThue !== "object" || yeuCauThue === null) {
 		throw new ApiValidationError("Thiếu thông tin khách hàng hoặc yêu cầu thuê.");
 	}
@@ -51,6 +51,22 @@ export function parseHoSoDatCocInput(body: unknown): CapNhatThongTinHoSoDatCocIn
 	if (sourceRequestId !== undefined && (!Number.isInteger(sourceRequestId) || sourceRequestId < 1)) {
 		throw new ApiValidationError("Yêu cầu thuê đã chọn không hợp lệ.");
 	}
+	let depositDetail: CapNhatThongTinHoSoDatCocInput["chiTietDatCoc"];
+	if (chiTietDatCoc !== undefined) {
+		if (typeof chiTietDatCoc !== "object" || chiTietDatCoc === null) {
+			throw new ApiValidationError("Thông tin tài chính đặt cọc không hợp lệ.");
+		}
+		const detail = chiTietDatCoc as Record<string, unknown>;
+		const giaThueThoaThuan = Number(detail.giaThueThoaThuan);
+		const soGiuongQuyDoi = Number(detail.soGiuongQuyDoi);
+		if (!Number.isFinite(giaThueThoaThuan) || giaThueThoaThuan <= 0) {
+			throw new ApiValidationError("Giá thuê thỏa thuận phải lớn hơn 0.");
+		}
+		if (!Number.isInteger(soGiuongQuyDoi) || soGiuongQuyDoi < 1) {
+			throw new ApiValidationError("Số giường thuê phải là số nguyên lớn hơn 0.");
+		}
+		depositDetail = { giaThueThoaThuan, soGiuongQuyDoi };
+	}
 
 	return {
 		yeuCauId: sourceRequestId,
@@ -67,6 +83,7 @@ export function parseHoSoDatCocInput(body: unknown): CapNhatThongTinHoSoDatCocIn
 			loaiThue: requiredString(rentalRequest.loaiThue, "Loại thuê"),
 			khuVucMongMuon: optionalString(rentalRequest.khuVucMongMuon),
 		},
+		chiTietDatCoc: depositDetail,
 		ngayBatDauDuKien: startDate,
 		ngayKetThucDuKien: endDate,
 		lyDoTuChoi: optionalString(lyDoTuChoi),

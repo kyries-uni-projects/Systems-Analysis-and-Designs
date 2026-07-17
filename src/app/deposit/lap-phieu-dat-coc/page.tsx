@@ -77,6 +77,12 @@ export default async function LapPhieuDatCocPage({ searchParams }: { searchParam
 						ngayKetThucDuKien: hoSo.ngayKetThucDuKien.toISOString().slice(0, 10),
 						khachHang: hoSo.khachHang,
 						yeuCauThue: hoSo.yeuCauThue,
+						chiTietDatCoc: hoSo.chiTietDatCoc
+							? {
+									giaThueThoaThuan: hoSo.chiTietDatCoc.giaThueThoaThuan,
+									soGiuongQuyDoi: hoSo.chiTietDatCoc.soGiuongQuyDoi,
+								}
+							: null,
 						dieuKien: quyDinhs.map((quyDinh) => ({
 							quyDinhId: quyDinh.quyDinhId,
 							tenQuyDinh: quyDinh.tenQuyDinh,

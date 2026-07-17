@@ -28,6 +28,7 @@ function statusClass(status: string) {
 	if (["Đã xác nhận điều kiện", "Đã xác nhận thanh toán", "Đã đặt cọc"].includes(status)) return "bg-emerald-50 text-emerald-700";
 	if (["DA_XAC_NHAN", "Đã xác nhận"].includes(status)) return "bg-teal-50 text-teal-700";
 	if (status === "Chờ thanh toán") return "bg-blue-50 text-blue-700";
+	if (status === "Cần cập nhật") return "bg-amber-50 text-amber-700";
 	if (status.includes("Chờ")) return "bg-amber-50 text-amber-700";
 	if (status === "Từ chối") return "bg-red-50 text-red-700";
 	return "bg-slate-100 text-slate-600";
@@ -66,6 +67,9 @@ function actionFor(role: Role, hoSo: HoSoDatCoc) {
 	}
 	if (["Chờ xác nhận điều kiện", "Mới tạo"].includes(hoSo.trangThai)) {
 		return { href: detailHref, label: "Xác định yêu cầu" };
+	}
+	if (hoSo.trangThai === "Cần cập nhật") {
+		return { href: `/deposit/lap-phieu-dat-coc?id=${hoSo.hoSoDatCocId}`, label: "Bổ sung thông tin" };
 	}
 	if (role === "admin" && hoSo.trangThai === "Chờ xác nhận quản lý") {
 		return { href: detailHref, label: "Xác nhận" };
