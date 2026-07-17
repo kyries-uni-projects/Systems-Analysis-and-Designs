@@ -3,6 +3,11 @@ import { prisma, type Db } from "@/lib/prisma";
 
 const checkInInclude = {
 	khachHang: true,
+	yeuCauThue: {
+		select: {
+			soNguoiDuKien: true,
+		},
+	},
 	chiTietDatCocs: {
 		include: {
 			phong: true,

@@ -70,6 +70,9 @@ The repository pins Yarn `4.17.1` through the `packageManager` field in `package
    ```
 
    Open [http://localhost:3000](http://localhost:3000).
+   
+   Open [http://localhost:3000/login] on Chorme
+   
 
 ## Demo accounts
 

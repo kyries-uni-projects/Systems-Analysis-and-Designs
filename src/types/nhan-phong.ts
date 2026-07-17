@@ -3,6 +3,7 @@ export type KiemTraThongTinListItem = {
 	hoSoDatCocId: number;
 	code: string;
 	customer: string;
+	expectedMemberCount: number;
 	room: string;
 	appointmentTime: string;
 	appointmentDate: string;

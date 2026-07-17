@@ -10,12 +10,12 @@ import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { ensureDemoAccounts } from "../src/lib/demo-account-seed";
+import { TRANG_THAI_CHO_BAN_GIAO } from "../src/lib/repositories/banGiaoPhong.repository";
 import {
-	TRANG_THAI_CHO_BAN_GIAO,
 	TRANG_THAI_CHO_DUYET_DIEU_KIEN_LUU_TRU,
 	TRANG_THAI_CHO_KY_HOP_DONG,
 	TRANG_THAI_CHO_THANH_TOAN_DAU_KY,
-} from "../src/lib/nhan-phong-rules";
+} from "../src/lib/repositories/hoSoNhanPhong.repository";
 
 const adapter = new PrismaBetterSqlite3({ url: process.env.DATABASE_URL ?? "file:./dev.db" });
 const prisma = new PrismaClient({ adapter });
@@ -401,8 +401,6 @@ async function main() {
 		},
 	});
 
-<<<<<<< Updated upstream
-=======
 	// ----------------------------------------------------------------
 	// PHẦN MỞ RỘNG — Kịch bản hồ sơ đặt cọc theo từng trạng thái
 	// ----------------------------------------------------------------
@@ -742,6 +740,8 @@ async function main() {
 		soDienThoai: string;
 		maHoSoDatCoc: string;
 		maPhong: string;
+		thuePhongNguyen?: boolean;
+		soNguoiDuKien?: number;
 	}) {
 		const khachHang = await prisma.khachHang.create({
 			data: {
@@ -774,10 +774,10 @@ async function main() {
 			data: {
 				khachHangId: khachHang.khachHangId,
 				nhanVienId: nhanVien.nguoiDungId,
-				loaiThue: "Thuê giường",
+				loaiThue: params.thuePhongNguyen ? "Thuê phòng" : "Thuê giường",
 				idLoaiPhongMongMuon: loaiPhongTapThe.idLoaiPhong,
-				soNguoiDuKien: 1,
-				soLuongGiuongDuKien: 1,
+				soNguoiDuKien: params.soNguoiDuKien ?? 1,
+				soLuongGiuongDuKien: params.thuePhongNguyen ? null : 1,
 				thoiGianDuKienVaoO: ngayBatDau,
 				thoiHanThueThang: 6,
 				trangThai: "Đã đặt cọc",
@@ -789,7 +789,7 @@ async function main() {
 				yeuCauId: yeuCauThue.yeuCauId,
 				khachHangId: khachHang.khachHangId,
 				nhanVienId: nhanVien.nguoiDungId,
-				hinhThucThue: "Thuê giường",
+				hinhThucThue: params.thuePhongNguyen ? "Thuê phòng" : "Thuê giường",
 				ngayBatDauDuKien: ngayBatDau,
 				ngayKetThucDuKien: ngayKetThuc,
 				trangThai: "Đã đặt cọc",
@@ -802,9 +802,9 @@ async function main() {
 			data: {
 				hoSoDatCocId: hoSoDatCoc.hoSoDatCocId,
 				phongId: phong.phongId,
-				giuongId: giuong.giuongId,
+				giuongId: params.thuePhongNguyen ? null : giuong.giuongId,
 				giaThueThoaThuan: 1_500_000,
-				soGiuongQuyDoi: 1,
+				soGiuongQuyDoi: params.thuePhongNguyen ? phong.sucChua : 1,
 				tienCocPhanBo: 3_000_000,
 				quanLyXacNhanId: quanLy.nguoiDungId,
 				thoiDiemXacNhan: new Date(),
@@ -928,6 +928,8 @@ async function main() {
 		soDienThoai: "0908000001",
 		maHoSoDatCoc: "DC-NP-01",
 		maPhong: "NP-101",
+		thuePhongNguyen: true,
+		soNguoiDuKien: 4,
 	});
 
 	const nenPheDuyet = await taoNenKichBanNhanPhong({
@@ -1009,7 +1011,6 @@ async function main() {
 	});
 	void nenKiemTra;
 
->>>>>>> Stashed changes
 	console.log("");
 	console.log("Xong. Đăng nhập bằng 4 tài khoản demo có sẵn ở trang /login:");
 	console.log("  admin / admin123      — Quản trị hệ thống");
@@ -1024,8 +1025,6 @@ async function main() {
 	console.log("  HD-2025-000150 (Vũ Thị Mai, C-303)     — đã kiểm tra xong, sẵn sàng UC3");
 	console.log("  HD-2025-000201 (Ngô Văn Tâm, B-202)    — đã đối soát (cần thu thêm), sẵn sàng UC4");
 	console.log("  HD-2025-000188 (Lê Thị Hồng, E-505)    — đã đối soát (hoàn cọc dương), sẵn sàng UC4->UC5");
-<<<<<<< Updated upstream
-=======
 	console.log("");
 	console.log("7 kịch bản hồ sơ đặt cọc (theo trạng thái — đúng luồng nghiệp vụ):");
 	console.log("  SD12 (Lý Minh Tuấn,    chưa có phòng) — CHO_XAC_NHAN  (sale vừa tạo hồ sơ)");
@@ -1042,7 +1041,6 @@ async function main() {
 	console.log("  NP-TEST-03 — nhanvien01 — Lập và xác nhận ký hợp đồng");
 	console.log("  NP-TEST-04 — ketoan01   — Thu tiền đầu kỳ");
 	console.log("  NP-TEST-05 — quanly01   — Lập biên bản bàn giao phòng/giường");
->>>>>>> Stashed changes
 }
 
 main()
