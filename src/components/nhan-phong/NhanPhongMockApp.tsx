@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/apiClient";
+import { useAuth } from "@/components/providers/AuthProvider";
 import type {
   BanGiaoPhongDetail,
   BanGiaoPhongListItem,
@@ -12,7 +13,6 @@ import type {
   LuuBienBanBanGiaoResult,
   LuuKiemTraThongTinResult,
   LuuHopDongResult,
-  LuuThanhToanDauKyResult,
   LuuPheDuyetHoSoResult,
   PheDuyetHoSoDetail,
   PheDuyetHoSoListItem,
@@ -78,6 +78,17 @@ interface Member {
   phone: string;
   dob: string;
   conditions: { label: string; met: boolean }[];
+}
+
+function toCalendarInputValue(value: string) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const match = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return match ? `${match[3]}-${match[2]}-${match[1]}` : "";
+}
+
+function toDisplayDate(value: string) {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : "";
 }
 
 interface Profile {
@@ -407,8 +418,8 @@ function CheckInScreen() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Tìm theo mã đặt cọc, tên hoặc số điện thoại khách hàng..."
-                className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-orange-400"
+                placeholder="Tìm theo mã đặt cọc"
+                className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
               />
             </div>
             <button
@@ -427,7 +438,7 @@ function CheckInScreen() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {["Mã đặt cọc", "Khách hàng", "Lịch hẹn nhận phòng", "Thao tác"].map((h) => (
+                {["Mã đặt cọc", "Khách hàng", "Số thành viên dự kiến", "Lịch hẹn nhận phòng", "Thao tác"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
@@ -435,17 +446,18 @@ function CheckInScreen() {
             <tbody className="divide-y divide-gray-100">
               {isLoading ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">Đang tải danh sách hồ sơ...</td>
+                  <td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">Đang tải danh sách hồ sơ...</td>
                 </tr>
               ) : records.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">Không tìm thấy hồ sơ phù hợp</td>
+                  <td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">Không tìm thấy hồ sơ phù hợp</td>
                 </tr>
               ) : (
                 records.map((r) => (
                   <tr key={r.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 font-medium text-blue-600">{r.code}</td>
                     <td className="px-4 py-3 text-gray-800">{r.customer}</td>
+                    <td className="px-4 py-3 text-gray-600">{r.expectedMemberCount} người</td>
                     <td className="px-4 py-3 text-gray-600">
                       <span className="text-blue-600 font-medium">{r.appointmentTime}</span>
                       <span className="text-gray-400 mx-1">–</span>
@@ -474,8 +486,10 @@ function CheckInScreen() {
 }
 
 function CheckInDetail({ record, onBack }: { record: BookingRecord; onBack: () => void }) {
+  const residenceDatePickerRef = useRef<HTMLInputElement>(null);
   const [showModal, setShowModal] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showSaveSuccess, setShowSaveSuccess] = useState(false);
   const [detail, setDetail] = useState<KiemTraThongTinDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -565,7 +579,7 @@ function CheckInDetail({ record, onBack }: { record: BookingRecord; onBack: () =
           members: members.map(({ name, cccd, gender, phone }) => ({ name, cccd, gender, phone })),
         },
       );
-      onBack();
+      setShowSaveSuccess(true);
     } catch (error) {
       setErrorMessage(error instanceof ApiError ? error.message : "Không thể lưu thông tin nhận phòng.");
     } finally {
@@ -646,9 +660,40 @@ function CheckInDetail({ record, onBack }: { record: BookingRecord; onBack: () =
                   type="text"
                   value={residenceForm.ngayBatDauCuTru}
                   onChange={(event) => setResidenceForm((prev) => ({ ...prev, ngayBatDauCuTru: event.target.value }))}
-                  className="w-full pr-8 pl-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-400"
+                  placeholder="dd/mm/yyyy"
+                  inputMode="numeric"
+                  maxLength={10}
+                  className="w-full pr-10 pl-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400"
                 />
-                <Calendar size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <button
+                  type="button"
+                  aria-label="Chọn ngày bắt đầu cư trú"
+                  onClick={() => {
+                    const picker = residenceDatePickerRef.current;
+                    if (!picker) return;
+                    try {
+                      picker.showPicker();
+                    } catch {
+                      picker.focus();
+                      picker.click();
+                    }
+                  }}
+                  className="absolute right-0 top-0 flex h-full w-10 items-center justify-center text-gray-400 transition-colors hover:text-[#155DFC]"
+                >
+                  <Calendar size={16} />
+                </button>
+                <input
+                  ref={residenceDatePickerRef}
+                  type="date"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  value={toCalendarInputValue(residenceForm.ngayBatDauCuTru)}
+                  onChange={(event) => setResidenceForm((prev) => ({
+                    ...prev,
+                    ngayBatDauCuTru: toDisplayDate(event.target.value),
+                  }))}
+                  className="pointer-events-none absolute h-px w-px opacity-0"
+                />
               </div>
             </div>
             <div>
@@ -656,7 +701,7 @@ function CheckInDetail({ record, onBack }: { record: BookingRecord; onBack: () =
               <select
                 value={residenceForm.thoiHanThueThang}
                 onChange={(event) => setResidenceForm((prev) => ({ ...prev, thoiHanThueThang: Number(event.target.value) }))}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-400 bg-white"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
               >
                 <option value={12}>12 tháng</option><option value={6}>6 tháng</option><option value={3}>3 tháng</option>
               </select>
@@ -668,7 +713,7 @@ function CheckInDetail({ record, onBack }: { record: BookingRecord; onBack: () =
                 value={residenceForm.ghiChu}
                 onChange={(event) => setResidenceForm((prev) => ({ ...prev, ghiChu: event.target.value }))}
                 placeholder="Nhập ghi chú..."
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-400"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400"
               />
             </div>
           </div>
@@ -704,7 +749,7 @@ function CheckInDetail({ record, onBack }: { record: BookingRecord; onBack: () =
           disabled={isLoading || isSaving}
           className="px-6 py-2 bg-[#155DFC] text-white text-sm font-medium rounded-md hover:bg-[#1250d4] disabled:opacity-60 transition-colors"
         >
-          {isSaving ? "Đang lưu..." : "Lưu & chuyển sang kiểm tra điều kiện"}
+          {isSaving ? "Đang lưu..." : "Lưu hồ sơ"}
         </button>
       </footer>
 
@@ -714,7 +759,7 @@ function CheckInDetail({ record, onBack }: { record: BookingRecord; onBack: () =
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center"><Users size={14} className="text-orange-500" /></div>
+                <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center"><Users size={14} className="text-[#155DFC]" /></div>
                 <h2 className="text-base font-semibold text-gray-800">Thêm thành viên</h2>
               </div>
               <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 transition-colors"><X size={18} /></button>
@@ -722,26 +767,26 @@ function CheckInDetail({ record, onBack }: { record: BookingRecord; onBack: () =
             <div className="px-5 py-5 space-y-4">
               <div>
                 <label className="flex items-center gap-1 text-sm font-medium text-gray-700 mb-1.5"><User size={13} className="text-gray-400" />Họ và tên <span className="text-red-500">*</span></label>
-                <input type="text" value={form.name} onChange={(e) => { setForm((f) => ({...f,name:e.target.value})); setErrors((er) => ({...er,name:""})); }} placeholder="Nhập họ và tên đầy đủ" className={`w-full px-3 py-2.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-400/50 transition ${errors.name?"border-red-400 bg-red-50":"border-gray-300"}`} />
+                <input type="text" value={form.name} onChange={(e) => { setForm((f) => ({...f,name:e.target.value})); setErrors((er) => ({...er,name:""})); }} placeholder="Nhập họ và tên đầy đủ" className={`w-full px-3 py-2.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400/50 transition ${errors.name?"border-red-400 bg-red-50":"border-gray-300"}`} />
                 {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name}</p>}
               </div>
               <div>
                 <label className="flex items-center gap-1 text-sm font-medium text-gray-700 mb-1.5"><CreditCard size={13} className="text-gray-400" />Số CCCD <span className="text-red-500">*</span></label>
-                <input type="text" value={form.cccd} onChange={(e) => { setForm((f) => ({...f,cccd:e.target.value})); setErrors((er) => ({...er,cccd:""})); }} placeholder="Nhập 12 số CCCD" maxLength={12} className={`w-full px-3 py-2.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-400/50 transition ${errors.cccd?"border-red-400 bg-red-50":"border-gray-300"}`} />
+                <input type="text" value={form.cccd} onChange={(e) => { setForm((f) => ({...f,cccd:e.target.value})); setErrors((er) => ({...er,cccd:""})); }} placeholder="Nhập 12 số CCCD" maxLength={12} className={`w-full px-3 py-2.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400/50 transition ${errors.cccd?"border-red-400 bg-red-50":"border-gray-300"}`} />
                 {errors.cccd && <p className="text-xs text-red-500 mt-1">{errors.cccd}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Giới tính <span className="text-red-500">*</span></label>
                 <div className="flex gap-3">
                   {["Nam","Nữ","Khác"].map((g) => (
-                    <button key={g} type="button" onClick={() => { setForm((f) => ({...f,gender:g})); setErrors((er) => ({...er,gender:""})); }} className={`flex-1 py-2.5 text-sm font-medium rounded-md border transition-colors ${form.gender===g?"bg-orange-500 border-orange-500 text-white":"border-gray-300 text-gray-600 hover:border-orange-300 hover:text-orange-500"}`}>{g}</button>
+                    <button key={g} type="button" onClick={() => { setForm((f) => ({...f,gender:g})); setErrors((er) => ({...er,gender:""})); }} className={`flex-1 py-2.5 text-sm font-medium rounded-md border transition-colors ${form.gender===g?"bg-[#155DFC] border-[#155DFC] text-white":"border-gray-300 text-gray-600 hover:border-blue-300 hover:text-[#155DFC]"}`}>{g}</button>
                   ))}
                 </div>
                 {errors.gender && <p className="text-xs text-red-500 mt-1">{errors.gender}</p>}
               </div>
               <div>
                 <label className="flex items-center gap-1 text-sm font-medium text-gray-700 mb-1.5"><Phone size={13} className="text-gray-400" />Số điện thoại <span className="text-red-500">*</span></label>
-                <input type="tel" value={form.phone} onChange={(e) => { setForm((f) => ({...f,phone:e.target.value})); setErrors((er) => ({...er,phone:""})); }} placeholder="Nhập số điện thoại" className={`w-full px-3 py-2.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-400/50 transition ${errors.phone?"border-red-400 bg-red-50":"border-gray-300"}`} />
+                <input type="tel" value={form.phone} onChange={(e) => { setForm((f) => ({...f,phone:e.target.value})); setErrors((er) => ({...er,phone:""})); }} placeholder="Nhập số điện thoại" className={`w-full px-3 py-2.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400/50 transition ${errors.phone?"border-red-400 bg-red-50":"border-gray-300"}`} />
                 {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone}</p>}
               </div>
             </div>
@@ -763,6 +808,18 @@ function CheckInDetail({ record, onBack }: { record: BookingRecord; onBack: () =
           confirmClass="bg-gray-700 hover:bg-gray-800 text-white"
           onConfirm={handleConfirmCancel}
           onCancel={() => setShowCancelConfirm(false)}
+        />
+      )}
+
+      {showSaveSuccess && (
+        <ResultDialog
+          icon={<CheckCircle2 size={28} className="text-green-500" />}
+          iconBg="bg-green-100"
+          title="Ghi nhận hồ sơ thành công"
+          onClose={() => {
+            setShowSaveSuccess(false);
+            onBack();
+          }}
         />
       )}
     </>
@@ -957,7 +1014,7 @@ function ApproveScreen() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Tìm theo mã hồ sơ hoặc tên khách hàng..."
-              className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-orange-400"
+              className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
             />
           </div>
           <button
@@ -1249,7 +1306,6 @@ function ApproveScreen() {
           icon={<CheckCircle2 size={28} className="text-green-500" />}
           iconBg="bg-green-100"
           title="Phê duyệt thành công"
-          message="Hồ sơ lưu trú đã được phê duyệt. Hồ sơ chuyển sang trạng thái &quot;Chờ ký hợp đồng&quot;."
           onClose={handleSuccessClose}
         />
       )}
@@ -1340,7 +1396,6 @@ function HandoverScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [savedResult, setSavedResult] = useState<LuuBienBanBanGiaoResult | null>(null);
   const [totalProfiles, setTotalProfiles] = useState(0);
 
   const [assetStates, setAssetStates] = useState<Record<string, HandoverAssetState>>({});
@@ -1422,7 +1477,7 @@ function HandoverScreen() {
     if (!customerSigned) { setDialog("unsigned-warning"); return; }
     setSaving(true);
     try {
-      const result = await api.post<LuuBienBanBanGiaoResult>(
+      await api.post<LuuBienBanBanGiaoResult>(
         `/api/nhan-phong/ban-giao-phong/${encodeURIComponent(selected.code)}`,
         {
           customerSigned,
@@ -1435,7 +1490,6 @@ function HandoverScreen() {
             })),
         }
       );
-      setSavedResult(result);
       setDialog("save-success");
     } catch (error) {
       setErrorMessage(error instanceof ApiError ? error.message : "Đã xảy ra lỗi trong quá trình lưu. Vui lòng thử lại sau.");
@@ -1462,7 +1516,6 @@ function HandoverScreen() {
     setAssetStates({});
     setCustomerSigned(false);
     setDialog(null);
-    setSavedResult(null);
     void loadProfiles();
   };
 
@@ -1495,7 +1548,7 @@ function HandoverScreen() {
                   else void loadProfiles();
                 }}
                 placeholder="Nhập mã hồ sơ để tìm kiếm (VD: HS2026-0001)"
-                className={`w-full pl-9 pr-4 py-2.5 text-sm border rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-orange-400 ${notFound ? "border-red-400" : "border-gray-300"}`}
+                className={`w-full pl-9 pr-4 py-2.5 text-sm border rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 ${notFound ? "border-red-400" : "border-gray-300"}`}
               />
             </div>
             <button
@@ -1830,8 +1883,7 @@ function HandoverScreen() {
         <ResultDialog
           icon={<CheckCircle2 size={28} className="text-green-500" />}
           iconBg="bg-green-100"
-          title="Bàn giao thành công!"
-          message={`Biên bản bàn giao <strong>#${savedResult?.bienBanBanGiaoId ?? ""}</strong> đã được lưu với <strong>${savedResult?.soTaiSan ?? handedAssets.length}</strong> tài sản. Phòng/giường chuyển sang <strong>Đang sử dụng</strong>, hồ sơ <strong>${savedResult?.maHoSoNhanPhong ?? selected!.code}</strong> chuyển sang <strong>Hoàn tất</strong>.`}
+          title="Bàn giao thành công"
           onClose={resetAll}
         />
       )}
@@ -2043,7 +2095,7 @@ function ContractScreen() {
                 onChange={(e) => { setSearch(e.target.value); setNotFound(false); setNotEligible(false); }}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 placeholder="Nhập mã hồ sơ hoặc tên khách hàng..."
-                className={`w-full pl-9 pr-4 py-2.5 text-sm border rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-orange-400 ${notFound || notEligible ? "border-red-400" : "border-gray-300"}`}
+                className={`w-full pl-9 pr-4 py-2.5 text-sm border rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 ${notFound || notEligible ? "border-red-400" : "border-gray-300"}`}
               />
             </div>
             <button
@@ -2430,6 +2482,7 @@ type PaymentDialog = null | "confirm-cancel" | "save-success" | "save-error";
 interface ExtraFee { id: number; label: string; amount: string }
 
 function PaymentScreen() {
+  const { sessionUser } = useAuth();
   const [step, setStep] = useState<PaymentStep>("list");
   const [profiles, setProfiles] = useState<ThanhToanDauKyListItem[]>([]);
   const [totalProfiles, setTotalProfiles] = useState(0);
@@ -2440,7 +2493,6 @@ function PaymentScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [savedResult, setSavedResult] = useState<LuuThanhToanDauKyResult | null>(null);
   const [extraFees, setExtraFees] = useState<ExtraFee[]>([]);
   const [newFeeLabel, setNewFeeLabel] = useState("");
   const [newFeeAmount, setNewFeeAmount] = useState("");
@@ -2532,11 +2584,10 @@ function PaymentScreen() {
     }));
     setSaving(true);
     try {
-      const result = await api.post<LuuThanhToanDauKyResult>(
+      await api.post(
         `/api/nhan-phong/thanh-toan-dau-ky/${encodeURIComponent(selected.code)}`,
         { charges: [...selected.charges, ...extraCharges], phuongThucThu: "Tien mat" }
       );
-      setSavedResult(result);
       setDialog("save-success");
     } catch (error) {
       setErrorMessage(error instanceof ApiError ? error.message : "Đã xảy ra lỗi trong quá trình lưu. Vui lòng thử lại sau.");
@@ -2570,7 +2621,7 @@ function PaymentScreen() {
                 onChange={(e) => { setSearch(e.target.value); setNotFound(false); setNotEligible(false); }}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 placeholder="Nhập mã hồ sơ hoặc tên khách hàng..."
-                className={`w-full pl-9 pr-4 py-2.5 text-sm border rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-orange-400 ${notFound || notEligible ? "border-red-400" : "border-gray-300"}`}
+                className={`w-full pl-9 pr-4 py-2.5 text-sm border rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 ${notFound || notEligible ? "border-red-400" : "border-gray-300"}`}
               />
             </div>
             <button onClick={handleSearch} className="px-5 py-2 bg-[#155DFC] text-white text-sm font-medium rounded-md hover:bg-[#1250d4] transition-colors">Tìm kiếm</button>
@@ -2829,7 +2880,7 @@ function PaymentScreen() {
             </p>
             <div className="flex items-center justify-between text-xs">
               <div className="space-y-1 text-gray-600">
-                <p>Nhân viên: <span className="font-medium text-gray-800">Nguyễn Văn An</span></p>
+                <p>Nhân viên: <span className="font-medium text-gray-800">{sessionUser?.name ?? "Kế toán viên"}</span></p>
                 <p>Thời điểm: <span className="font-medium text-gray-800">{selected.paymentTime}</span></p>
                 <p>Phương thức: <span className="font-medium text-gray-800">Tiền mặt</span></p>
               </div>
@@ -2871,9 +2922,8 @@ function PaymentScreen() {
         <ResultDialog
           icon={<CheckCircle2 size={28} className="text-green-500" />}
           iconBg="bg-green-100"
-          title="Thanh toán thành công!"
-          message={`Phiếu thu <strong>${savedResult?.maHopDong ?? selected.contractCode}</strong> đã được lưu với tổng tiền <strong>${fmt(savedResult?.soTien ?? grandTotal)}</strong>. Hồ sơ <strong>${savedResult?.maHoSoNhanPhong ?? selected.code}</strong> chuyển sang trạng thái <strong>Chờ bàn giao</strong>.`}
-          onClose={() => { setDialog(null); setStep("list"); setSelected(null); setSavedResult(null); void loadProfiles(search); }}
+          title="Thanh toán thành công"
+          onClose={() => { setDialog(null); setStep("list"); setSelected(null); void loadProfiles(search); }}
         />
       )}
 

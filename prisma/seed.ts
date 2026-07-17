@@ -878,6 +878,7 @@ async function main() {
 		maHoSoNhanPhong: string,
 		trangThai: string,
 		thanhVienDaDat: boolean,
+		ngaySinh?: Date,
 	) {
 		const hoSoNhanPhong = await prisma.hoSoNhanPhong.create({
 			data: {
@@ -895,6 +896,7 @@ async function main() {
 				chiTietDatCocId: nen.chiTietDatCoc.chiTietDatCocId,
 				sttThanhVien: 1,
 				hoTen: nen.khachHang.hoTen,
+				ngaySinh,
 				gioiTinh: nen.khachHang.gioiTinh,
 				loaiGiayTo: "CCCD",
 				soGiayTo: nen.khachHang.cccdPassport,
@@ -1009,7 +1011,13 @@ async function main() {
 		maHoSoDatCoc: "DC-NP-03",
 		maPhong: "NP-301",
 	});
-	const hoSoChoHopDong = await taoHoSoNhanPhongTheoBuoc(nenHopDong, "NP-TEST-03", TRANG_THAI_CHO_KY_HOP_DONG, true);
+	const hoSoChoHopDong = await taoHoSoNhanPhongTheoBuoc(
+		nenHopDong,
+		"NP-TEST-03",
+		TRANG_THAI_CHO_KY_HOP_DONG,
+		true,
+		new Date(1995, 6, 19),
+	);
 	await taoPheDuyetThanhCong(hoSoChoHopDong.hoSoNhanPhongId);
 
 	const nenThanhToan = await taoNenKichBanNhanPhong({

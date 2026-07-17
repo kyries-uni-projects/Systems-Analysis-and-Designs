@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BedDouble, ChevronDown, ChevronUp, LogOut, Menu, Search, UserRound, UsersRound, X } from "lucide-react";
+import { BedDouble, ChevronDown, ChevronUp, LogOut, Menu, UserRound, UsersRound, X } from "lucide-react";
 import { HomeStayLogo } from "@/components/branding/HomeStayLogo";
 import { useAuth } from "@/components/providers/AuthProvider";
 import ActionModal from "@/components/ui/ActionModal";
@@ -195,14 +195,6 @@ export default function AppShell({ children }: Readonly<{ children: React.ReactN
 						>
 							<Menu className="size-5" aria-hidden="true" />
 						</button>
-						<div className="relative hidden max-w-xl flex-1 sm:block">
-							<Search className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
-							<input
-								type="search"
-								placeholder="Tìm kiếm khách hàng, phòng, hợp đồng..."
-								className="h-10 w-full rounded-lg border border-slate-300 bg-white pl-10 pr-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
-							/>
-						</div>
 						<div className="ml-auto flex items-center gap-2 sm:gap-4">
 							<div className="hidden items-center gap-3 sm:flex">
 								<div className="flex size-9 items-center justify-center rounded-full bg-teal-500 text-white">

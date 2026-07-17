@@ -62,6 +62,7 @@ function mapListItem(hoSo: HoSoDatCocCheckInRecord): KiemTraThongTinListItem {
 		hoSoDatCocId: hoSo.hoSoDatCocId,
 		code: hoSo.maHoSoDatCoc,
 		customer: hoSo.khachHang.hoTen,
+		expectedMemberCount: hoSo.yeuCauThue.soNguoiDuKien,
 		room: formatRoom(hoSo),
 		appointmentTime: hoSo.gioHenNhanPhong ?? "",
 		appointmentDate: formatDate(hoSo.ngayHenNhanPhong),
