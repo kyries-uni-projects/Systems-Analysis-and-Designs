@@ -8,7 +8,7 @@ import {
 	TRANG_THAI_CHO_BAN_GIAO,
 } from "../src/lib/nhan-phong-rules";
 import { DoiSoatHoanCoc } from "../src/lib/services/doiSoatHoanCoc.service";
-import { TRANG_THAI_DANG_GIU_CHO, trangThaiSauKhiSaleCapNhat } from "../src/lib/services/hoSoDatCocService";
+import { TRANG_THAI_DANG_GIU_CHO, trangThaiSauKhiSaleCapNhat, xacDinhSoGiuongTinhCoc } from "../src/lib/services/hoSoDatCocService";
 import { HopDong } from "../src/lib/services/hopDong.service";
 import { getWorkflowAction, workflowGroups } from "../src/lib/workflow-navigation";
 import { parseLichHenNhanPhongInput } from "../src/lib/lichHenNhanPhongInput";
@@ -32,6 +32,25 @@ test("deposit creation preserves the source rental request", () => {
 	});
 	assert.equal(input.yeuCauId, 12);
 	assert.equal(input.yeuCauThue.loaiThue, "Thuê giường");
+});
+
+test("deposit payment uses room capacity for whole-room rentals", () => {
+	assert.equal(xacDinhSoGiuongTinhCoc("Thuê nguyên phòng", 1, 6), 6);
+	assert.equal(xacDinhSoGiuongTinhCoc("Thuê giường", 2, 6), 2);
+	assert.throws(() => xacDinhSoGiuongTinhCoc("Thuê nguyên phòng", 1, null), /sức chứa hợp lệ/);
+	assert.throws(() => xacDinhSoGiuongTinhCoc("Khác", 1, 6), /Hình thức thuê không hợp lệ/);
+});
+
+test("deposit input only accepts supported rental types", () => {
+	assert.throws(
+		() => parseHoSoDatCocInput({
+			khachHang: { hoTen: "Nguyễn Văn A", cccdPassport: "012345678901", soDienThoai: "0900000000" },
+			yeuCauThue: { soNguoiDuKien: 1, loaiThue: "Thuê tùy chọn" },
+			ngayBatDauDuKien: "2026-08-01",
+			ngayKetThucDuKien: "2027-02-01",
+		}),
+		/Hình thức thuê không hợp lệ/,
+	);
 });
 
 test("returned payment profiles stay reserved and go back to accounting after Sale updates them", () => {

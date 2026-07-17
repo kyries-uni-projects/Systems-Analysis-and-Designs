@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import type { Role } from "@/lib/auth";
 import { ApiValidationError } from "@/lib/api-response";
+import type { RentalType } from "@/types/yeu-cau-thue";
 import { prisma } from "../prisma";
 
 const chiTietHoSoDatCocInclude = {
@@ -56,7 +57,7 @@ export type CapNhatThongTinHoSoDatCocInput = {
 	};
 	yeuCauThue: {
 		soNguoiDuKien: number;
-		loaiThue: string;
+		loaiThue: RentalType;
 		khuVucMongMuon?: string;
 	};
 	chiTietDatCoc?: {
@@ -180,10 +181,27 @@ export async function layDanhSachPhongGiuongKhaDung() {
 		}));
 }
 
+export function xacDinhSoGiuongTinhCoc(hinhThucThue: string, soGiuongQuyDoi: number, sucChuaPhong?: number | null) {
+	if (hinhThucThue === "Thuê nguyên phòng") {
+		if (typeof sucChuaPhong !== "number" || !Number.isInteger(sucChuaPhong) || sucChuaPhong < 1) {
+			throw new ApiValidationError("Phòng chưa có sức chứa hợp lệ để tính tiền cọc.");
+		}
+		return sucChuaPhong;
+	}
+	if (hinhThucThue !== "Thuê giường") throw new ApiValidationError("Hình thức thuê không hợp lệ.");
+	if (!Number.isInteger(soGiuongQuyDoi) || soGiuongQuyDoi < 1) {
+		throw new ApiValidationError("Số giường thuê phải là số nguyên lớn hơn 0.");
+	}
+	return soGiuongQuyDoi;
+}
+
 export async function lapYeuCauThanhToanCoc(hoSoId: number, keToanId: number) {
 	const hoSo = await prisma.hoSoDatCoc.findUnique({
 		where: { hoSoDatCocId: hoSoId },
-		include: { chiTietDatCocs: true, yeuCauThanhToanCoc: true },
+		include: {
+			chiTietDatCocs: { include: { phong: { select: { sucChua: true } } } },
+			yeuCauThanhToanCoc: true,
+		},
 	});
 	if (!hoSo) return null;
 	if (hoSo.yeuCauThanhToanCoc) return hoSo.yeuCauThanhToanCoc;
@@ -192,11 +210,25 @@ export async function lapYeuCauThanhToanCoc(hoSoId: number, keToanId: number) {
 	}
 	if (hoSo.chiTietDatCocs.length === 0) throw new ApiValidationError("Hồ sơ chưa có thông tin phòng hoặc giường đặt cọc.");
 
-	const soTienCoc = hoSo.chiTietDatCocs.reduce((tong, chiTiet) => tong + chiTiet.giaThueThoaThuan * 2 * chiTiet.soGiuongQuyDoi, 0);
+	const chiTietTinhCoc = hoSo.chiTietDatCocs.map((chiTiet) => {
+		const soGiuongTinhCoc = xacDinhSoGiuongTinhCoc(hoSo.hinhThucThue, chiTiet.soGiuongQuyDoi, chiTiet.phong?.sucChua);
+		return {
+			chiTietDatCocId: chiTiet.chiTietDatCocId,
+			soGiuongTinhCoc,
+			tienCocPhanBo: chiTiet.giaThueThoaThuan * 2 * soGiuongTinhCoc,
+		};
+	});
+	const soTienCoc = chiTietTinhCoc.reduce((tong, chiTiet) => tong + chiTiet.tienCocPhanBo, 0);
 	const hanThanhToan = new Date();
 	hanThanhToan.setHours(hanThanhToan.getHours() + 24);
 
 	return prisma.$transaction(async (tx) => {
+		for (const chiTiet of chiTietTinhCoc) {
+			await tx.chiTietDatCoc.update({
+				where: { chiTietDatCocId: chiTiet.chiTietDatCocId },
+				data: { soGiuongQuyDoi: chiTiet.soGiuongTinhCoc, tienCocPhanBo: chiTiet.tienCocPhanBo },
+			});
+		}
 		const yeuCau = await tx.yeuCauThanhToanCoc.create({
 			data: {
 				hoSoDatCocId: hoSoId,

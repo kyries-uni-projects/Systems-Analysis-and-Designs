@@ -152,6 +152,7 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 
 	const selectedRoom = useMemo(() => rooms.find((room) => room.phongId === Number(phongId)) ?? null, [phongId, rooms]);
 	const isBedRental = Boolean(data?.hoSo.hinhThucThue.toLocaleLowerCase("vi-VN").includes("giường"));
+	const soGiuongTinhCoc = !isBedRental && selectedRoom ? selectedRoom.sucChua : Number(soGiuongQuyDoi);
 	const allMandatoryConditionsPassed = Boolean(
 		data?.quyDinhList?.every((quyDinh) => !quyDinh.batBuoc || checkedConditions[quyDinh.quyDinhId]),
 	);
@@ -161,6 +162,7 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 		setGiuongId("");
 		const room = rooms.find((item) => item.phongId === Number(value));
 		setGiaThueThoaThuan(room ? String(room.donGia) : "");
+		if (room && !isBedRental) setSoGiuongQuyDoi(String(room.sucChua));
 	}
 
 	function updateProfileField<Key extends keyof HoSoProfileDraft>(field: Key, value: HoSoProfileDraft[Key]) {
@@ -248,7 +250,7 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 									phongId: Number(phongId),
 									giuongId: giuongId ? Number(giuongId) : undefined,
 									giaThueThoaThuan: Number(giaThueThoaThuan),
-									soGiuongQuyDoi: Number(soGiuongQuyDoi),
+									soGiuongQuyDoi: soGiuongTinhCoc,
 								}
 							: undefined,
 					lyDoTuChoi: isRejected ? ghiChuTuChoi : undefined,
@@ -393,7 +395,7 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 								</ProfileField>
 								<ProfileField label="Hình thức thuê">
 									<select required value={profileDraft.loaiThue} onChange={(event) => updateProfileField("loaiThue", event.target.value)} className={controlClass}>
-										{[...new Set([profileDraft.loaiThue, ...RENTAL_TYPES])].filter(Boolean).map((rentalType) => <option key={rentalType} value={rentalType}>{rentalType}</option>)}
+										{RENTAL_TYPES.map((rentalType) => <option key={rentalType} value={rentalType}>{rentalType}</option>)}
 									</select>
 								</ProfileField>
 								<ProfileField label="Khu vực mong muốn" className="sm:col-span-2">
@@ -469,7 +471,13 @@ export default function XacNhanDieuKienDatCocForm({ hoSoId }: { hoSoId: number }
 										</FormField>
 									)}
 									<FormField label="Số giường quy đổi">
-										<input type="number" min="1" value={soGiuongQuyDoi} onChange={(event) => setSoGiuongQuyDoi(event.target.value)} className={controlClass} />
+										{isBedRental ? (
+											<input type="number" min="1" value={soGiuongQuyDoi} onChange={(event) => setSoGiuongQuyDoi(event.target.value)} className={controlClass} />
+										) : (
+											<div className={`${controlClass} flex items-center`}>
+												{selectedRoom ? `${selectedRoom.sucChua} giường (sức chứa tối đa)` : "Chọn phòng để xác định"}
+											</div>
+										)}
 									</FormField>
 									<FormField label="Giá thuê thỏa thuận" className="sm:col-span-2">
 										<input type="number" min="1" value={giaThueThoaThuan} onChange={(event) => setGiaThueThoaThuan(event.target.value)} className={controlClass} />

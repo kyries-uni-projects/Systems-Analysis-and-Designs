@@ -11,7 +11,7 @@ type HoSoDatCocDetail = {
 	trangThai: string;
 	hinhThucThue: string;
 	khachHang: { hoTen: string };
-	phong: { maPhong: string } | null;
+	phong: { maPhong: string; sucChua: number } | null;
 	giuong: { maGiuongLocal: string } | null;
 	chiTietDatCoc: { giaThueThoaThuan: number; soGiuongQuyDoi: number } | null;
 };
@@ -191,7 +191,9 @@ export default function LapYeuCauThanhToanCocForm({ hoSoId }: { hoSoId: number }
 	}
 
 	const { chiTietDatCoc } = hoSo;
-	const tienCoc = chiTietDatCoc.giaThueThoaThuan * 2 * chiTietDatCoc.soGiuongQuyDoi;
+	const isWholeRoomRental = hoSo.hinhThucThue === "Thuê nguyên phòng";
+	const soGiuongTinhCoc = isWholeRoomRental ? (hoSo.phong?.sucChua ?? chiTietDatCoc.soGiuongQuyDoi) : chiTietDatCoc.soGiuongQuyDoi;
+	const tienCoc = chiTietDatCoc.giaThueThoaThuan * 2 * soGiuongTinhCoc;
 
 	return (
 		<div className="pb-10">
@@ -211,18 +213,19 @@ export default function LapYeuCauThanhToanCocForm({ hoSoId }: { hoSoId: number }
 					/>
 					<SummaryRow label="Hình thức thuê" value={hoSo.hinhThucThue} />
 					<SummaryRow label="Giá thuê/tháng" value={formatCurrency(chiTietDatCoc.giaThueThoaThuan)} />
-					<SummaryRow label="Số giường thuê" value={`${chiTietDatCoc.soGiuongQuyDoi} giường`} />
+					<SummaryRow label="Số giường thuê" value={`${soGiuongTinhCoc} giường`} />
 					<SummaryRow label="Trạng thái hồ sơ" value={hoSo.trangThai} valueClass="text-emerald-600" last />
 				</section>
 				<section className="rounded-lg border border-[#d7ece7] bg-[#f8fefd] p-5 shadow-[0_1px_1.5px_rgba(0,0,0,0.08)]">
 					<h2 className="mb-3 text-base font-semibold text-[#101828]">Tính tiền cọc</h2>
 					<div className="rounded-lg bg-blue-50 px-3 py-3 text-xs text-slate-500">
 						Công thức tính:<p className="mt-1 font-semibold text-[#155DFC]">Tiền cọc = Tiền thuê 2 tháng x Số giường thuê</p>
+						{isWholeRoomRental && <p className="mt-1 text-blue-700">Thuê nguyên phòng: số giường thuê bằng sức chứa tối đa của phòng.</p>}
 					</div>
 					<div className="mt-3">
 						<SummaryRow label="Tiền thuê/tháng" value={formatCurrency(chiTietDatCoc.giaThueThoaThuan)} />
 						<SummaryRow label="x 2 tháng" value={`= ${formatCurrency(chiTietDatCoc.giaThueThoaThuan * 2)}`} />
-						<SummaryRow label={`x ${chiTietDatCoc.soGiuongQuyDoi} giường`} value={`= ${formatCurrency(tienCoc)}`} />
+						<SummaryRow label={`x ${soGiuongTinhCoc} giường`} value={`= ${formatCurrency(tienCoc)}`} />
 						<div className="mt-3 flex items-center justify-between rounded-lg bg-blue-100 px-4 py-3 text-sm font-bold text-[#101828]">
 							<span>TỔNG TIỀN CỌC:</span>
 							<span className="text-base text-[#155DFC]">{formatCurrency(tienCoc)}</span>

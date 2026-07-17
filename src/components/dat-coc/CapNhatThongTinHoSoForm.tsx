@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { GENDER_OPTIONS } from "@/lib/gender";
+import { RENTAL_TYPES } from "@/types/yeu-cau-thue";
 
 type InitialData = {
 	hoSoId: number;
@@ -173,8 +174,13 @@ export default function CapNhatThongTinHoSoForm({ initialData, prefillData, sour
 						<Field label="Số người dự kiến">
 							<input name="soNguoiDuKien" required min="1" type="number" defaultValue={formDataSource?.yeuCauThue.soNguoiDuKien ?? 1} className={inputClass} />
 						</Field>
-						<Field label="Loại thuê">
-							<input name="loaiThue" required defaultValue={formDataSource?.yeuCauThue.loaiThue ?? ""} className={inputClass} />
+						<Field label="Hình thức thuê">
+							<select name="loaiThue" required defaultValue={formDataSource?.yeuCauThue.loaiThue ?? ""} className={inputClass}>
+								<option value="" disabled>Chọn hình thức thuê</option>
+								{RENTAL_TYPES.map((rentalType) => (
+									<option key={rentalType} value={rentalType}>{rentalType}</option>
+								))}
+							</select>
 						</Field>
 						<Field label="Khu vực mong muốn">
 							<input name="khuVucMongMuon" defaultValue={formDataSource?.yeuCauThue.khuVucMongMuon ?? ""} className={inputClass} />

@@ -1,6 +1,7 @@
 import { ApiValidationError } from "@/lib/api-response";
 import type { CapNhatThongTinHoSoDatCocInput } from "@/lib/services/hoSoDatCocService";
 import { isGender } from "@/lib/gender";
+import { RENTAL_TYPES, type RentalType } from "@/types/yeu-cau-thue";
 
 function optionalString(value: unknown) {
 	return typeof value === "string" && value.trim() ? value.trim() : undefined;
@@ -16,6 +17,12 @@ function optionalGender(value: unknown) {
 	const gender = optionalString(value);
 	if (gender && !isGender(gender)) throw new ApiValidationError("Giới tính không hợp lệ.");
 	return gender;
+}
+
+function requiredRentalType(value: unknown): RentalType {
+	const rentalType = requiredString(value, "Hình thức thuê");
+	if (!RENTAL_TYPES.includes(rentalType as RentalType)) throw new ApiValidationError("Hình thức thuê không hợp lệ.");
+	return rentalType as RentalType;
 }
 
 function requiredDate(value: unknown, fieldName: string) {
@@ -80,7 +87,7 @@ export function parseHoSoDatCocInput(body: unknown): CapNhatThongTinHoSoDatCocIn
 		},
 		yeuCauThue: {
 			soNguoiDuKien,
-			loaiThue: requiredString(rentalRequest.loaiThue, "Loại thuê"),
+			loaiThue: requiredRentalType(rentalRequest.loaiThue),
 			khuVucMongMuon: optionalString(rentalRequest.khuVucMongMuon),
 		},
 		chiTietDatCoc: depositDetail,
