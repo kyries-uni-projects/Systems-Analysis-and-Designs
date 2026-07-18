@@ -791,7 +791,6 @@ function CheckInDetail({ record, onBack }: { record: BookingRecord; onBack: () =
               </div>
             </div>
             <div className="flex gap-3 px-5 py-4 bg-gray-50 border-t border-gray-200">
-              <button onClick={handleClose} className="flex-1 py-2.5 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors">Hủy</button>
               <button onClick={handleAdd} className="flex-1 py-2.5 text-sm font-medium text-white bg-[#155DFC] rounded-md hover:bg-[#1250d4] transition-colors">Thêm thành viên</button>
             </div>
           </div>
